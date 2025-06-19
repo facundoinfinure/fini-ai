@@ -8,6 +8,8 @@ import { saveTiendaNubeStore } from "@/lib/integrations/supabase";
  * Tienda Nube OAuth Callback Handler
  * Este endpoint maneja la respuesta después de que el usuario autoriza la aplicación en Tienda Nube
  */
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     console.log("[OAUTH] Tienda Nube callback received");
