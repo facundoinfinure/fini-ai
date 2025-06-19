@@ -251,4 +251,8 @@ yarn-error.log*
 # TYPESCRIPT
 # ========================================
 *.tsbuildinfo
-next-env.d.ts 
+next-env.d.ts
+
+# Test endpoints and pages
+src/app/api/test/
+src/app/test/ 

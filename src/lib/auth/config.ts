@@ -41,18 +41,18 @@ export const authOptions: NextAuthOptions = {
         })]
       : []
     ),
-    // Email provider comentado temporalmente - requiere configuración SMTP
-    // EmailProvider({
-    //   server: {
-    //     host: process.env.EMAIL_SERVER_HOST,
-    //     port: process.env.EMAIL_SERVER_PORT,
-    //     auth: {
-    //       user: process.env.EMAIL_SERVER_USER,
-    //       pass: process.env.EMAIL_SERVER_PASSWORD,
-    //     },
-    //   },
-    //   from: process.env.EMAIL_FROM,
-    // }),
+    // Email provider para desarrollo (sin configuración SMTP)
+    EmailProvider({
+      server: {
+        host: "localhost",
+        port: 1025,
+        auth: {
+          user: "test",
+          pass: "test",
+        },
+      },
+      from: "noreply@fini-ai.com",
+    }),
   ],
   session: {
     strategy: "jwt",
