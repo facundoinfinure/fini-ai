@@ -20,6 +20,13 @@ export async function GET(request: NextRequest) {
     const _state = searchParams.get("state");
     const error = searchParams.get("error");
 
+    if (!code || !_state) {
+      console.error("[TN-CALLBACK] Missing code or state from Tienda Nube.");
+      const errorUrl = new URL("/auth/error", request.url);
+      errorUrl.searchParams.set("error", "OAuthCallback");
+      return NextResponse.redirect(errorUrl);
+    }
+
     // Handle OAuth errors
     if (error) {
       console.error("[OAUTH] OAuth error:", error);
@@ -28,32 +35,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!code) {
-      console.error("[OAUTH] Missing authorization code");
-      return NextResponse.redirect(
-        new URL("/auth/error?error=missing_code", request.url)
-      );
-    }
-
-    // Get user session
+    // Verify state to prevent CSRF
     const session = await getServerSession(authOptions);
-    
-    // Si no hay sesión, redirigir al login
-    if (!session) {
-      console.warn("[OAUTH] No session found, redirecting to login");
-      // Guardar el código de autorización en la URL para usarlo después del login
-      const loginUrl = new URL("/auth/signin", request.url);
-      loginUrl.searchParams.set("callbackCode", code);
-      loginUrl.searchParams.set("from", "tiendanube");
-      return NextResponse.redirect(loginUrl);
+    if (!session?.user?.id) {
+      console.error("[TN-CALLBACK] Auth error: No session or user ID found.");
+      const signinUrl = new URL("/auth/signin", request.url);
+      signinUrl.searchParams.set("error", "AccessDenied");
+      return NextResponse.redirect(signinUrl);
     }
 
-    // Verificar que tengamos el UUID de Supabase
-    if (!session.user?.supabaseId) {
-      console.error("[OAUTH] Missing Supabase UUID in session");
-      return NextResponse.redirect(
-        new URL("/auth/error?error=missing_supabase_id", request.url)
-      );
+    const stateData = JSON.parse(Buffer.from(_state, 'base64').toString('ascii'));
+    if (stateData.userId !== session.user.id) {
+      console.error("[TN-CALLBACK] CSRF error: State user ID does not match session user ID.");
+      const errorUrl = new URL("/auth/signin", request.url);
+      errorUrl.searchParams.set("error", "AccessDenied");
+      return NextResponse.redirect(errorUrl);
     }
 
     try {
@@ -68,7 +64,7 @@ export async function GET(request: NextRequest) {
 
       // Save store information to database
       const saveResult = await saveTiendaNubeStore({
-        userId: session.user.supabaseId,
+        userId: session.user.id,
         storeId: tokenResponse.user_id.toString(),
         storeName: `Tienda #${tokenResponse.user_id}`,
         accessToken: tokenResponse.access_token,
@@ -109,10 +105,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-  } catch (error) {
-    console.error("[OAUTH] Callback processing error:", error);
-    return NextResponse.redirect(
-      new URL("/auth/error?error=callback_processing_failed", request.url)
-    );
+  } catch (e) {
+    console.error("[TN-CALLBACK] Final error:", e);
+    // Redirect to error page
+    const finalErrorUrl = new URL("/auth/error", request.url);
+    finalErrorUrl.searchParams.set("error", "Configuration");
+    return NextResponse.redirect(finalErrorUrl);
   }
 } 

@@ -19,10 +19,10 @@ export async function POST(request: NextRequest) {
     
     // Get user session
     const session = await getServerSession(authOptions);
-    if (!session?.user?.supabaseId) {
+    if (!session?.user?.id) {
       return NextResponse.json({
         success: false,
-        error: 'User not authenticated or missing Supabase UUID'
+        error: 'User not authenticated or missing User ID'
       }, { status: 401 });
     }
 
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     // Store state and store info temporarily (in production, use Redis or database)
     // For now, we'll pass it in the state parameter
     const stateData = {
-      userId: session.user.supabaseId,
+      userId: session.user.id,
       storeUrl,
       storeName,
       timestamp: Date.now()
@@ -118,8 +118,9 @@ export async function POST(request: NextRequest) {
     const authUrl = `https://www.tiendanube.com/apps/${clientId}/authorize?${oauthParams.toString()}`;
 
     console.warn('[TIENDANUBE-OAUTH] OAuth URL generated:', {
-      userId: session.user.supabaseId,
+      userId: session.user.id,
       storeName,
+      storeUrl,
       redirectUri,
       scope
     });
