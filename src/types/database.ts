@@ -45,7 +45,7 @@ export interface Database {
           token_expires_at: string | null;
           webhook_url: string | null;
           is_active: boolean;
-          store_data: any | null;
+          store_data: unknown | null;
           created_at: string;
           updated_at: string;
         };
@@ -60,7 +60,7 @@ export interface Database {
           token_expires_at?: string | null;
           webhook_url?: string | null;
           is_active?: boolean;
-          store_data?: any | null;
+          store_data?: unknown | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -75,7 +75,7 @@ export interface Database {
           token_expires_at?: string | null;
           webhook_url?: string | null;
           is_active?: boolean;
-          store_data?: any | null;
+          store_data?: unknown | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -175,7 +175,7 @@ export interface Database {
           message_id: string | null;
           direction: 'inbound' | 'outbound';
           message_type: 'text' | 'image' | 'document' | 'audio' | 'video' | 'template';
-          content: any;
+          content: unknown;
           status: 'sent' | 'delivered' | 'read' | 'failed';
           timestamp: string;
           created_at: string;
@@ -186,7 +186,7 @@ export interface Database {
           message_id?: string | null;
           direction: 'inbound' | 'outbound';
           message_type?: 'text' | 'image' | 'document' | 'audio' | 'video' | 'template';
-          content: any;
+          content: unknown;
           status?: 'sent' | 'delivered' | 'read' | 'failed';
           timestamp: string;
           created_at?: string;
@@ -197,7 +197,7 @@ export interface Database {
           message_id?: string | null;
           direction?: 'inbound' | 'outbound';
           message_type?: 'text' | 'image' | 'document' | 'audio' | 'video' | 'template';
-          content?: any;
+          content?: unknown;
           status?: 'sent' | 'delivered' | 'read' | 'failed';
           timestamp?: string;
           created_at?: string;
@@ -209,8 +209,8 @@ export interface Database {
           store_id: string;
           conversation_id: string;
           query_type: 'top_products' | 'revenue' | 'orders' | 'customers' | 'summary';
-          query_params: any | null;
-          response_data: any | null;
+          query_params: unknown | null;
+          response_data: unknown | null;
           execution_time_ms: number | null;
           created_at: string;
         };
@@ -219,8 +219,8 @@ export interface Database {
           store_id: string;
           conversation_id: string;
           query_type: 'top_products' | 'revenue' | 'orders' | 'customers' | 'summary';
-          query_params?: any | null;
-          response_data?: any | null;
+          query_params?: unknown | null;
+          response_data?: unknown | null;
           execution_time_ms?: number | null;
           created_at?: string;
         };
@@ -229,8 +229,8 @@ export interface Database {
           store_id?: string;
           conversation_id?: string;
           query_type?: 'top_products' | 'revenue' | 'orders' | 'customers' | 'summary';
-          query_params?: any | null;
-          response_data?: any | null;
+          query_params?: unknown | null;
+          response_data?: unknown | null;
           execution_time_ms?: number | null;
           created_at?: string;
         };
@@ -244,7 +244,7 @@ export interface Database {
           timezone: string;
           is_enabled: boolean;
           last_sent_at: string | null;
-          report_data: any | null;
+          report_data: unknown | null;
           created_at: string;
           updated_at: string;
         };
@@ -256,7 +256,7 @@ export interface Database {
           timezone?: string;
           is_enabled?: boolean;
           last_sent_at?: string | null;
-          report_data?: any | null;
+          report_data?: unknown | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -268,7 +268,7 @@ export interface Database {
           timezone?: string;
           is_enabled?: boolean;
           last_sent_at?: string | null;
-          report_data?: any | null;
+          report_data?: unknown | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -279,24 +279,24 @@ export interface Database {
           id: string;
           conversation_id: string;
           agent_type: string;
-          context: any | null;
-          memory: any | null;
+          context: unknown | null;
+          memory: unknown | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           conversation_id: string;
           agent_type: string;
-          context?: any | null;
-          memory?: any | null;
+          context?: unknown | null;
+          memory?: unknown | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           conversation_id?: string;
           agent_type?: string;
-          context?: any | null;
-          memory?: any | null;
+          context?: unknown | null;
+          memory?: unknown | null;
           created_at?: string;
         };
       };
@@ -306,7 +306,7 @@ export interface Database {
           store_id: string;
           document_type: string;
           content: string;
-          metadata: any | null;
+          metadata: unknown | null;
           vector_id: string | null;
           created_at: string;
         };
@@ -315,7 +315,7 @@ export interface Database {
           store_id: string;
           document_type: string;
           content: string;
-          metadata?: any | null;
+          metadata?: unknown | null;
           vector_id?: string | null;
           created_at?: string;
         };
@@ -324,7 +324,7 @@ export interface Database {
           store_id?: string;
           document_type?: string;
           content?: string;
-          metadata?: any | null;
+          metadata?: unknown | null;
           vector_id?: string | null;
           created_at?: string;
         };
@@ -335,9 +335,9 @@ export interface Database {
           conversation_id: string;
           agent_type: string;
           action_type: string;
-          action_data: any | null;
+          action_data: unknown | null;
           status: string;
-          result: any | null;
+          result: unknown | null;
           created_at: string;
         };
         Insert: {
@@ -345,9 +345,9 @@ export interface Database {
           conversation_id: string;
           agent_type: string;
           action_type: string;
-          action_data?: any | null;
+          action_data?: unknown | null;
           status?: string;
-          result?: any | null;
+          result?: unknown | null;
           created_at?: string;
         };
         Update: {
@@ -355,9 +355,9 @@ export interface Database {
           conversation_id?: string;
           agent_type?: string;
           action_type?: string;
-          action_data?: any | null;
+          action_data?: unknown | null;
           status?: string;
-          result?: any | null;
+          result?: unknown | null;
           created_at?: string;
         };
       };

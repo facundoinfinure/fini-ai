@@ -1,15 +1,15 @@
 "use client";
 
-import { Suspense } from "react";
-import { signIn, getSession, getProviders } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { Loader2, Mail, Bot, Store, CheckCircle, ArrowRight } from "lucide-react";
+// import { Zap, TrendingUp } from "lucide-react";
+// import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { signIn, getSession, getProviders } from "next-auth/react";
+import { Suspense , useState, useEffect } from "react";
+
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Mail, Bot, Zap, TrendingUp, Store, CheckCircle, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -17,46 +17,48 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+
 
 function SignInContent() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [providers, setProviders] = useState<any>(null);
+  const [_providers, setProviders] = useState<any>(null);
   const [showStoreUrlDialog, setShowStoreUrlDialog] = useState(false);
   const [storeUrl, setStoreUrl] = useState("");
   const [storeUrlError, setStoreUrlError] = useState("");
   
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
-  const errorParam = searchParams.get("error");
-  const callbackCode = searchParams.get("callbackCode");
-  const fromTiendaNube = searchParams.get("from") === "tiendanube";
+  const _router = useRouter();
+  const _searchParams = useSearchParams();
+  const _callbackUrl = _searchParams.get("callbackUrl") || "/dashboard";
+  const _errorParam = _searchParams.get("error");
+  const _callbackCode = _searchParams.get("callbackCode");
+  const _fromTiendaNube = _searchParams.get("from") === "tiendanube";
 
   useEffect(() => {
     // Check if user is already signed in
-    getSession().then((session) => {
-      if (session?.user) {
+    getSession().then((_session) => {
+      if (_session?.user) {
         // Si tenemos un código de callback de Tienda Nube, redirigir al callback
-        if (callbackCode && fromTiendaNube) {
-          const callbackUrl = new URL("/api/tiendanube/oauth/callback", window.location.origin);
-          callbackUrl.searchParams.set("code", callbackCode);
-          router.push(callbackUrl.toString());
+        if (_callbackCode && _fromTiendaNube) {
+          const __callbackUrl = new URL("/api/tiendanube/oauth/callback", window.location.origin);
+          __callbackUrl.searchParams.set("code", _callbackCode);
+          _router.push(__callbackUrl.toString());
         } else {
-          router.push(callbackUrl);
+          _router.push(_callbackUrl);
         }
       }
     });
 
     // Get available providers
     getProviders().then(setProviders);
-  }, [router, callbackUrl, callbackCode, fromTiendaNube]);
+  }, [_router, _callbackUrl, _callbackCode, _fromTiendaNube]);
 
   useEffect(() => {
     // Handle auth errors with Spanish messages
-    if (errorParam) {
-      switch (errorParam) {
+    if (_errorParam) {
+      switch (_errorParam) {
         case "CredentialsSignin":
           setError("Credenciales inválidas. Revisa tu email.");
           break;
@@ -82,13 +84,13 @@ function SignInContent() {
           setError("Error de autenticación. Intenta nuevamente.");
       }
     }
-  }, [errorParam]);
+  }, [_errorParam]);
 
-  const handleTiendaNubeSignIn = async () => {
+  const _handleTiendaNubeSignIn = async () => {
     setShowStoreUrlDialog(true);
   };
 
-  const handleStoreUrlSubmit = async (e: React.FormEvent) => {
+  const _handleStoreUrlSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStoreUrlError("");
     setIsLoading(true);
@@ -114,19 +116,19 @@ function SignInContent() {
         return;
       }
 
-      console.log("[UI] Iniciando login con Tienda Nube para:", cleanUrl);
+      console.warn("[UI] Iniciando login con Tienda Nube para:", cleanUrl);
       
       // Crear el estado con la URL de la tienda
-      const stateData = {
+      const _stateData = {
         storeUrl: cleanUrl,
-        ...(callbackCode ? { callbackCode } : {})
+        ...(_callbackCode ? { callbackCode: _callbackCode } : {})
       };
 
       // Usar el parámetro state de NextAuth correctamente
       await signIn("tiendanube", { 
         callbackUrl: "/dashboard",
         redirect: true,
-        state: JSON.stringify(stateData)
+        state: JSON.stringify(_stateData)
       });
     } catch (error) {
       console.error("[UI] Error con Tienda Nube:", error);
@@ -135,22 +137,22 @@ function SignInContent() {
     }
   };
 
-  const handleEmailSignIn = async (e: React.FormEvent) => {
+  const _handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
     try {
-      const result = await signIn("email", {
+      const _result = await signIn("email", {
         email,
-        callbackUrl,
+        callbackUrl: _callbackUrl,
         redirect: false,
       });
 
-      if (result?.error) {
+      if (_result?.error) {
         setError("Error enviando el email. Intenta nuevamente.");
       } else {
-        router.push("/auth/verify-request");
+        _router.push("/auth/verify-request");
       }
     } catch (error) {
       setError("Error inesperado. Intenta nuevamente.");
@@ -159,10 +161,10 @@ function SignInContent() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const _handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      await signIn("google", { callbackUrl });
+      await signIn("google", { callbackUrl: _callbackUrl });
     } catch (error) {
       setError("Error con Google. Intenta nuevamente.");
       setIsLoading(false);
@@ -179,13 +181,13 @@ function SignInContent() {
               Ingresa la URL de tu tienda para continuar
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleStoreUrlSubmit} className="space-y-4">
+          <form onSubmit={_handleStoreUrlSubmit} className="space-y-4">
             <div className="space-y-2">
               <Input
                 type="text"
                 placeholder="mitienda.mitiendanube.com"
                 value={storeUrl}
-                onChange={(e) => setStoreUrl(e.target.value)}
+                onChange={(_e) => setStoreUrl(_e.target.value)}
                 required
               />
               {storeUrlError && (
@@ -257,10 +259,10 @@ function SignInContent() {
           <Card className="shadow-xl border-0">
             <CardHeader className="space-y-1 pb-6">
               <CardTitle className="text-2xl text-center font-semibold">
-                {fromTiendaNube ? "Completa el registro" : "Iniciar Sesión"}
+                {_fromTiendaNube ? "Completa el registro" : "Iniciar Sesión"}
               </CardTitle>
               <CardDescription className="text-center text-gray-600">
-                {fromTiendaNube 
+                {_fromTiendaNube 
                   ? "Inicia sesión para completar la conexión con tu tienda"
                   : "Conecta tu tienda y comienza a usar IA para analytics"}
               </CardDescription>
@@ -275,7 +277,7 @@ function SignInContent() {
               {/* Tienda Nube Sign In - PROMINENTE */}
               <div className="space-y-3">
                 <Button
-                  onClick={handleTiendaNubeSignIn}
+                  onClick={_handleTiendaNubeSignIn}
                   disabled={isLoading}
                   size="lg"
                   className="w-full h-14 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg transform transition-all hover:scale-105"
@@ -287,17 +289,17 @@ function SignInContent() {
                   )}
                   <div className="text-left">
                     <div className="font-semibold">
-                      {fromTiendaNube ? "Completar conexión con Tienda Nube" : "Continuar con Tienda Nube"}
+                      {_fromTiendaNube ? "Completar conexión con Tienda Nube" : "Continuar con Tienda Nube"}
                     </div>
                     <div className="text-xs opacity-90">
-                      {fromTiendaNube ? "Retomar donde lo dejaste" : "Recomendado - Configuración automática"}
+                      {_fromTiendaNube ? "Retomar donde lo dejaste" : "Recomendado - Configuración automática"}
                     </div>
                   </div>
                   <ArrowRight className="ml-auto h-4 w-4" />
                 </Button>
                 
                 <p className="text-xs text-center text-gray-600">
-                  {fromTiendaNube 
+                  {_fromTiendaNube 
                     ? "Completa el proceso de conexión con tu tienda"
                     : "Conecta directamente con tus credenciales de Tienda Nube"}
                 </p>
@@ -314,7 +316,7 @@ function SignInContent() {
 
               {/* Google Sign In */}
               <Button
-                onClick={handleGoogleSignIn}
+                onClick={_handleGoogleSignIn}
                 disabled={isLoading}
                 variant="outline"
                 className="w-full h-11"
@@ -355,12 +357,12 @@ function SignInContent() {
                 </div>
               </div>
 
-              <form onSubmit={handleEmailSignIn} className="space-y-3">
+              <form onSubmit={_handleEmailSignIn} className="space-y-3">
                 <Input
                   type="email"
                   placeholder="tu@email.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(_e) => setEmail(_e.target.value)}
                   required
                 />
                 <Button

@@ -3,9 +3,10 @@
  * Handles text chunking and document processing for RAG
  */
 
-import type { DocumentChunk, DocumentProcessor } from './types';
-import { RAG_CONFIG } from './config';
 import { v4 as uuidv4 } from 'uuid';
+
+import { RAG_CONFIG } from './config';
+import type { DocumentChunk, DocumentProcessor } from './types';
 
 export class RAGDocumentProcessor implements DocumentProcessor {
   private maxChunkSize: number;
@@ -21,10 +22,10 @@ export class RAGDocumentProcessor implements DocumentProcessor {
    */
   processDocument(content: string, metadata: Partial<DocumentChunk['metadata']>): DocumentChunk[] {
     try {
-      console.log(`[RAG:processor] Processing document of type: ${metadata.type}`);
+      console.warn(`[RAG:processor] Processing document of type: ${metadata.type}`);
       
       if (!content.trim()) {
-        console.log('[RAG:processor] Empty content, skipping');
+        console.warn('[RAG:processor] Empty content, skipping');
         return [];
       }
 
@@ -55,10 +56,10 @@ export class RAGDocumentProcessor implements DocumentProcessor {
         };
       });
 
-      console.log(`[RAG:processor] Created ${documentChunks.length} chunks from document`);
+      console.warn(`[RAG:processor] Created ${documentChunks.length} chunks from document`);
       return documentChunks;
     } catch (error) {
-      console.error('[ERROR] Failed to process document:', error);
+      console.warn('[ERROR] Failed to process document:', error);
       throw new Error(`Document processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -186,150 +187,125 @@ export class RAGDocumentProcessor implements DocumentProcessor {
   /**
    * Process Tienda Nube product data into searchable text
    */
-  processProductData(product: any): string {
+  processProductData(product: unknown): string {
     const parts: string[] = [];
-    
+    const p = product as Record<string, any>;
     // Basic product info
-    if (product.name) parts.push(`Producto: ${product.name}`);
-    if (product.description) parts.push(`Descripción: ${product.description}`);
-    if (product.category) parts.push(`Categoría: ${product.category}`);
-    if (product.brand) parts.push(`Marca: ${product.brand}`);
-    
-    // Pricing
-    if (product.price) parts.push(`Precio: $${product.price}`);
-    if (product.compare_at_price) parts.push(`Precio anterior: $${product.compare_at_price}`);
-    
-    // Variants
-    if (product.variants && product.variants.length > 0) {
-      const variantTexts = product.variants.map((variant: any) => {
-        const variantParts: string[] = [];
-        if (variant.values) variantParts.push(`Variante: ${variant.values.join(', ')}`);
-        if (variant.price) variantParts.push(`Precio: $${variant.price}`);
-        if (variant.stock_quantity) variantParts.push(`Stock: ${variant.stock_quantity}`);
-        return variantParts.join(' - ');
-      });
-      parts.push(`Variantes: ${variantTexts.join('. ')}`);
+    if (p && typeof p === 'object') {
+      if (p.name) parts.push(`Producto: ${p.name}`);
+      if (p.description) parts.push(`Descripción: ${p.description}`);
+      if (p.category) parts.push(`Categoría: ${p.category}`);
+      if (p.brand) parts.push(`Marca: ${p.brand}`);
+      // Pricing
+      if (p.price) parts.push(`Precio: $${p.price}`);
+      if (p.compare_at_price) parts.push(`Precio anterior: $${p.compare_at_price}`);
+      // Variants
+      if (Array.isArray(p.variants) && p.variants.length > 0) {
+        const variantTexts = p.variants.map((variant: unknown) => {
+          const v = variant as Record<string, any>;
+          const variantParts: string[] = [];
+          if (v.values) variantParts.push(`Variante: ${Array.isArray(v.values) ? v.values.join(', ') : v.values}`);
+          if (v.price) variantParts.push(`Precio: $${v.price}`);
+          if (v.stock_quantity) variantParts.push(`Stock: ${v.stock_quantity}`);
+          return variantParts.join(' - ');
+        });
+        parts.push(`Variantes: ${variantTexts.join('. ')}`);
+      }
+      // SEO and additional info
+      if (p.seo_title) parts.push(`SEO título: ${p.seo_title}`);
+      if (p.seo_description) parts.push(`SEO descripción: ${p.seo_description}`);
+      if (Array.isArray(p.tags)) parts.push(`Tags: ${p.tags.join(', ')}`);
     }
-    
-    // SEO and additional info
-    if (product.seo_title) parts.push(`SEO título: ${product.seo_title}`);
-    if (product.seo_description) parts.push(`SEO descripción: ${product.seo_description}`);
-    if (product.tags) parts.push(`Tags: ${product.tags.join(', ')}`);
-    
     return parts.join('\n');
   }
 
   /**
    * Process Tienda Nube order data into searchable text
    */
-  processOrderData(order: any): string {
+  processOrderData(order: unknown): string {
     const parts: string[] = [];
-    
-    // Basic order info
-    if (order.id) parts.push(`Orden ID: ${order.id}`);
-    if (order.number) parts.push(`Número de orden: ${order.number}`);
-    if (order.status) parts.push(`Estado: ${order.status}`);
-    if (order.payment_status) parts.push(`Estado de pago: ${order.payment_status}`);
-    if (order.shipping_status) parts.push(`Estado de envío: ${order.shipping_status}`);
-    
-    // Financial info
-    if (order.total) parts.push(`Total: $${order.total}`);
-    if (order.subtotal) parts.push(`Subtotal: $${order.subtotal}`);
-    if (order.discount) parts.push(`Descuento: $${order.discount}`);
-    if (order.shipping_cost) parts.push(`Costo de envío: $${order.shipping_cost}`);
-    
-    // Customer info
-    if (order.customer) {
-      const customer = order.customer;
-      if (customer.name) parts.push(`Cliente: ${customer.name}`);
-      if (customer.email) parts.push(`Email: ${customer.email}`);
+    const o = order as Record<string, any>;
+    if (o && typeof o === 'object') {
+      if (o.id) parts.push(`Orden ID: ${o.id}`);
+      if (o.number) parts.push(`Número de orden: ${o.number}`);
+      if (o.status) parts.push(`Estado: ${o.status}`);
+      if (o.payment_status) parts.push(`Estado de pago: ${o.payment_status}`);
+      if (o.shipping_status) parts.push(`Estado de envío: ${o.shipping_status}`);
+      if (o.total) parts.push(`Total: $${o.total}`);
+      if (o.subtotal) parts.push(`Subtotal: $${o.subtotal}`);
+      if (o.discount) parts.push(`Descuento: $${o.discount}`);
+      if (o.shipping_cost) parts.push(`Costo de envío: $${o.shipping_cost}`);
+      if (o.customer && typeof o.customer === 'object') {
+        const customer = o.customer as Record<string, any>;
+        if (customer.name) parts.push(`Cliente: ${customer.name}`);
+        if (customer.email) parts.push(`Email: ${customer.email}`);
+      }
+      if (Array.isArray(o.products) && o.products.length > 0) {
+        const productTexts = o.products.map((item: unknown) => {
+          const i = item as Record<string, any>;
+          const itemParts: string[] = [];
+          if (i.name) itemParts.push(i.name);
+          if (i.quantity) itemParts.push(`Cantidad: ${i.quantity}`);
+          if (i.price) itemParts.push(`Precio: $${i.price}`);
+          return itemParts.join(' - ');
+        });
+        parts.push(`Productos: ${productTexts.join(', ')}`);
+      }
+      if (o.created_at) parts.push(`Creado: ${o.created_at}`);
+      if (o.updated_at) parts.push(`Actualizado: ${o.updated_at}`);
     }
-    
-    // Products in order
-    if (order.products && order.products.length > 0) {
-      const productTexts = order.products.map((item: any) => {
-        const itemParts: string[] = [];
-        if (item.name) itemParts.push(item.name);
-        if (item.quantity) itemParts.push(`Cantidad: ${item.quantity}`);
-        if (item.price) itemParts.push(`Precio: $${item.price}`);
-        return itemParts.join(' - ');
-      });
-      parts.push(`Productos: ${productTexts.join(', ')}`);
-    }
-    
-    // Dates
-    if (order.created_at) parts.push(`Creado: ${order.created_at}`);
-    if (order.updated_at) parts.push(`Actualizado: ${order.updated_at}`);
-    
     return parts.join('\n');
   }
 
   /**
    * Process customer data into searchable text
    */
-  processCustomerData(customer: any): string {
+  processCustomerData(customer: unknown): string {
     const parts: string[] = [];
-    
-    // Basic customer info
-    if (customer.id) parts.push(`Cliente ID: ${customer.id}`);
-    if (customer.name) parts.push(`Nombre: ${customer.name}`);
-    if (customer.email) parts.push(`Email: ${customer.email}`);
-    if (customer.phone) parts.push(`Teléfono: ${customer.phone}`);
-    
-    // Customer stats
-    if (customer.total_spent) parts.push(`Total gastado: $${customer.total_spent}`);
-    if (customer.orders_count) parts.push(`Número de órdenes: ${customer.orders_count}`);
-    if (customer.last_order_date) parts.push(`Última orden: ${customer.last_order_date}`);
-    
-    // Address info
-    if (customer.default_address) {
-      const address = customer.default_address;
-      const addressParts: string[] = [];
-      if (address.city) addressParts.push(address.city);
-      if (address.province) addressParts.push(address.province);
-      if (address.country) addressParts.push(address.country);
-      if (addressParts.length > 0) {
-        parts.push(`Ubicación: ${addressParts.join(', ')}`);
+    const c = customer as Record<string, any>;
+    if (c && typeof c === 'object') {
+      if (c.id) parts.push(`Cliente ID: ${c.id}`);
+      if (c.name) parts.push(`Nombre: ${c.name}`);
+      if (c.email) parts.push(`Email: ${c.email}`);
+      if (c.phone) parts.push(`Teléfono: ${c.phone}`);
+      if (c.total_spent) parts.push(`Total gastado: $${c.total_spent}`);
+      if (c.orders_count) parts.push(`Número de órdenes: ${c.orders_count}`);
+      if (c.last_order_date) parts.push(`Última orden: ${c.last_order_date}`);
+      if (c.default_address && typeof c.default_address === 'object') {
+        const address = c.default_address as Record<string, any>;
+        const addressParts: string[] = [];
+        if (address.city) addressParts.push(address.city);
+        if (address.province) addressParts.push(address.province);
+        if (address.country) addressParts.push(address.country);
+        if (addressParts.length > 0) {
+          parts.push(`Ubicación: ${addressParts.join(', ')}`);
+        }
       }
+      if (c.created_at) parts.push(`Registrado: ${c.created_at}`);
+      if (c.updated_at) parts.push(`Actualizado: ${c.updated_at}`);
     }
-    
-    // Dates
-    if (customer.created_at) parts.push(`Registrado: ${customer.created_at}`);
-    if (customer.updated_at) parts.push(`Actualizado: ${customer.updated_at}`);
-    
     return parts.join('\n');
   }
 
   /**
    * Process analytics data into searchable text
    */
-  processAnalyticsData(analytics: any, period: string): string {
+  processAnalyticsData(analytics: unknown, period: string): string {
     const parts: string[] = [];
-    
+    const a = analytics as Record<string, any>;
     parts.push(`Reporte de Analytics - Período: ${period}`);
-    
-    // Revenue data
-    if (analytics.revenue) {
-      parts.push(`Ingresos totales: $${analytics.revenue}`);
+    if (a && typeof a === 'object') {
+      if (a.revenue) parts.push(`Ingresos totales: $${a.revenue}`);
+      if (a.totalOrders) parts.push(`Total de órdenes: ${a.totalOrders}`);
+      if (a.averageOrderValue) parts.push(`Valor promedio de orden: $${a.averageOrderValue}`);
+      if (Array.isArray(a.topProducts) && a.topProducts.length > 0) {
+        const productTexts = a.topProducts.map((item: unknown) => {
+          const i = item as Record<string, any>;
+          return `${i.product?.name || ''} (${i.quantity || 0} vendidos, $${i.revenue || 0} ingresos)`;
+        });
+        parts.push(`Productos más vendidos: ${productTexts.join(', ')}`);
+      }
     }
-    
-    // Orders data
-    if (analytics.totalOrders) {
-      parts.push(`Total de órdenes: ${analytics.totalOrders}`);
-    }
-    
-    if (analytics.averageOrderValue) {
-      parts.push(`Valor promedio de orden: $${analytics.averageOrderValue}`);
-    }
-    
-    // Top products
-    if (analytics.topProducts && analytics.topProducts.length > 0) {
-      const productTexts = analytics.topProducts.map((item: any) => {
-        return `${item.product.name} (${item.quantity} vendidos, $${item.revenue} ingresos)`;
-      });
-      parts.push(`Productos más vendidos: ${productTexts.join(', ')}`);
-    }
-    
     return parts.join('\n');
   }
 } 

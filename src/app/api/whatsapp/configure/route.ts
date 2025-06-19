@@ -5,9 +5,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+
 import { authOptions } from '@/lib/auth/config';
 
-interface WhatsAppConfiguration {
+interface _WhatsAppConfiguration {
   phoneNumbers: string[];
   webhookUrl: string;
   storeId: string;
@@ -15,14 +16,14 @@ interface WhatsAppConfiguration {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const _session = await getServerSession(authOptions);
     
-    if (!session?.user) {
+    if (!_session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { phoneNumbers, webhookUrl } = body;
+    const _body = await request.json();
+    const { phoneNumbers, webhookUrl } = _body;
 
     if (!phoneNumbers || !Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
       return NextResponse.json(
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
     console.log('[INFO] Configuring WhatsApp with:', { phoneNumbers, webhookUrl });
 
     // Mock successful configuration
-    const configuredWhatsApp = {
+    const _configuredWhatsApp = {
       phoneNumbers,
       webhookUrl: webhookUrl || `${process.env.NEXT_PUBLIC_APP_URL}/api/whatsapp/webhook`,
       active: true,
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: configuredWhatsApp
+      data: _configuredWhatsApp
     });
 
   } catch (error) {
@@ -58,16 +59,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const _session = await getServerSession(authOptions);
     
-    if (!session?.user) {
+    if (!_session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Mock data for now - in production this would come from your WhatsApp provider
-    const mockWhatsAppConfig = {
+    const _mockWhatsAppConfig = {
       phoneNumbers: ['+5491112345678'],
       webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/whatsapp/webhook`,
       active: true,
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: mockWhatsAppConfig
+      data: _mockWhatsAppConfig
     });
 
   } catch (error) {

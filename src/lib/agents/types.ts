@@ -14,10 +14,10 @@ export interface AgentContext {
   userMessage: string;
   messageHistory?: ConversationMessage[];
   metadata?: {
-    customerInfo?: any;
-    storeData?: any;
-    sessionData?: any;
-    [key: string]: any;
+    customerInfo?: unknown;
+    storeData?: unknown;
+    sessionData?: unknown;
+    [key: string]: unknown;
   };
 }
 
@@ -31,7 +31,7 @@ export interface ConversationMessage {
     confidence?: number;
     ragUsed?: boolean;
     contextSources?: string[];
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -47,7 +47,7 @@ export interface AgentResponse {
     executionTime?: number;
     ragUsed?: boolean;
     fallbackUsed?: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   error?: string;
 }
@@ -55,9 +55,9 @@ export interface AgentResponse {
 export interface AgentAction {
   type: 'api_call' | 'data_fetch' | 'calculation' | 'notification' | 'suggestion';
   description: string;
-  payload?: any;
+  payload?: unknown;
   status: 'pending' | 'completed' | 'failed';
-  result?: any;
+  result?: unknown;
 }
 
 export interface AgentCapability {
@@ -116,10 +116,10 @@ export interface ConversationSession {
   createdAt: string;
   updatedAt: string;
   metadata?: {
-    userPreferences?: any;
+    userPreferences?: unknown;
     sessionType?: 'support' | 'sales' | 'analytics' | 'general';
     priority?: 'low' | 'medium' | 'high';
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -185,4 +185,8 @@ export interface AgentTypeConfig {
     tone: 'formal' | 'casual' | 'professional' | 'friendly';
     language: 'es' | 'en';
   };
+}
+
+export interface _RAGQuery {
+  // Implementation of _RAGQuery interface
 } 

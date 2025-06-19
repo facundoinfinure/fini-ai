@@ -20,7 +20,7 @@ export interface WhatsAppMessage {
     latitude?: string;
     longitude?: string;
     address?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -44,7 +44,7 @@ export interface WhatsAppWebhook {
   Latitude?: string;
   Longitude?: string;
   Address?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface OutgoingWhatsAppMessage {
@@ -69,14 +69,14 @@ export interface WhatsAppConversation {
     customerInfo?: {
       name?: string;
       email?: string;
-      preferences?: any;
+      preferences?: unknown;
     };
     conversationHistory: WhatsAppMessage[];
     sessionData?: {
       lastQuery?: string;
       intent?: string;
       followUp?: boolean;
-      [key: string]: any;
+      [key: string]: unknown;
     };
   };
   metadata: {
@@ -85,7 +85,7 @@ export interface WhatsAppConversation {
     timezone?: string;
     language?: 'es' | 'en';
     businessHours?: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -131,8 +131,8 @@ export interface MessageProcessingResult {
   error?: string;
   metadata?: {
     conversationId: string;
-    routing?: any;
-    context?: any;
+    routing?: unknown;
+    context?: unknown;
   };
 }
 
@@ -153,7 +153,7 @@ export interface WhatsAppService {
   verifyWebhook(signature: string, body: string): boolean;
   
   // Status and health
-  getServiceStatus(): Promise<{ healthy: boolean; details: any }>;
+  getServiceStatus(): Promise<{ healthy: boolean; details: unknown }>;
 }
 
 export interface WhatsAppBot {
@@ -178,7 +178,7 @@ export interface WhatsAppBot {
 export interface WhatsAppError {
   code: 'WEBHOOK_VERIFICATION_FAILED' | 'MESSAGE_SEND_FAILED' | 'CONVERSATION_NOT_FOUND' | 'AGENT_PROCESSING_FAILED' | 'RATE_LIMIT_EXCEEDED' | 'BUSINESS_HOURS_OUTSIDE' | 'INVALID_PHONE_NUMBER';
   message: string;
-  details?: any;
+  details?: unknown;
   phoneNumber?: string;
   messageId?: string;
 } 

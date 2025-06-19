@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,7 +14,7 @@ const supabaseAdmin = createClient(
  */
 export async function POST(request: NextRequest) {
   try {
-    console.log("[WEBHOOK] Customer redact request received");
+    console.warn("[WEBHOOK] Customer redact request received");
     
     const body = await request.json();
     const { store_id, customer_id, customer_email, customer_phone } = body;
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing store_id or customer_id" }, { status: 400 });
     }
 
-    console.log(`[WEBHOOK] Processing customer redact for customer: ${customer_id} in store: ${store_id}`);
+    console.warn(`[WEBHOOK] Processing customer redact for customer: ${customer_id} in store: ${store_id}`);
 
     // Find and delete customer conversations
     const { data: conversations } = await supabaseAdmin
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log(`[WEBHOOK] Customer redact completed for customer: ${customer_id}`);
+    console.warn(`[WEBHOOK] Customer redact completed for customer: ${customer_id}`);
 
     return NextResponse.json({ 
       success: true,

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
+
 import { authOptions } from "@/lib/auth/config";
-import { exchangeCodeForToken } from "@/lib/integrations/tiendanube";
 import { saveTiendaNubeStore } from "@/lib/integrations/supabase";
+import { exchangeCodeForToken } from "@/lib/integrations/tiendanube";
 
 /**
  * Tienda Nube OAuth Callback Handler
@@ -12,11 +13,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("[OAUTH] Tienda Nube callback received");
+    console.warn("[OAUTH] Tienda Nube callback received");
     
     const { searchParams } = new URL(request.url);
     const code = searchParams.get("code");
-    const state = searchParams.get("state");
+    const _state = searchParams.get("state");
     const error = searchParams.get("error");
 
     // Handle OAuth errors
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
     
     // Si no hay sesión, redirigir al login
     if (!session) {
-      console.log("[OAUTH] No session found, redirecting to login");
+      console.warn("[OAUTH] No session found, redirecting to login");
       // Guardar el código de autorización en la URL para usarlo después del login
       const loginUrl = new URL("/auth/signin", request.url);
       loginUrl.searchParams.set("callbackCode", code);
@@ -57,10 +58,10 @@ export async function GET(request: NextRequest) {
 
     try {
       // Exchange code for access token
-      console.log("[OAUTH] Exchanging code for token...");
+      console.warn("[OAUTH] Exchanging code for token...");
       const tokenResponse = await exchangeCodeForToken(code);
 
-      console.log("[OAUTH] Token exchange successful:", {
+      console.warn("[OAUTH] Token exchange successful:", {
         storeId: tokenResponse.user_id,
         storeName: `Tienda #${tokenResponse.user_id}`
       });
@@ -79,13 +80,14 @@ export async function GET(request: NextRequest) {
       });
 
       if (!saveResult.success) {
-        console.error("[OAUTH] Failed to save store to database:", saveResult.error);
+        const errorMsg = 'error' in saveResult ? saveResult.error : 'Unknown error';
+        console.error("[OAUTH] Failed to save store to database:", errorMsg);
         return NextResponse.redirect(
           new URL("/auth/error?error=database_save_failed", request.url)
         );
       }
 
-      console.log("[OAUTH] Store saved to database successfully:", {
+      console.warn("[OAUTH] Store saved to database successfully:", {
         storeId: saveResult.store.store_id,
         storeName: saveResult.store.store_name,
         dbId: saveResult.store.id
@@ -97,7 +99,7 @@ export async function GET(request: NextRequest) {
       redirectUrl.searchParams.set("store", saveResult.store.store_name);
       redirectUrl.searchParams.set("store_id", saveResult.store.store_id);
 
-      console.log("[OAUTH] Redirecting to dashboard with success");
+      console.warn("[OAUTH] Redirecting to dashboard with success");
       return NextResponse.redirect(redirectUrl);
 
     } catch (tokenError) {

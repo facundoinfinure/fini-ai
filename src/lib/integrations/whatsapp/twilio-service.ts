@@ -3,8 +3,12 @@
  * Service for sending and receiving WhatsApp messages via Twilio
  */
 
-import twilio from 'twilio';
 import crypto from 'crypto';
+
+import twilio from 'twilio';
+
+import { WHATSAPP_CONFIG, PHONE_UTILS } from './config';
+// import { MESSAGE_CONFIG } from './config';
 import type { 
   WhatsAppService, 
   OutgoingWhatsAppMessage, 
@@ -13,8 +17,8 @@ import type {
   WhatsAppConversation,
   WhatsAppMessage
 } from './types';
-import { WHATSAPP_CONFIG, PHONE_UTILS, MESSAGE_CONFIG } from './config';
-import { multiAgentSystem } from '@/lib/agents';
+
+import { _multiAgentSystem } from '@/lib/agents';
 import type { AgentContext } from '@/lib/agents/types';
 
 export class TwilioWhatsAppService implements WhatsAppService {
@@ -27,7 +31,7 @@ export class TwilioWhatsAppService implements WhatsAppService {
       WHATSAPP_CONFIG.twilio.authToken
     );
     
-    console.log('[WHATSAPP] Twilio service initialized');
+    console.warn('[WHATSAPP] Twilio service initialized');
   }
 
   /**
@@ -35,23 +39,23 @@ export class TwilioWhatsAppService implements WhatsAppService {
    */
   async sendMessage(message: OutgoingWhatsAppMessage): Promise<{ sid: string; status: string }> {
     try {
-      console.log(`[WHATSAPP] Sending message to ${message.to}`);
+      console.warn(`[WHATSAPP] Sending message to ${message.to}`);
       
-      const twilioMessage = await this.client.messages.create({
+      const _twilioMessage = await this.client.messages.create({
         from: WHATSAPP_CONFIG.twilio.whatsappNumber,
         to: `whatsapp:${PHONE_UTILS.formatPhoneNumber(message.to)}`,
         body: message.body.substring(0, WHATSAPP_CONFIG.features.maxMessageLength),
         mediaUrl: message.mediaUrl ? [message.mediaUrl] : undefined
       });
 
-      console.log(`[WHATSAPP] Message sent successfully: ${twilioMessage.sid}`);
+      console.warn(`[WHATSAPP] Message sent successfully: ${_twilioMessage.sid}`);
       
       return {
-        sid: twilioMessage.sid,
-        status: twilioMessage.status
+        sid: _twilioMessage.sid,
+        status: _twilioMessage.status
       };
     } catch (error) {
-      console.error('[ERROR] Failed to send WhatsApp message:', error);
+      console.warn('[ERROR] Failed to send WhatsApp message:', error);
       throw new Error(`Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -71,19 +75,19 @@ export class TwilioWhatsAppService implements WhatsAppService {
    * Process incoming WhatsApp message
    */
   async processIncomingMessage(webhook: WhatsAppWebhook): Promise<MessageProcessingResult> {
-    const startTime = Date.now();
+    const _startTime = Date.now();
     
     try {
-      console.log(`[WHATSAPP] Processing incoming message from ${webhook.From}`);
+      console.warn(`[WHATSAPP] Processing incoming message from ${webhook.From}`);
       
       // Extract phone number from Twilio format
-      const phoneNumber = webhook.From.replace('whatsapp:', '');
-      const cleanPhone = PHONE_UTILS.formatPhoneNumber(phoneNumber);
+      const _phoneNumber = webhook.From.replace('whatsapp:', '');
+      const _cleanPhone = PHONE_UTILS.formatPhoneNumber(_phoneNumber);
       
       // Create WhatsApp message object
       const whatsappMessage: WhatsAppMessage = {
         id: webhook.MessageSid,
-        from: cleanPhone,
+        from: _cleanPhone,
         to: webhook.To.replace('whatsapp:', ''),
         body: webhook.Body || '',
         timestamp: new Date().toISOString(),
@@ -100,102 +104,102 @@ export class TwilioWhatsAppService implements WhatsAppService {
 
       // Get or create conversation
       // For demo purposes, we'll use a default store ID
-      const conversation = await this.getOrCreateConversation(cleanPhone, 'demo-store-123');
+      const _conversation = await this.getOrCreateConversation(_cleanPhone, 'demo-store-123');
       
       // Add message to conversation history
-      conversation.context.conversationHistory.push(whatsappMessage);
-      conversation.messageCount++;
-      conversation.lastMessageAt = new Date().toISOString();
+      _conversation.context.conversationHistory.push(whatsappMessage);
+      _conversation.messageCount++;
+      _conversation.lastMessageAt = new Date().toISOString();
 
       // Create agent context
       const agentContext: AgentContext = {
-        storeId: conversation.storeId,
-        userId: conversation.userId,
-        conversationId: conversation.id,
+        storeId: _conversation.storeId,
+        userId: _conversation.userId,
+        conversationId: _conversation.id,
         userMessage: whatsappMessage.body,
-        messageHistory: conversation.context.conversationHistory.map(msg => ({
+        messageHistory: _conversation.context.conversationHistory.map(msg => ({
           id: msg.id,
-          role: msg.from === cleanPhone ? 'user' : 'assistant',
+          role: msg.from === _cleanPhone ? 'user' : 'assistant',
           content: msg.body,
-          agentType: conversation.currentAgentType,
+          agentType: _conversation.currentAgentType,
           timestamp: msg.timestamp
         })),
         metadata: {
-          customerInfo: conversation.context.customerInfo,
-          sessionData: conversation.context.sessionData
+          customerInfo: _conversation.context.customerInfo,
+          sessionData: _conversation.context.sessionData
         }
       };
 
       // Process with multi-agent system
-      const agentResponse = await multiAgentSystem.processMessage(agentContext);
+      const _agentResponse = await _multiAgentSystem.processMessage(agentContext);
       
       // Send response back to user
-      if (agentResponse.success && agentResponse.response) {
+      if (_agentResponse.success && _agentResponse.response) {
         await this.sendMessage({
-          to: cleanPhone,
-          body: agentResponse.response
+          to: _cleanPhone,
+          body: _agentResponse.response
         });
 
         // Update conversation with agent response
         const responseMessage: WhatsAppMessage = {
           id: `response_${Date.now()}`,
           from: WHATSAPP_CONFIG.twilio.whatsappNumber,
-          to: cleanPhone,
-          body: agentResponse.response,
+          to: _cleanPhone,
+          body: _agentResponse.response,
           timestamp: new Date().toISOString(),
           type: 'text',
           messageId: `response_${Date.now()}`,
           accountSid: webhook.AccountSid
         };
 
-        conversation.context.conversationHistory.push(responseMessage);
-        conversation.currentAgentType = agentResponse.agentType;
-        conversation.metadata.updatedAt = new Date().toISOString();
+        _conversation.context.conversationHistory.push(responseMessage);
+        _conversation.currentAgentType = _agentResponse.agentType;
+        _conversation.metadata.updatedAt = new Date().toISOString();
 
         // Update conversation in memory (in production, save to database)
-        this.conversations.set(conversation.id, conversation);
+        this.conversations.set(_conversation.id, _conversation);
       }
 
-      const processingTime = Date.now() - startTime;
+      const _processingTime = Date.now() - _startTime;
       
       return {
         success: true,
         messageId: webhook.MessageSid,
-        response: agentResponse.success ? {
-          text: agentResponse.response || '',
-          agentType: agentResponse.agentType,
-          confidence: agentResponse.confidence,
-          processingTime
+        response: _agentResponse.success ? {
+          text: _agentResponse.response || '',
+          agentType: _agentResponse.agentType,
+          confidence: _agentResponse.confidence,
+          processingTime: _processingTime
         } : undefined,
         metadata: {
-          conversationId: conversation.id,
-          routing: agentResponse.metadata?.routingDecision,
+          conversationId: _conversation.id,
+          routing: _agentResponse.metadata?.routingDecision,
           context: {
-            messageCount: conversation.messageCount,
-            lastAgent: conversation.currentAgentType
+            messageCount: _conversation.messageCount,
+            lastAgent: _conversation.currentAgentType
           }
         }
       };
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[ERROR] Failed to process WhatsApp message:', error);
+      const _errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.warn('[ERROR] Failed to process WhatsApp message:', error);
       
       // Send error message to user
       try {
-        const phoneNumber = webhook.From.replace('whatsapp:', '');
+        const _phoneNumber = webhook.From.replace('whatsapp:', '');
         await this.sendMessage({
-          to: phoneNumber,
+          to: _phoneNumber,
           body: 'Lo siento, experimenté un problema técnico. Por favor intenta de nuevo en unos momentos.'
         });
       } catch (sendError) {
-        console.error('[ERROR] Failed to send error message:', sendError);
+        console.warn('[ERROR] Failed to send error message:', sendError);
       }
 
       return {
         success: false,
         messageId: webhook.MessageSid,
-        error: errorMessage
+        error: _errorMessage
       };
     }
   }
@@ -204,15 +208,15 @@ export class TwilioWhatsAppService implements WhatsAppService {
    * Get or create conversation
    */
   async getOrCreateConversation(phoneNumber: string, storeId: string): Promise<WhatsAppConversation> {
-    const conversationId = `${storeId}_${phoneNumber}`;
+    const _conversationId = `${storeId}_${phoneNumber}`;
     
     // Check if conversation exists in memory
-    let conversation = this.conversations.get(conversationId);
+    let conversation = this.conversations.get(_conversationId);
     
     if (!conversation) {
       // Create new conversation
       conversation = {
-        id: conversationId,
+        id: _conversationId,
         phoneNumber,
         storeId,
         userId: `user_${phoneNumber.replace(/\D/g, '')}`, // Generate user ID from phone
@@ -234,8 +238,8 @@ export class TwilioWhatsAppService implements WhatsAppService {
         }
       };
       
-      this.conversations.set(conversationId, conversation);
-      console.log(`[WHATSAPP] Created new conversation: ${conversationId}`);
+      this.conversations.set(_conversationId, conversation);
+      console.warn(`[WHATSAPP] Created new conversation: ${_conversationId}`);
     }
     
     return conversation;
@@ -245,11 +249,11 @@ export class TwilioWhatsAppService implements WhatsAppService {
    * Update conversation
    */
   async updateConversation(conversationId: string, updates: Partial<WhatsAppConversation>): Promise<void> {
-    const conversation = this.conversations.get(conversationId);
-    if (conversation) {
-      const updated = { ...conversation, ...updates };
-      updated.metadata.updatedAt = new Date().toISOString();
-      this.conversations.set(conversationId, updated);
+    const _conversation = this.conversations.get(conversationId);
+    if (_conversation) {
+      const _updated = { ..._conversation, ...updates };
+      _updated.metadata.updatedAt = new Date().toISOString();
+      this.conversations.set(conversationId, _updated);
     }
   }
 
@@ -257,11 +261,11 @@ export class TwilioWhatsAppService implements WhatsAppService {
    * End conversation
    */
   async endConversation(conversationId: string): Promise<void> {
-    const conversation = this.conversations.get(conversationId);
-    if (conversation) {
-      conversation.status = 'ended';
-      conversation.metadata.updatedAt = new Date().toISOString();
-      this.conversations.set(conversationId, conversation);
+    const _conversation = this.conversations.get(conversationId);
+    if (_conversation) {
+      _conversation.status = 'ended';
+      _conversation.metadata.updatedAt = new Date().toISOString();
+      this.conversations.set(conversationId, _conversation);
     }
   }
 
@@ -275,19 +279,19 @@ export class TwilioWhatsAppService implements WhatsAppService {
         return true;
       }
 
-      const expectedSignature = crypto
+      const _expectedSignature = crypto
         .createHmac('sha1', WHATSAPP_CONFIG.twilio.authToken)
         .update(Buffer.from(body, 'utf-8'))
         .digest('base64');
 
-      const twilioSignature = signature.replace('sha1=', '');
+      const _twilioSignature = signature.replace('sha1=', '');
       
       return crypto.timingSafeEqual(
-        Buffer.from(expectedSignature, 'base64'),
-        Buffer.from(twilioSignature, 'base64')
+        Buffer.from(_expectedSignature, 'base64'),
+        Buffer.from(_twilioSignature, 'base64')
       );
     } catch (error) {
-      console.error('[ERROR] Webhook verification failed:', error);
+      console.warn('[ERROR] Webhook verification failed:', error);
       return false;
     }
   }
@@ -295,18 +299,18 @@ export class TwilioWhatsAppService implements WhatsAppService {
   /**
    * Get service status
    */
-  async getServiceStatus(): Promise<{ healthy: boolean; details: any }> {
+  async getServiceStatus(): Promise<{ healthy: boolean; details: unknown }> {
     try {
       // Test Twilio connection by getting account info
-      const account = await this.client.api.accounts(WHATSAPP_CONFIG.twilio.accountSid).fetch();
+      const _account = await this.client.api.accounts(WHATSAPP_CONFIG.twilio.accountSid).fetch();
       
       return {
         healthy: true,
         details: {
           twilioAccount: {
-            sid: account.sid,
-            status: account.status,
-            type: account.type
+            sid: _account.sid,
+            status: _account.status,
+            type: _account.type
           },
           configuration: {
             whatsappNumber: WHATSAPP_CONFIG.twilio.whatsappNumber,
@@ -317,7 +321,7 @@ export class TwilioWhatsAppService implements WhatsAppService {
         }
       };
     } catch (error) {
-      console.error('[ERROR] WhatsApp service health check failed:', error);
+      console.warn('[ERROR] WhatsApp service health check failed:', error);
       return {
         healthy: false,
         details: {
@@ -350,21 +354,21 @@ export class TwilioWhatsAppService implements WhatsAppService {
    * Clear old conversations (cleanup utility)
    */
   clearOldConversations(olderThanHours: number = 24): number {
-    const cutoffTime = Date.now() - (olderThanHours * 60 * 60 * 1000);
+    const _cutoffTime = Date.now() - (olderThanHours * 60 * 60 * 1000);
     let cleared = 0;
     
     this.conversations.forEach((conversation, id) => {
-      const lastMessageTime = new Date(conversation.lastMessageAt).getTime();
-      if (lastMessageTime < cutoffTime) {
+      const _lastMessageTime = new Date(conversation.lastMessageAt).getTime();
+      if (_lastMessageTime < _cutoffTime) {
         this.conversations.delete(id);
         cleared++;
       }
     });
     
-    console.log(`[WHATSAPP] Cleared ${cleared} old conversations`);
+    console.warn(`[WHATSAPP] Cleared ${cleared} old conversations`);
     return cleared;
   }
 }
 
 // Export singleton instance
-export const twilioWhatsAppService = new TwilioWhatsAppService(); 
+export const _twilioWhatsAppService = new TwilioWhatsAppService(); 

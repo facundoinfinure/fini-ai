@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,7 +14,7 @@ const supabaseAdmin = createClient(
  */
 export async function POST(request: NextRequest) {
   try {
-    console.log("[WEBHOOK] Store redact request received");
+    console.warn("[WEBHOOK] Store redact request received");
     
     const body = await request.json();
     const { store_id } = body;
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing store_id" }, { status: 400 });
     }
 
-    console.log(`[WEBHOOK] Processing store redact for store: ${store_id}`);
+    console.warn(`[WEBHOOK] Processing store redact for store: ${store_id}`);
 
     // Delete store data from our database
     const { error: storeError } = await supabaseAdmin
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log(`[WEBHOOK] Store redact completed for store: ${store_id}`);
+    console.warn(`[WEBHOOK] Store redact completed for store: ${store_id}`);
 
     return NextResponse.json({ 
       success: true,

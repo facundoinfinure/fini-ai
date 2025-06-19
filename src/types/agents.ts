@@ -7,7 +7,7 @@ export interface ConversationContext {
   storeId: string;
   currentIntent?: string;
   previousQueries: string[];
-  sessionData: Record<string, any>;
+  sessionData: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -16,7 +16,7 @@ export interface AgentResponse {
   content: string;
   confidence: number;
   reasoning?: string;
-  data?: any;
+  data?: unknown;
   nextAction?: string;
   shouldEscalate?: boolean;
 }
@@ -25,7 +25,7 @@ export interface Intent {
   type: string;
   confidence: number;
   entities: Entity[];
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
 }
 
 export interface Entity {
@@ -47,7 +47,7 @@ export interface OrchestratorAgent {
 export interface ContextUpdate {
   intent?: string;
   entities?: Entity[];
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -70,7 +70,7 @@ export interface AnalyticsQuery {
 
 export interface AnalyticsResult {
   query: AnalyticsQuery;
-  data: any;
+  data: unknown;
   summary: string;
   insights: string[];
   executionTime: number;
@@ -86,7 +86,7 @@ export interface TimeRange {
 export interface QueryFilter {
   field: string;
   operator: 'equals' | 'contains' | 'greater_than' | 'less_than' | 'between';
-  value: any;
+  value: unknown;
 }
 
 export interface TrendAnalysis {
@@ -146,7 +146,7 @@ export interface TimeSeriesData {
 export interface DataPoint {
   timestamp: string;
   value: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ReportTemplate {
@@ -167,7 +167,7 @@ export interface ReportSection {
 export interface Report {
   id: string;
   template: ReportTemplate;
-  data: any;
+  data: unknown;
   generatedAt: string;
   format: 'json' | 'html' | 'pdf';
   summary: string;
@@ -201,23 +201,23 @@ export interface Resolution {
 
 export interface CustomerAction {
   type: 'refund' | 'replacement' | 'discount' | 'update_order' | 'send_email' | 'create_ticket';
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   requiresApproval: boolean;
 }
 
 export interface ActionResult {
   success: boolean;
   message: string;
-  data?: any;
+  data?: unknown;
   error?: string;
 }
 
 export interface CustomerHistory {
   customerId: string;
-  orders: any[];
-  conversations: any[];
+  orders: unknown[];
+  conversations: unknown[];
   issues: CustomerIssue[];
-  preferences: Record<string, any>;
+  preferences: Record<string, unknown>;
   totalSpent: number;
   loyaltyLevel: 'new' | 'regular' | 'vip' | 'champion';
 }
@@ -236,9 +236,9 @@ export interface StoreAnalytics {
   customers: number;
   averageOrderValue: number;
   conversionRate: number;
-  topProducts: any[];
-  seasonalTrends: any[];
-  competitorData?: any;
+  topProducts: unknown[];
+  seasonalTrends: unknown[];
+  competitorData?: unknown;
 }
 
 export interface CampaignSuggestion {
@@ -260,7 +260,7 @@ export interface ProductMetrics {
   profit: number;
   competitorPrices?: number[];
   demandElasticity?: number;
-  seasonality?: any;
+  seasonality?: unknown;
 }
 
 export interface PricingRecommendation {
@@ -284,8 +284,8 @@ export interface CustomerData {
   averageOrderValue: number;
   categories: string[];
   geography: string;
-  demographics?: Record<string, any>;
-  behavior?: Record<string, any>;
+  demographics?: Record<string, unknown>;
+  behavior?: Record<string, unknown>;
 }
 
 export interface Segment {
@@ -306,7 +306,7 @@ export interface SegmentCriteria {
 export interface SegmentRule {
   field: string;
   operator: 'equals' | 'greater_than' | 'less_than' | 'contains' | 'between';
-  value: any;
+  value: unknown;
 }
 
 export interface Campaign {
@@ -333,11 +333,11 @@ export interface ContentSuggestion {
 // RAG Engine Types
 export interface RAGEngine {
   ingestStoreData(storeId: string): Promise<void>;
-  ingestConversationHistory(conversations: any[]): Promise<void>;
-  ingestProductCatalog(products: any[]): Promise<void>;
+  ingestConversationHistory(conversations: unknown[]): Promise<void>;
+  ingestProductCatalog(products: unknown[]): Promise<void>;
   semanticSearch(query: string, filters?: SearchFilters): Promise<Document[]>;
-  findSimilarCustomers(customerId: string): Promise<any[]>;
-  findRelatedProducts(productId: string): Promise<any[]>;
+  findSimilarCustomers(customerId: string): Promise<unknown[]>;
+  findRelatedProducts(productId: string): Promise<unknown[]>;
   getRelevantContext(query: string, limit?: number): Promise<ContextDocument[]>;
   getConversationContext(conversationId: string): Promise<ConversationContext>;
 }
@@ -386,13 +386,13 @@ export interface ConversationMemory {
 export interface EntityMemory {
   entityId: string;
   entityType: 'customer' | 'product' | 'order' | 'store';
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   relationships: EntityRelationship[];
   lastUpdated: string;
 }
 
 export interface EntityUpdate {
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   relationships?: EntityRelationship[];
   timestamp: string;
 }
@@ -402,7 +402,7 @@ export interface EntityRelationship {
   relatedEntityType: string;
   relationshipType: string;
   strength: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface EntityHistory {
@@ -416,6 +416,6 @@ export interface EntityEvent {
   timestamp: string;
   eventType: string;
   description: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   source: string;
 } 

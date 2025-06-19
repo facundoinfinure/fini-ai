@@ -137,7 +137,7 @@ export const PHONE_UTILS = {
     
     // Add + if not present
     if (!cleaned.startsWith('+')) {
-      cleaned = '+' + cleaned;
+      cleaned = `+${cleaned}`;
     }
     
     return cleaned;

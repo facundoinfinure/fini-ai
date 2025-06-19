@@ -4,8 +4,9 @@
  */
 
 import OpenAI from 'openai';
-import type { EmbeddingResult } from './types';
+
 import { RAG_CONFIG } from './config';
+import type { EmbeddingResult } from './types';
 
 export class EmbeddingsService {
   private openai: OpenAI;
@@ -23,32 +24,32 @@ export class EmbeddingsService {
    */
   async generateEmbedding(text: string): Promise<EmbeddingResult> {
     try {
-      console.log(`[RAG:embeddings] Generating embedding for text: ${text.substring(0, 100)}...`);
+      console.warn(`[RAG:embeddings] Generating embedding for text: ${text.substring(0, 100)}...`);
       
       if (!text.trim()) {
         throw new Error('Text cannot be empty');
       }
 
-      const response = await this.openai.embeddings.create({
+      const _response = await this.openai.embeddings.create({
         model: this.model,
         input: text,
         encoding_format: 'float',
       });
 
-      const result = response.data[0];
-      if (!result) {
+      const _result = _response.data[0];
+      if (!_result) {
         throw new Error('No embedding returned from OpenAI');
       }
 
-      console.log(`[RAG:embeddings] Generated embedding with ${result.embedding.length} dimensions`);
+      console.warn(`[RAG:embeddings] Generated embedding with ${_result.embedding.length} dimensions`);
 
       return {
-        embedding: result.embedding,
-        tokens: response.usage?.total_tokens || 0,
+        embedding: _result.embedding,
+        tokens: _response.usage?.total_tokens || 0,
         model: this.model,
       };
     } catch (error) {
-      console.error('[ERROR] Failed to generate embedding:', error);
+      console.warn('[ERROR] Failed to generate embedding:', error);
       throw new Error(`Embedding generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -58,51 +59,51 @@ export class EmbeddingsService {
    */
   async generateBatchEmbeddings(texts: string[]): Promise<EmbeddingResult[]> {
     try {
-      console.log(`[RAG:embeddings] Generating ${texts.length} embeddings in batch`);
+      console.warn(`[RAG:embeddings] Generating ${texts.length} embeddings in batch`);
       
       if (texts.length === 0) {
         return [];
       }
 
       // Filter out empty texts
-      const validTexts = texts.filter(text => text.trim().length > 0);
-      if (validTexts.length === 0) {
+      const _validTexts = texts.filter(text => text.trim().length > 0);
+      if (_validTexts.length === 0) {
         throw new Error('No valid texts provided');
       }
 
       // OpenAI API can handle up to 2048 inputs per request for embeddings
-      const batchSize = 100; // Conservative batch size
+      const _batchSize = 100; // Conservative batch size
       const results: EmbeddingResult[] = [];
 
-      for (let i = 0; i < validTexts.length; i += batchSize) {
-        const batch = validTexts.slice(i, i + batchSize);
+      for (let i = 0; i < _validTexts.length; i += _batchSize) {
+        const _batch = _validTexts.slice(i, i + _batchSize);
         
-        const response = await this.openai.embeddings.create({
+        const _response = await this.openai.embeddings.create({
           model: this.model,
-          input: batch,
+          input: _batch,
           encoding_format: 'float',
         });
 
-        const batchResults = response.data.map((item, index) => ({
+        const _batchResults = _response.data.map((item, _index) => ({
           embedding: item.embedding,
-          tokens: Math.floor((response.usage?.total_tokens || 0) / batch.length),
+          tokens: Math.floor((_response.usage?.total_tokens || 0) / _batch.length),
           model: this.model,
         }));
 
-        results.push(...batchResults);
+        results.push(..._batchResults);
         
-        console.log(`[RAG:embeddings] Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(validTexts.length / batchSize)}`);
+        console.warn(`[RAG:embeddings] Processed batch ${Math.floor(i / _batchSize) + 1}/${Math.ceil(_validTexts.length / _batchSize)}`);
         
         // Rate limiting: small delay between batches
-        if (i + batchSize < validTexts.length) {
+        if (i + _batchSize < _validTexts.length) {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
 
-      console.log(`[RAG:embeddings] Generated ${results.length} embeddings successfully`);
+      console.warn(`[RAG:embeddings] Generated ${results.length} embeddings successfully`);
       return results;
     } catch (error) {
-      console.error('[ERROR] Failed to generate batch embeddings:', error);
+      console.warn('[ERROR] Failed to generate batch embeddings:', error);
       throw new Error(`Batch embedding generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }

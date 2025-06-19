@@ -4,8 +4,9 @@
  */
 
 import { Pinecone } from '@pinecone-database/pinecone';
-import type { DocumentChunk, VectorSearchResult, VectorStore, RAGQuery } from './types';
+
 import { RAG_CONFIG, RAG_CONSTANTS } from './config';
+import type { DocumentChunk, VectorSearchResult, VectorStore, RAGQuery } from './types';
 
 export class PineconeVectorStore implements VectorStore {
   private pinecone: Pinecone;
@@ -27,7 +28,7 @@ export class PineconeVectorStore implements VectorStore {
       const index = this.pinecone.index(this.indexName);
       return index;
     } catch (error) {
-      console.error(`[ERROR] Failed to get Pinecone index: ${this.indexName}`, error);
+      console.warn(`[ERROR] Failed to get Pinecone index: ${this.indexName}`, error);
       throw new Error(`Failed to connect to Pinecone index: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -37,10 +38,10 @@ export class PineconeVectorStore implements VectorStore {
    */
   async upsert(chunks: DocumentChunk[]): Promise<void> {
     try {
-      console.log(`[RAG:vector-store] Upserting ${chunks.length} chunks to Pinecone`);
+      console.warn(`[RAG:vector-store] Upserting ${chunks.length} chunks to Pinecone`);
       
       if (chunks.length === 0) {
-        console.log('[RAG:vector-store] No chunks to upsert');
+        console.warn('[RAG:vector-store] No chunks to upsert');
         return;
       }
 
@@ -74,7 +75,7 @@ export class PineconeVectorStore implements VectorStore {
         
         await index.namespace(namespace).upsert(batch);
         
-        console.log(`[RAG:vector-store] Upserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(vectors.length / batchSize)} to namespace: ${namespace}`);
+        console.warn(`[RAG:vector-store] Upserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(vectors.length / batchSize)} to namespace: ${namespace}`);
         
         // Rate limiting between batches
         if (i + batchSize < vectors.length) {
@@ -82,9 +83,9 @@ export class PineconeVectorStore implements VectorStore {
         }
       }
 
-      console.log(`[RAG:vector-store] Successfully upserted ${chunks.length} chunks`);
+      console.warn(`[RAG:vector-store] Successfully upserted ${chunks.length} chunks`);
     } catch (error) {
-      console.error('[ERROR] Failed to upsert chunks to Pinecone:', error);
+      console.warn('[ERROR] Failed to upsert chunks to Pinecone:', error);
       throw new Error(`Vector upsert failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -97,7 +98,7 @@ export class PineconeVectorStore implements VectorStore {
       const topK = options.topK || RAG_CONFIG.search.defaultTopK;
       const threshold = options.threshold || RAG_CONFIG.search.defaultThreshold;
       
-      console.log(`[RAG:vector-store] Searching for ${topK} similar vectors with threshold ${threshold}`);
+      console.warn(`[RAG:vector-store] Searching for ${topK} similar vectors with threshold ${threshold}`);
       
       const index = await this.getIndex();
       
@@ -111,11 +112,11 @@ export class PineconeVectorStore implements VectorStore {
       
       // Search in each namespace
       for (const namespace of namespaces) {
-        console.log(`[RAG:vector-store] Searching in namespace: ${namespace}`);
+        console.warn(`[RAG:vector-store] Searching in namespace: ${namespace}`);
         
         const searchRequest = {
           vector: queryEmbedding,
-          topK: topK,
+          topK,
           includeMetadata: options.includeMetadata !== false,
           includeValues: false,
           ...(pineconeFilter && { filter: pineconeFilter }),
@@ -142,11 +143,11 @@ export class PineconeVectorStore implements VectorStore {
         .sort((a, b) => b.score - a.score)
         .slice(0, topK);
       
-      console.log(`[RAG:vector-store] Found ${sortedResults.length} matches across ${namespaces.length} namespaces`);
+      console.warn(`[RAG:vector-store] Found ${sortedResults.length} matches across ${namespaces.length} namespaces`);
       
       return sortedResults;
     } catch (error) {
-      console.error('[ERROR] Failed to search vectors in Pinecone:', error);
+      console.warn('[ERROR] Failed to search vectors in Pinecone:', error);
       throw new Error(`Vector search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -156,7 +157,7 @@ export class PineconeVectorStore implements VectorStore {
    */
   async delete(ids: string[]): Promise<void> {
     try {
-      console.log(`[RAG:vector-store] Deleting ${ids.length} vectors from Pinecone`);
+      console.warn(`[RAG:vector-store] Deleting ${ids.length} vectors from Pinecone`);
       
       if (ids.length === 0) {
         return;
@@ -169,12 +170,12 @@ export class PineconeVectorStore implements VectorStore {
       
       for (const [namespace, namespaceIds] of Object.entries(namespaceGroups)) {
         await index.namespace(namespace).deleteMany(namespaceIds);
-        console.log(`[RAG:vector-store] Deleted ${namespaceIds.length} vectors from namespace: ${namespace}`);
+        console.warn(`[RAG:vector-store] Deleted ${namespaceIds.length} vectors from namespace: ${namespace}`);
       }
       
-      console.log(`[RAG:vector-store] Successfully deleted ${ids.length} vectors`);
+      console.warn(`[RAG:vector-store] Successfully deleted ${ids.length} vectors`);
     } catch (error) {
-      console.error('[ERROR] Failed to delete vectors from Pinecone:', error);
+      console.warn('[ERROR] Failed to delete vectors from Pinecone:', error);
       throw new Error(`Vector deletion failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -192,7 +193,7 @@ export class PineconeVectorStore implements VectorStore {
         dimension: stats.dimension || RAG_CONSTANTS.EMBEDDING_DIMENSION,
       };
     } catch (error) {
-      console.error('[ERROR] Failed to get Pinecone stats:', error);
+      console.warn('[ERROR] Failed to get Pinecone stats:', error);
       throw new Error(`Failed to get vector store stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -273,10 +274,10 @@ export class PineconeVectorStore implements VectorStore {
   /**
    * Build Pinecone filter from RAG filters
    */
-  private buildPineconeFilter(filters?: RAGQuery['filters']): Record<string, any> | undefined {
+  private buildPineconeFilter(filters?: RAGQuery['filters']): Record<string, unknown> | undefined {
     if (!filters) return undefined;
 
-    const pineconeFilter: Record<string, any> = {};
+    const pineconeFilter: Record<string, unknown> = {};
 
     // Date range filter
     if (filters.dateRange) {

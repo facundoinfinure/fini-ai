@@ -4,8 +4,8 @@
  */
 
 import { BaseAgent } from './base-agent';
-import type { AgentContext, AgentResponse } from './types';
 import { MARKETING_CONFIG, ROUTING_KEYWORDS } from './config';
+import type { AgentContext, AgentResponse } from './types';
 
 export class MarketingAgent extends BaseAgent {
   constructor() {

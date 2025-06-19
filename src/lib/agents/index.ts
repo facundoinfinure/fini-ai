@@ -3,6 +3,9 @@
  * Exports all agents and the multi-agent system
  */
 
+// Import for re-exports
+import { _multiAgentSystem as mas } from './multi-agent-system';
+
 // Types
 export type * from './types';
 
@@ -30,12 +33,10 @@ export { MarketingAgent } from './marketing-agent';
 // Multi-Agent System
 export { 
   FiniMultiAgentSystem,
-  multiAgentSystem 
+  _multiAgentSystem 
 } from './multi-agent-system';
 
-// Re-export for convenience - import multiAgentSystem if you need the methods
-import { multiAgentSystem as mas } from './multi-agent-system';
-
+// Re-export for convenience - import _multiAgentSystem if you need the methods
 export const processMessage = mas.processMessage.bind(mas);
 export const routeMessage = mas.routeMessage.bind(mas);
 export const getAgent = mas.getAgent.bind(mas);

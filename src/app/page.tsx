@@ -1,12 +1,5 @@
 "use client";
 
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { 
   Bot, 
   MessageSquare, 
@@ -23,19 +16,28 @@ import {
   Shield,
   Smartphone
 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 
 export default function HomePage() {
   const { data: session, status } = useSession();
-  const router = useRouter();
+  const _router = useRouter();
   const [loadingTimeout, setLoadingTimeout] = useState(false);
 
   useEffect(() => {
     // Timeout para evitar loading infinito
-    const timer = setTimeout(() => {
+    const _timer = setTimeout(() => {
       setLoadingTimeout(true);
     }, 5000); // 5 segundos máximo de loading
 
-    return () => clearTimeout(timer);
+    return () => clearTimeout(_timer);
   }, []);
 
   useEffect(() => {
@@ -43,9 +45,9 @@ export default function HomePage() {
     
     if (session?.user) {
       // Always redirect to dashboard - let dashboard handle onboarding status
-      router.push("/dashboard");
+      _router.push("/dashboard");
     }
-  }, [session, status, router]);
+  }, [session, status, _router]);
 
   // Si está loading por más de 5 segundos, mostrar la página normal
   if (status === "loading" && !loadingTimeout) {

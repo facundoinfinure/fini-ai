@@ -8,6 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
+    "lint:fix-all": "eslint --fix \"src/**/*.{ts,tsx}\" && npm run fix-types",
+    "fix-types": "tsc --noEmit",
+    "fix-eslint": "node scripts/fix-eslint-errors.js",
     "type-check": "tsc --noEmit",
     "verify-env": "node scripts/verify-env.js",
     "security:check": "node scripts/security-check.js",
@@ -35,7 +38,7 @@
     "@radix-ui/react-select": "^2.0.0",
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-tabs": "^1.0.4",
-    "@supabase/supabase-js": "^2.38.4",
+    "@supabase/supabase-js": "^2.39.0",
     "@tanstack/react-query": "^5.17.19",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
@@ -65,8 +68,8 @@
     "@types/react-dom": "^18.2.19",
     "@types/twilio": "^3.19.3",
     "@types/uuid": "^9.0.7",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
     "autoprefixer": "^10.4.16",
     "critters": "^0.0.20",
     "eslint": "^8.56.0",
@@ -96,6 +99,6 @@
   },
   "engines": {
     "node": ">=18.0.0",
-    "npm": ">=9.0.0 <=11.0.0"
+    "npm": ">=9.0.0"
   }
 }

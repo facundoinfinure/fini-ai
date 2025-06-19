@@ -4,12 +4,15 @@
  * Integrates embeddings, vector store, and document processing
  */
 
-import type { RAGEngine, RAGQuery, RAGResult, DocumentChunk } from './types';
-import { EmbeddingsService } from './embeddings';
-import { PineconeVectorStore } from './vector-store';
-import { RAGDocumentProcessor } from './document-processor';
 import { TiendaNubeAPI } from '../integrations/tiendanube';
+
 import { RAG_CONSTANTS } from './config';
+import { RAGDocumentProcessor } from './document-processor';
+import { EmbeddingsService } from './embeddings';
+import type { RAGEngine, RAGQuery, RAGResult, DocumentChunk } from './types';
+import { PineconeVectorStore } from './vector-store';
+
+
 
 export class FiniRAGEngine implements RAGEngine {
   private embeddings: EmbeddingsService;
@@ -27,7 +30,7 @@ export class FiniRAGEngine implements RAGEngine {
    */
   async indexDocument(content: string, metadata: Partial<DocumentChunk['metadata']>): Promise<void> {
     try {
-      console.log(`[RAG:engine] Indexing document of type: ${metadata.type}`);
+      console.warn(`[RAG:engine] Indexing document of type: ${metadata.type}`);
       
       if (!metadata.storeId) {
         throw new Error('Store ID is required for document indexing');
@@ -37,7 +40,7 @@ export class FiniRAGEngine implements RAGEngine {
       const chunks = this.processor.processDocument(content, metadata);
       
       if (chunks.length === 0) {
-        console.log('[RAG:engine] No chunks created, skipping indexing');
+        console.warn('[RAG:engine] No chunks created, skipping indexing');
         return;
       }
 
@@ -54,9 +57,9 @@ export class FiniRAGEngine implements RAGEngine {
       // Store in vector database
       await this.vectorStore.upsert(chunksWithEmbeddings);
 
-      console.log(`[RAG:engine] Successfully indexed ${chunks.length} chunks for document`);
+      console.warn(`[RAG:engine] Successfully indexed ${chunks.length} chunks for document`);
     } catch (error) {
-      console.error('[ERROR] Failed to index document:', error);
+      console.warn('[ERROR] Failed to index document:', error);
       throw new Error(`Document indexing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -66,10 +69,10 @@ export class FiniRAGEngine implements RAGEngine {
    */
   async indexStoreData(storeId: string, accessToken?: string): Promise<void> {
     try {
-      console.log(`[RAG:engine] Starting full store indexing for store: ${storeId}`);
+      console.warn(`[RAG:engine] Starting full store indexing for store: ${storeId}`);
 
       if (!accessToken) {
-        console.log('[RAG:engine] No access token provided, skipping store data indexing');
+        console.warn('[RAG:engine] No access token provided, skipping store data indexing');
         return;
       }
 
@@ -89,7 +92,7 @@ export class FiniRAGEngine implements RAGEngine {
           })
         );
       } catch (error) {
-        console.error('[ERROR] Failed to index store data:', error);
+        console.warn('[ERROR] Failed to index store data:', error);
       }
 
       // Index products
@@ -109,9 +112,9 @@ export class FiniRAGEngine implements RAGEngine {
             })
           );
         }
-        console.log(`[RAG:engine] Queued ${products.length} products for indexing`);
+        console.warn(`[RAG:engine] Queued ${products.length} products for indexing`);
       } catch (error) {
-        console.error('[ERROR] Failed to index products:', error);
+        console.warn('[ERROR] Failed to index products:', error);
       }
 
       // Index recent orders (last 30 days)
@@ -138,9 +141,9 @@ export class FiniRAGEngine implements RAGEngine {
             })
           );
         }
-        console.log(`[RAG:engine] Queued ${orders.length} orders for indexing`);
+        console.warn(`[RAG:engine] Queued ${orders.length} orders for indexing`);
       } catch (error) {
-        console.error('[ERROR] Failed to index orders:', error);
+        console.warn('[ERROR] Failed to index orders:', error);
       }
 
       // Index customers
@@ -159,9 +162,9 @@ export class FiniRAGEngine implements RAGEngine {
             })
           );
         }
-        console.log(`[RAG:engine] Queued ${customers.length} customers for indexing`);
+        console.warn(`[RAG:engine] Queued ${customers.length} customers for indexing`);
       } catch (error) {
-        console.error('[ERROR] Failed to index customers:', error);
+        console.warn('[ERROR] Failed to index customers:', error);
       }
 
       // Index analytics data
@@ -177,7 +180,7 @@ export class FiniRAGEngine implements RAGEngine {
           })
         );
       } catch (error) {
-        console.error('[ERROR] Failed to index analytics:', error);
+        console.warn('[ERROR] Failed to index analytics:', error);
       }
 
       // Process all indexing operations in batches
@@ -186,7 +189,7 @@ export class FiniRAGEngine implements RAGEngine {
         const batch = indexingPromises.slice(i, i + batchSize);
         await Promise.allSettled(batch);
         
-        console.log(`[RAG:engine] Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(indexingPromises.length / batchSize)}`);
+        console.warn(`[RAG:engine] Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(indexingPromises.length / batchSize)}`);
         
         // Small delay between batches to avoid overwhelming APIs
         if (i + batchSize < indexingPromises.length) {
@@ -194,9 +197,9 @@ export class FiniRAGEngine implements RAGEngine {
         }
       }
 
-      console.log(`[RAG:engine] Completed store indexing for store: ${storeId}`);
+      console.warn(`[RAG:engine] Completed store indexing for store: ${storeId}`);
     } catch (error) {
-      console.error('[ERROR] Failed to index store data:', error);
+      console.warn('[ERROR] Failed to index store data:', error);
       throw new Error(`Store indexing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -207,7 +210,7 @@ export class FiniRAGEngine implements RAGEngine {
   async search(query: RAGQuery): Promise<RAGResult> {
     try {
       const startTime = Date.now();
-      console.log(`[RAG:engine] Searching for: "${query.query}"`);
+      console.warn(`[RAG:engine] Searching for: "${query.query}"`);
 
       if (!query.context?.storeId) {
         throw new Error('Store ID is required for search');
@@ -259,11 +262,11 @@ export class FiniRAGEngine implements RAGEngine {
         confidence,
       };
 
-      console.log(`[RAG:engine] Found ${documents.length} relevant documents (confidence: ${confidence.toFixed(3)}) in ${processingTime}ms`);
+      console.warn(`[RAG:engine] Found ${documents.length} relevant documents (confidence: ${confidence.toFixed(3)}) in ${processingTime}ms`);
 
       return result;
     } catch (error) {
-      console.error('[ERROR] Failed to search documents:', error);
+      console.warn('[ERROR] Failed to search documents:', error);
       throw new Error(`Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -273,7 +276,7 @@ export class FiniRAGEngine implements RAGEngine {
    */
   async getRelevantContext(query: string, context: RAGQuery['context']): Promise<string> {
     try {
-      console.log(`[RAG:engine] Getting relevant context for: "${query}"`);
+      console.warn(`[RAG:engine] Getting relevant context for: "${query}"`);
 
       const ragQuery: RAGQuery = {
         query,
@@ -309,11 +312,11 @@ export class FiniRAGEngine implements RAGEngine {
 
       const contextText = contextParts.join('\n\n---\n\n');
       
-      console.log(`[RAG:engine] Generated context with ${contextParts.length} relevant documents`);
+      console.warn(`[RAG:engine] Generated context with ${contextParts.length} relevant documents`);
       
       return contextText;
     } catch (error) {
-      console.error('[ERROR] Failed to get relevant context:', error);
+      console.warn('[ERROR] Failed to get relevant context:', error);
       return 'Error al obtener contexto relevante. Por favor, intenta de nuevo.';
     }
   }
@@ -323,7 +326,7 @@ export class FiniRAGEngine implements RAGEngine {
    */
   async updateDocument(documentId: string, content: string, metadata: Partial<DocumentChunk['metadata']>): Promise<void> {
     try {
-      console.log(`[RAG:engine] Updating document: ${documentId}`);
+      console.warn(`[RAG:engine] Updating document: ${documentId}`);
 
       // Delete existing document chunks
       await this.vectorStore.delete([documentId]);
@@ -331,9 +334,9 @@ export class FiniRAGEngine implements RAGEngine {
       // Re-index with new content
       await this.indexDocument(content, metadata);
 
-      console.log(`[RAG:engine] Successfully updated document: ${documentId}`);
+      console.warn(`[RAG:engine] Successfully updated document: ${documentId}`);
     } catch (error) {
-      console.error('[ERROR] Failed to update document:', error);
+      console.warn('[ERROR] Failed to update document:', error);
       throw new Error(`Document update failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -343,7 +346,7 @@ export class FiniRAGEngine implements RAGEngine {
    */
   async deleteStoreData(storeId: string): Promise<void> {
     try {
-      console.log(`[RAG:engine] Deleting all data for store: ${storeId}`);
+      console.warn(`[RAG:engine] Deleting all data for store: ${storeId}`);
 
       // In a production system, you'd query for all document IDs for this store
       // For now, we'll implement a pattern-based deletion
@@ -361,10 +364,10 @@ export class FiniRAGEngine implements RAGEngine {
       // 2. Delete them in batches
       // For now, we'll log the intention
       
-      console.log(`[RAG:engine] Would delete data from namespaces: ${namespaces.join(', ')}`);
-      console.log(`[RAG:engine] Store data deletion completed for: ${storeId}`);
+      console.warn(`[RAG:engine] Would delete data from namespaces: ${namespaces.join(', ')}`);
+      console.warn(`[RAG:engine] Store data deletion completed for: ${storeId}`);
     } catch (error) {
-      console.error('[ERROR] Failed to delete store data:', error);
+      console.warn('[ERROR] Failed to delete store data:', error);
       throw new Error(`Store data deletion failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -404,7 +407,7 @@ export class FiniRAGEngine implements RAGEngine {
         errors,
       };
     } catch (error) {
-      console.error('[ERROR] Failed to get RAG stats:', error);
+      console.warn('[ERROR] Failed to get RAG stats:', error);
       return {
         vectorStore: { totalVectors: 0, dimension: 0 },
         embeddings: { model: 'unknown', dimension: 0, maxTokens: 0 },
@@ -417,18 +420,19 @@ export class FiniRAGEngine implements RAGEngine {
   /**
    * Helper method to process store data (used by indexStoreData)
    */
-  private processStoreData(store: any): string {
+  private processStoreData(store: unknown): string {
     const parts: string[] = [];
-    
-    if (store.name) parts.push(`Tienda: ${store.name}`);
-    if (store.description) parts.push(`Descripción: ${store.description}`);
-    if (store.url) parts.push(`URL: ${store.url}`);
-    if (store.domain) parts.push(`Dominio: ${store.domain}`);
-    if (store.country) parts.push(`País: ${store.country}`);
-    if (store.currency) parts.push(`Moneda: ${store.currency}`);
-    if (store.business_id) parts.push(`ID de negocio: ${store.business_id}`);
-    if (store.business_name) parts.push(`Nombre del negocio: ${store.business_name}`);
-    
+    const s = store as Record<string, any>;
+    if (s && typeof s === 'object') {
+      if (s.name) parts.push(`Tienda: ${s.name}`);
+      if (s.description) parts.push(`Descripción: ${s.description}`);
+      if (s.url) parts.push(`URL: ${s.url}`);
+      if (s.domain) parts.push(`Dominio: ${s.domain}`);
+      if (s.country) parts.push(`País: ${s.country}`);
+      if (s.currency) parts.push(`Moneda: ${s.currency}`);
+      if (s.business_id) parts.push(`ID de negocio: ${s.business_id}`);
+      if (s.business_name) parts.push(`Nombre del negocio: ${s.business_name}`);
+    }
     return parts.join('\n');
   }
 } 

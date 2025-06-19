@@ -15,7 +15,7 @@ interface TestConnectionRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('[TIENDANUBE-TEST] Processing connection test request');
+    console.warn('[TIENDANUBE-TEST] Processing connection test request');
     
     const body = await request.json();
     const { storeId, accessToken, environment = 'development', endpoint = 'store' }: TestConnectionRequest = body;
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const envConfig = config[environment];
     const testUrl = `${envConfig.apiBase}/${storeId}/${endpoint}`;
 
-    console.log('[TIENDANUBE-TEST] Testing connection:', {
+    console.warn('[TIENDANUBE-TEST] Testing connection:', {
       environment: envConfig.name,
       storeId,
       endpoint,
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     if (response.ok) {
       const data = await response.json();
       
-      console.log('[TIENDANUBE-TEST] Connection successful:', {
+      console.warn('[TIENDANUBE-TEST] Connection successful:', {
         status: response.status,
         responseTime: `${responseTime}ms`,
         dataKeys: Object.keys(data)
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
           url: testUrl,
           responseTime: `${responseTime}ms`,
           status: response.status,
-          data: data,
+          data,
           headers: {
             'content-type': response.headers.get('content-type'),
             'x-ratelimit-remaining': response.headers.get('x-ratelimit-remaining'),

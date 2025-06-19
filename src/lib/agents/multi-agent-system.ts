@@ -3,6 +3,11 @@
  * Central system that coordinates all specialized agents
  */
 
+import { AnalyticsAgent } from './analytics-agent';
+// import { AGENT_CONFIG } from './config';
+import { CustomerServiceAgent } from './customer-service-agent';
+import { MarketingAgent } from './marketing-agent';
+import { OrchestratorAgent } from './orchestrator-agent';
 import type { 
   MultiAgentSystem as IMultiAgentSystem,
   AgentContext, 
@@ -12,11 +17,6 @@ import type {
   OrchestratorDecision,
   AgentMetrics
 } from './types';
-import { OrchestratorAgent } from './orchestrator-agent';
-import { AnalyticsAgent } from './analytics-agent';
-import { CustomerServiceAgent } from './customer-service-agent';
-import { MarketingAgent } from './marketing-agent';
-import { AGENT_CONFIG } from './config';
 
 export class FiniMultiAgentSystem implements IMultiAgentSystem {
   private agents: Map<AgentType, Agent>;
@@ -30,7 +30,7 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
     // Initialize all agents
     this.initializeAgents();
     
-    console.log('[MULTI-AGENT] System initialized with', this.agents.size, 'agents');
+    console.warn('[MULTI-AGENT] System initialized with', this.agents.size, 'agents');
   }
 
   private initializeAgents(): void {
@@ -41,7 +41,7 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
       this.agents.set('customer_service', new CustomerServiceAgent());
       this.agents.set('marketing', new MarketingAgent());
 
-      console.log('[MULTI-AGENT] Registered agents:', Array.from(this.agents.keys()));
+      console.warn('[MULTI-AGENT] Registered agents:', Array.from(this.agents.keys()));
     } catch (error) {
       console.error('[ERROR] Failed to initialize agents:', error);
       throw new Error('Multi-agent system initialization failed');
@@ -52,51 +52,51 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
    * Main entry point for processing user messages
    */
   async processMessage(context: AgentContext): Promise<AgentResponse> {
-    const startTime = Date.now();
+    const _startTime = Date.now();
     this.requestCount++;
     
-    console.log(`[MULTI-AGENT] Processing message ${this.requestCount}: "${context.userMessage}"`);
+    console.warn(`[MULTI-AGENT] Processing message ${this.requestCount}: "${context.userMessage}"`);
 
     try {
       // Use orchestrator to route the message
-      const orchestrator = this.getAgent('orchestrator') as OrchestratorAgent;
-      const decision = await orchestrator.routeMessage(context);
+      const _orchestrator = this.getAgent('orchestrator') as OrchestratorAgent;
+      const _decision = await _orchestrator.routeMessage(context);
       
-      console.log(`[MULTI-AGENT] Routing decision:`, decision);
+      console.warn(`[MULTI-AGENT] Routing decision:`, _decision);
 
       let finalResponse: AgentResponse;
 
-      if (decision.selectedAgent && decision.confidence >= 0.4) {
+      if (_decision.selectedAgent && _decision.confidence >= 0.4) {
         // Route to specialized agent
-        const selectedAgent = this.getAgent(decision.selectedAgent);
+        const _selectedAgent = this.getAgent(_decision.selectedAgent);
         
-        if (selectedAgent) {
-          console.log(`[MULTI-AGENT] Routing to ${decision.selectedAgent} agent`);
-          finalResponse = await selectedAgent.process(context);
+        if (_selectedAgent) {
+          console.warn(`[MULTI-AGENT] Routing to ${_decision.selectedAgent} agent`);
+          finalResponse = await _selectedAgent.process(context);
         } else {
-          console.warn(`[MULTI-AGENT] Agent ${decision.selectedAgent} not found, using orchestrator`);
-          finalResponse = await orchestrator.process(context);
+          console.warn(`[MULTI-AGENT] Agent ${_decision.selectedAgent} not found, using orchestrator`);
+          finalResponse = await _orchestrator.process(context);
         }
       } else {
         // Use orchestrator for low confidence or unclear queries
-        console.log(`[MULTI-AGENT] Using orchestrator for low confidence query`);
-        finalResponse = await orchestrator.process(context);
+        console.warn(`[MULTI-AGENT] Using orchestrator for low confidence query`);
+        finalResponse = await _orchestrator.process(context);
       }
 
       // Add system metadata
-      const executionTime = Date.now() - startTime;
+      const _executionTime = Date.now() - _startTime;
       finalResponse.metadata = {
         ...finalResponse.metadata,
-        systemExecutionTime: executionTime,
+        systemExecutionTime: _executionTime,
         requestId: `req_${this.requestCount}_${Date.now()}`,
-        routingDecision: decision
+        routingDecision: _decision
       };
 
-      console.log(`[MULTI-AGENT] Response generated in ${executionTime}ms`);
+      console.warn(`[MULTI-AGENT] Response generated in ${_executionTime}ms`);
       return finalResponse;
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const _errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('[ERROR] Multi-agent processing failed:', error);
       
       return {
@@ -104,13 +104,13 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
         agentType: 'orchestrator',
         response: 'Lo siento, experimenté un problema técnico. ¿Podrías intentar de nuevo?',
         confidence: 0,
-        reasoning: `System error: ${errorMessage}`,
+        reasoning: `System error: ${_errorMessage}`,
         metadata: {
           systemError: true,
-          executionTime: Date.now() - startTime,
+          executionTime: Date.now() - _startTime,
           requestId: `req_${this.requestCount}_${Date.now()}`
         },
-        error: errorMessage
+        error: _errorMessage
       };
     }
   }
@@ -119,19 +119,19 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
    * Route message to appropriate agent (exposed for external use)
    */
   async routeMessage(context: AgentContext): Promise<OrchestratorDecision> {
-    const orchestrator = this.getAgent('orchestrator') as OrchestratorAgent;
-    return await orchestrator.routeMessage(context);
+    const _orchestrator = this.getAgent('orchestrator') as OrchestratorAgent;
+    return await _orchestrator.routeMessage(context);
   }
 
   /**
    * Get agent by type
    */
   getAgent(type: AgentType): Agent {
-    const agent = this.agents.get(type);
-    if (!agent) {
+    const _agent = this.agents.get(type);
+    if (!_agent) {
       throw new Error(`Agent ${type} not found`);
     }
-    return agent;
+    return _agent;
   }
 
   /**
@@ -143,11 +143,11 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
     systemUptime: number;
     agentMetrics: AgentMetrics[];
   }> {
-    const uptime = Date.now() - this.systemStartTime;
+    const _uptime = Date.now() - this.systemStartTime;
     
     // Mock metrics for now - in production this would come from a metrics store
-    const agentMetrics: AgentMetrics[] = Array.from(this.agents.entries()).map((entry) => {
-      const [type, agent] = entry;
+    const agentMetrics: AgentMetrics[] = Array.from(this.agents.entries()).map((_entry) => {
+      const [type, agent] = _entry;
       return {
         agentType: type,
         totalRequests: Math.floor(Math.random() * 100),
@@ -169,7 +169,7 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
     return {
       totalAgents: this.agents.size,
       activeConversations: this.requestCount, // Simplified
-      systemUptime: uptime,
+      systemUptime: _uptime,
       agentMetrics
     };
   }
@@ -187,7 +187,7 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
 
     const results: Record<string, any> = {};
 
-    const promises = Array.from(this.agents.entries()).map(async ([type, agent]) => {
+    const _promises = Array.from(this.agents.entries()).map(async ([type, agent]) => {
       try {
         const capability = await agent.canHandle(testContext);
         return { type, capability };
@@ -203,8 +203,8 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
       }
     });
 
-    const resolvedResults = await Promise.all(promises);
-    for (const { type, capability } of resolvedResults) {
+    const _resolvedResults = await Promise.all(_promises);
+    for (const { type, capability } of _resolvedResults) {
       results[type] = capability;
     }
 
@@ -221,13 +221,13 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
     this.agents.forEach((agent, type) => {
       try {
         // Simple health check - just verify agent can be instantiated and has required methods
-        const isHealthy = !!(agent && 
+        const _isHealthy = !!(agent && 
           typeof agent.process === 'function' && 
           typeof agent.canHandle === 'function' &&
           typeof agent.getRelevantContext === 'function');
         
-        details[type] = isHealthy;
-        if (!isHealthy) allHealthy = false;
+        details[type] = _isHealthy;
+        if (!_isHealthy) allHealthy = false;
       } catch (error) {
         details[type] = false;
         allHealthy = false;
@@ -253,9 +253,9 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
   resetMetrics(): void {
     this.requestCount = 0;
     this.systemStartTime = Date.now();
-    console.log('[MULTI-AGENT] Metrics reset');
+    console.warn('[MULTI-AGENT] Metrics reset');
   }
 }
 
 // Export singleton instance
-export const multiAgentSystem = new FiniMultiAgentSystem(); 
+export const _multiAgentSystem = new FiniMultiAgentSystem(); 

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
+import crypto from 'crypto';
 
 interface ConnectRequest {
   storeUrl: string;
@@ -14,7 +15,7 @@ interface ConnectRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('[TIENDANUBE-OAUTH] Processing OAuth connection request');
+    console.warn('[TIENDANUBE-OAUTH] Processing OAuth connection request');
     
     // Get user session
     const session = await getServerSession(authOptions);
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
       
       // Fallback to demo connection for development
       if (process.env.NODE_ENV === 'development') {
-        console.log('[TIENDANUBE-OAUTH] Development mode: using demo connection');
+        console.warn('[TIENDANUBE-OAUTH] Development mode: using demo connection');
         
         return NextResponse.json({
           success: false,
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate OAuth state parameter for security
-    const state = `${session.user.supabaseId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const _state = crypto.randomBytes(32).toString('hex');
     
     // Store state and store info temporarily (in production, use Redis or database)
     // For now, we'll pass it in the state parameter
@@ -109,14 +110,14 @@ export async function POST(request: NextRequest) {
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
-      scope: scope,
+      scope,
       state: encodedState
     });
 
     // La URL correcta de OAuth de Tienda Nube incluye el app_id
     const authUrl = `https://www.tiendanube.com/apps/${clientId}/authorize?${oauthParams.toString()}`;
 
-    console.log('[TIENDANUBE-OAUTH] OAuth URL generated:', {
+    console.warn('[TIENDANUBE-OAUTH] OAuth URL generated:', {
       userId: session.user.supabaseId,
       storeName,
       redirectUri,

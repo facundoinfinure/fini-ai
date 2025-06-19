@@ -24,7 +24,7 @@ export interface DocumentChunk {
     customerId?: string;
     customerEmail?: string;
     // Additional context
-    [key: string]: any;
+    [key: string]: unknown;
   };
   embedding?: number[];
 }

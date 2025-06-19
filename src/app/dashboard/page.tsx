@@ -1,16 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChatPreview } from '@/components/dashboard/chat-preview';
 import { 
   MessageCircle, 
-  Settings, 
   CheckCircle, 
   AlertCircle, 
   Copy,
@@ -26,6 +17,16 @@ import {
   Bot,
   Zap
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
+import React, { useState, useEffect } from 'react';
+
+import { ChatPreview } from '@/components/dashboard/chat-preview';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 
 interface WhatsAppConfig {
   phoneNumbers: string[];
@@ -45,7 +46,7 @@ interface DashboardStats {
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
-  const router = useRouter();
+  const _router = useRouter();
   const [whatsappConfig, setWhatsappConfig] = useState<WhatsAppConfig | null>(null);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,30 +54,30 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/auth/signin');
+      _router.push('/auth/signin');
       return;
     }
 
     if (status === 'authenticated') {
-      loadDashboardData();
+      _loadDashboardData();
     }
-  }, [status, router]);
+  }, [status, _router]);
 
-  const loadDashboardData = async () => {
+  const _loadDashboardData = async () => {
     setIsLoading(true);
     try {
       // Load WhatsApp configuration
-      const whatsappResponse = await fetch('/api/whatsapp/configure');
-      if (whatsappResponse.ok) {
-        const whatsappData = await whatsappResponse.json();
-        setWhatsappConfig(whatsappData.data);
+      const _whatsappResponse = await fetch('/api/whatsapp/configure');
+      if (_whatsappResponse.ok) {
+        const _whatsappData = await _whatsappResponse.json();
+        setWhatsappConfig(_whatsappData.data);
       }
 
       // Load dashboard stats
-      const statsResponse = await fetch('/api/dashboard/stats');
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        setDashboardStats(statsData);
+      const _statsResponse = await fetch('/api/dashboard/stats');
+      if (_statsResponse.ok) {
+        const _statsData = await _statsResponse.json();
+        setDashboardStats(_statsData);
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -85,11 +86,11 @@ export default function DashboardPage() {
     }
   };
 
-  const copyToClipboard = (text: string) => {
+  const _copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
   };
 
-  const openWhatsAppChat = () => {
+  const _openWhatsAppChat = () => {
     if (whatsappConfig?.whatsappUrl) {
       window.open(whatsappConfig.whatsappUrl, '_blank');
     } else {
@@ -172,7 +173,7 @@ export default function DashboardPage() {
                     Ver QR
                   </Button>
                   <Button 
-                    onClick={openWhatsAppChat} 
+                    onClick={_openWhatsAppChat} 
                     size="lg"
                     className="bg-green-600 hover:bg-green-700 text-white"
                   >
@@ -343,20 +344,20 @@ export default function DashboardPage() {
                 <CardContent>
                   <div className="space-y-3">
                     {!dashboardStats?.storeConnected && (
-                      <Button onClick={() => router.push('/onboarding')} className="w-full">
+                      <Button onClick={() => _router.push('/onboarding')} className="w-full">
                         <Store className="w-4 h-4 mr-2" />
                         Conectar Tienda
                       </Button>
                     )}
                     {!whatsappConfig?.configured && (
-                      <Button onClick={() => router.push('/onboarding')} variant="outline" className="w-full">
+                      <Button onClick={() => _router.push('/onboarding')} variant="outline" className="w-full">
                         <MessageCircle className="w-4 h-4 mr-2" />
                         Configurar WhatsApp
                       </Button>
                     )}
                     {(dashboardStats?.storeConnected && whatsappConfig?.configured) && (
                       <div className="space-y-3">
-                        <Button onClick={openWhatsAppChat} className="w-full bg-green-600 hover:bg-green-700">
+                        <Button onClick={_openWhatsAppChat} className="w-full bg-green-600 hover:bg-green-700">
                           <Smartphone className="w-4 h-4 mr-2" />
                           Chatear con mi Tienda
                         </Button>
@@ -374,7 +375,7 @@ export default function DashboardPage() {
             {/* Chat Preview Section */}
             {(dashboardStats?.storeConnected && whatsappConfig?.configured) && (
               <div className="mt-6">
-                <ChatPreview onStartChat={openWhatsAppChat} />
+                <ChatPreview onStartChat={_openWhatsAppChat} />
               </div>
             )}
           </TabsContent>
@@ -406,7 +407,7 @@ export default function DashboardPage() {
                           <h4 className="font-medium text-gray-900">¿Listo para chatear?</h4>
                           <p className="text-sm text-gray-600">Inicia una conversación con tu asistente de IA</p>
                         </div>
-                        <Button onClick={openWhatsAppChat} className="bg-green-600 hover:bg-green-700">
+                        <Button onClick={_openWhatsAppChat} className="bg-green-600 hover:bg-green-700">
                           <Smartphone className="w-4 h-4 mr-2" />
                           Abrir Chat
                         </Button>
@@ -422,7 +423,7 @@ export default function DashboardPage() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => copyToClipboard(phone)}
+                              onClick={() => _copyToClipboard(phone)}
                             >
                               <Copy className="w-3 h-3" />
                             </Button>
@@ -440,7 +441,7 @@ export default function DashboardPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => copyToClipboard(whatsappConfig.webhookUrl)}
+                          onClick={() => _copyToClipboard(whatsappConfig.webhookUrl)}
                         >
                           <Copy className="w-3 h-3" />
                         </Button>
@@ -456,7 +457,7 @@ export default function DashboardPage() {
                     <p className="text-gray-600 mb-4">
                       Configura WhatsApp para comenzar a recibir mensajes de tus clientes.
                     </p>
-                    <Button onClick={() => router.push('/onboarding')}>
+                    <Button onClick={() => _router.push('/onboarding')}>
                       Configurar WhatsApp
                     </Button>
                   </div>
@@ -495,7 +496,7 @@ export default function DashboardPage() {
                         Tienda: {dashboardStats.storeName || "Tienda conectada"}
                       </div>
                     ) : (
-                      <Button onClick={() => router.push('/onboarding')}>
+                      <Button onClick={() => _router.push('/onboarding')}>
                         Conectar Tienda
                       </Button>
                     )}
@@ -520,7 +521,7 @@ export default function DashboardPage() {
                         Números configurados: {whatsappConfig.phoneNumbers.length}
                       </div>
                     ) : (
-                      <Button onClick={() => router.push('/onboarding')}>
+                      <Button onClick={() => _router.push('/onboarding')}>
                         Configurar WhatsApp
                       </Button>
                     )}

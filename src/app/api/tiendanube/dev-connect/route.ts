@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+
 import { authOptions } from '@/lib/auth/config';
 
 interface DevConnectRequest {
@@ -17,7 +18,7 @@ interface DevConnectRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('[TIENDANUBE-DEV] Processing development connection request');
+    console.warn('[TIENDANUBE-DEV] Processing development connection request');
     
     // Solo permitir en desarrollo
     if (process.env.NODE_ENV !== 'development') {
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
     // Si tenemos access token y store ID, probar la conexión directamente
     if (accessToken && storeId) {
       try {
-        console.log('[TIENDANUBE-DEV] Testing direct connection with provided credentials');
+        console.warn('[TIENDANUBE-DEV] Testing direct connection with provided credentials');
         
         const testResponse = await fetch(`${envConfig.apiBase}/${storeId}/store`, {
           headers: {
@@ -112,14 +113,14 @@ export async function POST(request: NextRequest) {
 
         if (testResponse.ok) {
           const storeData = await testResponse.json();
-          console.log('[TIENDANUBE-DEV] Direct connection successful:', storeData);
+          console.warn('[TIENDANUBE-DEV] Direct connection successful:', storeData);
 
           return NextResponse.json({
             success: true,
             data: {
               storeUrl: cleanUrl,
               storeName: storeData.name || storeName,
-              storeId: storeId,
+              storeId,
               environment,
               apiBase: envConfig.apiBase,
               connectionType: 'direct',
@@ -169,13 +170,13 @@ export async function POST(request: NextRequest) {
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
-      scope: scope,
+      scope,
       state: encodedState
     });
 
     const authUrl = `${envConfig.authUrl}?${oauthParams.toString()}`;
 
-    console.log('[TIENDANUBE-DEV] OAuth URL generated:', {
+    console.warn('[TIENDANUBE-DEV] OAuth URL generated:', {
       userId: session.user.supabaseId,
       storeName,
       storeUrl: cleanUrl,

@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+
 import { TwilioWhatsAppService } from '@/lib/integrations/twilio';
 
 interface WelcomeMessageRequest {
@@ -14,7 +15,7 @@ interface WelcomeMessageRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('[WHATSAPP-WELCOME] Processing welcome message request');
+    console.warn('[WHATSAPP-WELCOME] Processing welcome message request');
     
     const body = await request.json();
     const { to, storeId, userId }: WelcomeMessageRequest = body;
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Format phone number
-    const formattedTo = to.startsWith('+') ? to : '+' + to;
+    const formattedTo = to.startsWith('+') ? to : `+${to}`;
 
     // Create welcome message
     const welcomeMessage = `¡Hola! 👋 
@@ -61,7 +62,7 @@ Solo envíame un mensaje y empezaré a ayudarte con tu tienda.
       const result = await whatsappService.sendMessage(formattedTo, welcomeMessage);
 
       if (result.success) {
-        console.log('[WHATSAPP-WELCOME] Welcome message sent successfully:', {
+        console.warn('[WHATSAPP-WELCOME] Welcome message sent successfully:', {
           to: formattedTo,
           messageId: result.messageId,
           storeId,
@@ -79,12 +80,13 @@ Solo envíame un mensaje y empezaré a ayudarte con tu tienda.
           }
         });
       } else {
-        console.error('[WHATSAPP-WELCOME] Failed to send welcome message:', result.error);
+        const errorMsg = 'error' in result ? result.error : 'Unknown error';
+        console.error('[WHATSAPP-WELCOME] Failed to send welcome message:', errorMsg);
         
         return NextResponse.json({
           success: false,
           error: 'Failed to send welcome message',
-          details: result.error
+          details: errorMsg
         }, { status: 500 });
       }
 
@@ -96,12 +98,12 @@ Solo envíame un mensaje y empezaré a ayudarte con tu tienda.
       
       if (isDevelopment) {
         // In development, simulate successful sending
-        console.log('[WHATSAPP-WELCOME] Development mode: simulating welcome message');
+        console.warn('[WHATSAPP-WELCOME] Development mode: simulating welcome message');
         
         return NextResponse.json({
           success: true,
           data: {
-            messageId: 'DEV_WELCOME_' + Date.now(),
+            messageId: `DEV_WELCOME_${Date.now()}`,
             to: formattedTo,
             storeId,
             sentAt: new Date().toISOString(),

@@ -77,7 +77,7 @@ export interface AnalyticsCache {
   store_id: string;
   data_type: 'sales' | 'products' | 'customers' | 'orders';
   period: 'daily' | 'weekly' | 'monthly' | 'yearly';
-  data: any;
+  data: unknown;
   expires_at: string;
   created_at: string;
 }

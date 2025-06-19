@@ -1,7 +1,8 @@
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
+
 import { authOptions } from "@/lib/auth/config";
-import { createClient } from "@supabase/supabase-js";
 import { ragEngine } from "@/lib/rag";
 
 const supabase = createClient(
@@ -12,7 +13,7 @@ const supabase = createClient(
 // GET method for health check
 export async function GET() {
   try {
-    console.log('[INFO] Tienda Nube API health check');
+    console.warn('[INFO] Tienda Nube API health check');
     
     // Basic configuration check
     const config = {
@@ -46,7 +47,7 @@ export async function GET() {
         });
       }
     } catch (dbTestError: any) {
-      console.log('[DEBUG] Database test result:', dbTestError.message);
+      console.warn('[DEBUG] Database test result:', dbTestError.message);
     }
 
     return NextResponse.json({
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    console.log(`[TIENDANUBE] Starting ${syncType} sync for store:`, store.store_id);
+    console.warn(`[TIENDANUBE] Starting ${syncType} sync for store:`, store.store_id);
 
     let totalProcessed = 0;
     let totalFailed = 0;
@@ -170,7 +171,7 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", storeId);
 
-      console.log(`[TIENDANUBE] Sync completed. Processed: ${totalProcessed}, Failed: ${totalFailed}`);
+      console.warn(`[TIENDANUBE] Sync completed. Processed: ${totalProcessed}, Failed: ${totalFailed}`);
 
       return NextResponse.json({
         success: true,

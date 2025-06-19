@@ -4,40 +4,41 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createTwilioWhatsAppService } from '@/lib/integrations/twilio-whatsapp';
+
 import { FiniMultiAgentSystem } from '@/lib/agents/multi-agent-system';
 import type { AgentContext } from '@/lib/agents/types';
 import { WhatsAppConfigService, StoreService, ConversationService, MessageService } from '@/lib/database/client';
+import { createTwilioWhatsAppService } from '@/lib/integrations/twilio-whatsapp';
 
-const twilioService = createTwilioWhatsAppService();
-const agentSystem = new FiniMultiAgentSystem();
+const _twilioService = createTwilioWhatsAppService();
+const _agentSystem = new FiniMultiAgentSystem();
 
 export async function POST(request: NextRequest) {
-  const startTime = Date.now();
+  const _startTime = Date.now();
   try {
-    console.log('[WEBHOOK] Received WhatsApp webhook');
+    console.warn('[WEBHOOK] Received WhatsApp webhook');
     // Get request body - Twilio sends form data, not JSON
-    const formData = await request.formData();
+    const _formData = await request.formData();
     const body: any = {};
-    formData.forEach((value, key) => {
+    _formData.forEach((value, key) => {
       body[key] = value;
     });
-    console.log('[WEBHOOK] WhatsApp message received:', JSON.stringify(body, null, 2));
+    console.warn('[WEBHOOK] WhatsApp message received:', JSON.stringify(body, null, 2));
 
     // Validate webhook signature (Twilio) - Skip in development
-    const twilioSignature = request.headers.get('x-twilio-signature');
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    if (!twilioSignature && !isDevelopment) {
+    const _twilioSignature = request.headers.get('x-twilio-signature');
+    const _isDevelopment = process.env.NODE_ENV === 'development';
+    if (!_twilioSignature && !_isDevelopment) {
       console.error('[WEBHOOK] Missing Twilio signature');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    if (isDevelopment && !twilioSignature) {
-      console.log('[WEBHOOK] Development mode: skipping signature validation');
+    if (_isDevelopment && !_twilioSignature) {
+      console.warn('[WEBHOOK] Development mode: skipping signature validation');
     }
 
     // Process incoming WhatsApp message
     if (body.MessageSid && body.From && body.Body) {
-      const messageData = {
+      const _messageData = {
         messageId: body.MessageSid,
         from: body.From,
         to: body.To,
@@ -46,52 +47,52 @@ export async function POST(request: NextRequest) {
         mediaUrl: body.MediaUrl0 || null,
         mediaContentType: body.MediaContentType0 || null,
       };
-      const phoneNumber = messageData.from.replace('whatsapp:', '');
+      const _phoneNumber = _messageData.from.replace('whatsapp:', '');
 
       // 1. Lookup WhatsApp config and store by phone number
-      const configRes = await WhatsAppConfigService.getConfigByUserId(phoneNumber);
+      const _configRes = await WhatsAppConfigService.getConfigByUserId(_phoneNumber);
       let userId: string | undefined = undefined;
       let storeId: string | undefined = undefined;
       let storeName = 'Tienda Nube';
-      if (configRes.success && configRes.config) {
-        userId = configRes.config.user_id;
-        storeId = configRes.config.store_id || undefined;
+      if (_configRes.success && _configRes.config) {
+        userId = _configRes.config.user_id;
+        storeId = _configRes.config.store_id || undefined;
         // Lookup store name
         if (storeId) {
-          const storeRes = await StoreService.getStoresByUserId(userId);
-          if (storeRes.success && storeRes.stores && storeRes.stores.length > 0) {
-            const store = storeRes.stores.find(s => s.id === storeId);
-            if (store) storeName = store.store_name;
+          const _storeRes = await StoreService.getStoresByUserId(userId);
+          if (_storeRes.success && _storeRes.stores && _storeRes.stores.length > 0) {
+            const _store = _storeRes.stores.find(s => s.id === storeId);
+            if (_store) storeName = _store.store_name;
           }
         }
       } else {
         // Fallback: no config found
-        console.warn('[WEBHOOK] No WhatsApp config found for number:', phoneNumber);
+        console.warn('[WEBHOOK] No WhatsApp config found for number:', _phoneNumber);
       }
 
       // 2. Persist inbound message and conversation
-      let conversationId = `conv_${phoneNumber}`;
+      let conversationId = `conv_${_phoneNumber}`;
       let conversation = null;
       if (userId) {
         // Try to find existing conversation
-        const convRes = await ConversationService.getConversationByCustomerNumber(userId, phoneNumber);
-        if (convRes.success && convRes.conversation) {
-          conversation = convRes.conversation;
+        const _convRes = await ConversationService.getConversationByCustomerNumber(userId, _phoneNumber);
+        if (_convRes.success && _convRes.conversation) {
+          conversation = _convRes.conversation;
           conversationId = conversation.id;
         } else {
           // Create new conversation
-          const newConvRes = await ConversationService.createConversation({
+          const _newConvRes = await ConversationService.createConversation({
             user_id: userId,
             store_id: storeId,
             whatsapp_number: body.To.replace('whatsapp:', ''),
-            customer_number: phoneNumber,
+            customer_number: _phoneNumber,
             conversation_id: conversationId,
             status: 'active',
             last_message_at: new Date().toISOString(),
             message_count: 1
           });
-          if (newConvRes.success && newConvRes.conversation) {
-            conversation = newConvRes.conversation;
+          if (_newConvRes.success && _newConvRes.conversation) {
+            conversation = _newConvRes.conversation;
             conversationId = conversation.id;
           }
         }
@@ -99,10 +100,10 @@ export async function POST(request: NextRequest) {
       // Persist inbound message
       await MessageService.createMessage({
         conversation_id: conversationId,
-        twilio_message_sid: messageData.messageId,
+        twilio_message_sid: _messageData.messageId,
         direction: 'inbound',
-        body: messageData.body,
-        media_url: messageData.mediaUrl,
+        body: _messageData.body,
+        media_url: _messageData.mediaUrl,
         created_at: new Date().toISOString()
       });
 
@@ -110,21 +111,21 @@ export async function POST(request: NextRequest) {
       const agentContext: AgentContext = {
         userId: userId || 'demo-user-id',
         storeId: storeId || 'demo-store-id',
-        conversationId: conversationId,
-        userMessage: messageData.body,
+        conversationId,
+        userMessage: _messageData.body,
         metadata: {
-          phoneNumber: phoneNumber,
-          storeName: storeName,
+          phoneNumber: _phoneNumber,
+          storeName,
           platform: 'whatsapp',
-          timestamp: messageData.timestamp
+          timestamp: _messageData.timestamp
         }
       };
 
       // 4. Process message with multi-agent system
       let agentResponse;
       try {
-        agentResponse = await agentSystem.processMessage(agentContext);
-        console.log('[WEBHOOK] Agent response:', agentResponse);
+        agentResponse = await _agentSystem.processMessage(agentContext);
+        console.warn('[WEBHOOK] Agent response:', agentResponse);
       } catch (agentError) {
         console.error('[WEBHOOK] Agent processing error:', agentError);
         agentResponse = {
@@ -150,31 +151,31 @@ export async function POST(request: NextRequest) {
       });
 
       // 6. Send response back via WhatsApp
-      await twilioService.sendMessage({
-        to: phoneNumber,
+      await _twilioService.sendMessage({
+        to: _phoneNumber,
         from: process.env.TWILIO_PHONE_NUMBER!,
         body: agentResponse.response || 'Lo siento, no pude procesar tu mensaje en este momento. Por favor intenta nuevamente.'
       });
-      console.log('[WEBHOOK] Response sent successfully');
+      console.warn('[WEBHOOK] Response sent successfully');
     }
 
-    const processingTime = Date.now() - startTime;
-    console.log(`[WEBHOOK] Message processed in ${processingTime}ms:`, {
+    const _processingTime = Date.now() - _startTime;
+    console.warn(`[WEBHOOK] Message processed in ${_processingTime}ms:`, {
       success: true,
       message: 'Message processed'
     });
     return NextResponse.json({
       status: 'success',
       message: 'Message processed',
-      processingTime
+      processingTime: _processingTime
     });
   } catch (error) {
-    const processingTime = Date.now() - startTime;
+    const _processingTime = Date.now() - _startTime;
     console.error('[ERROR] Webhook processing failed:', error);
     return NextResponse.json({
       status: 'error',
       error: error instanceof Error ? error.message : 'Unknown error',
-      processingTime
+      processingTime: _processingTime
     }, { status: 500 });
   }
 }
@@ -183,13 +184,13 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const mode = searchParams.get('hub.mode');
-    const token = searchParams.get('hub.verify_token');
-    const challenge = searchParams.get('hub.challenge');
-    console.log('[WEBHOOK] WhatsApp webhook verification attempt');
-    if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN) {
-      console.log('[WEBHOOK] WhatsApp webhook verified successfully');
-      return new NextResponse(challenge, { status: 200 });
+    const _mode = searchParams.get('hub.mode');
+    const _token = searchParams.get('hub.verify_token');
+    const _challenge = searchParams.get('hub.challenge');
+    console.warn('[WEBHOOK] WhatsApp webhook verification attempt');
+    if (_mode === 'subscribe' && _token === process.env.WHATSAPP_VERIFY_TOKEN) {
+      console.warn('[WEBHOOK] WhatsApp webhook verified successfully');
+      return new NextResponse(_challenge, { status: 200 });
     }
     console.error('[WEBHOOK] WhatsApp webhook verification failed');
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

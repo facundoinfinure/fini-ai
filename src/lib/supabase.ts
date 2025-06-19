@@ -1,9 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
+
 import type { Database } from '@/types/database';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('[WARN] Supabase URL or ANON KEY missing. Database functionality will be limited.');
@@ -36,11 +37,11 @@ export const supabaseAdmin = createClient<Database>(
 /**
  * Utility function to handle Supabase errors
  */
-export function handleSupabaseError(error: any): { success: false; error: string } {
-  console.error('[ERROR] Supabase operation failed:', error);
+export function handleSupabaseError(error: unknown): { success: false; error: string } {
+  console.warn('[ERROR] Supabase operation failed:', error);
   return {
     success: false,
-    error: error.message || 'Database operation failed',
+    error: error instanceof Error ? error.message : 'Database operation failed',
   };
 }
 
@@ -48,7 +49,7 @@ export function handleSupabaseError(error: any): { success: false; error: string
  * Type-safe wrapper for Supabase operations
  */
 export async function executeSupabaseQuery<T>(
-  queryFn: () => Promise<{ data: T; error: any }>
+  queryFn: () => Promise<{ data: T; error: unknown }>
 ): Promise<{ success: true; data: T } | { success: false; error: string }> {
   try {
     const { data, error } = await queryFn();

@@ -8,9 +8,9 @@ import type {
 } from '@/types/tiendanube';
 
 const TIENDA_NUBE_API_BASE = 'https://api.tiendanube.com/v1';
-const CLIENT_ID = process.env.TIENDANUBE_CLIENT_ID!;
-const CLIENT_SECRET = process.env.TIENDANUBE_CLIENT_SECRET!;
-const REDIRECT_URI = process.env.TIENDANUBE_REDIRECT_URI!;
+const CLIENT_ID = process.env.TIENDANUBE_CLIENT_ID || "";
+const CLIENT_SECRET = process.env.TIENDANUBE_CLIENT_SECRET || "";
+const REDIRECT_URI = process.env.TIENDANUBE_REDIRECT_URI || "";
 
 /**
  * Tienda Nube API Client
@@ -32,7 +32,7 @@ export class TiendaNubeAPI {
     const url = `${TIENDA_NUBE_API_BASE}/${this.storeId}${endpoint}`;
     
     try {
-      console.log(`[INFO] TiendaNube API request: ${url}`);
+      console.warn(`[INFO] TiendaNube API request: ${url}`);
       
       const response = await fetch(url, {
         ...options,
@@ -47,15 +47,15 @@ export class TiendaNubeAPI {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[ERROR] TiendaNube API error: ${response.status} ${response.statusText} - ${errorText}`);
+        console.warn(`[ERROR] TiendaNube API error: ${response.status} ${response.statusText} - ${errorText}`);
         throw new Error(`TiendaNube API error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log(`[DEBUG] TiendaNube API response received for ${endpoint}`);
+      console.warn(`[DEBUG] TiendaNube API response received for ${endpoint}`);
       return data;
     } catch (error) {
-      console.error(`[ERROR] TiendaNube API request failed:`, error);
+      console.warn(`[ERROR] TiendaNube API request failed:`, error);
       throw error;
     }
   }
@@ -189,7 +189,7 @@ export class TiendaNubeAPI {
     revenue: number;
   }>> {
     try {
-      console.log(`[AGENT:analytics] Getting top products for period: ${period}, limit: ${limit}`);
+      console.warn(`[AGENT:analytics] Getting top products for period: ${period}, limit: ${limit}`);
       
       const endDate = new Date();
       const startDate = new Date();
@@ -209,48 +209,43 @@ export class TiendaNubeAPI {
       const orders = await this.getOrders({
         created_at_min: startDate.toISOString(),
         created_at_max: endDate.toISOString(),
-        status: 'closed',
-        payment_status: 'paid',
-        limit: 250,
+        status: 'paid',
+        limit: 100
       });
 
-      console.log(`[DEBUG] Found ${orders.length} orders for period`);
+      const productStats = new Map<number, { product: TiendaNubeOrderProduct; quantity: number; revenue: number }>();
 
-      // Process orders to get top products
-      const productSales = new Map<number, { product: TiendaNubeOrderProduct; quantity: number; revenue: number }>();
-      
       orders.forEach(order => {
-        order.products.forEach(product => {
-          const existing = productSales.get(product.product_id);
-          const revenue = parseFloat(product.price) * product.quantity;
+        order.products?.forEach(orderProduct => {
+          const productId = orderProduct.product_id;
+          const existing = productStats.get(productId);
+          const price = typeof orderProduct.price === 'string' ? parseFloat(orderProduct.price) : orderProduct.price;
+          const quantity = orderProduct.quantity;
           
           if (existing) {
-            existing.quantity += product.quantity;
-            existing.revenue += revenue;
+            existing.quantity += quantity;
+            existing.revenue += price * quantity;
           } else {
-            productSales.set(product.product_id, {
-              product: product,
-              quantity: product.quantity,
-              revenue: revenue,
+            productStats.set(productId, {
+              product: orderProduct,
+              quantity: quantity,
+              revenue: price * quantity
             });
           }
         });
       });
 
-      const result = Array.from(productSales.values())
-        .sort((a, b) => b.quantity - a.quantity)
+      return Array.from(productStats.values())
+        .sort((a, b) => b.revenue - a.revenue)
         .slice(0, limit);
-
-      console.log(`[AGENT:analytics] Top products analysis complete. Found ${result.length} products`);
-      return result;
     } catch (error) {
-      console.error('[ERROR] Failed to get top products:', error);
+      console.error(`[AGENT:analytics] Error getting top products:`, error);
       throw error;
     }
   }
 
   /**
-   * Get revenue data for a specific period
+   * Get revenue analytics for a specific period
    */
   async getRevenue(period: 'day' | 'week' | 'month' = 'week'): Promise<{
     period: string;
@@ -260,7 +255,7 @@ export class TiendaNubeAPI {
     orders: TiendaNubeOrder[];
   }> {
     try {
-      console.log(`[AGENT:analytics] Getting revenue for period: ${period}`);
+      console.warn(`[AGENT:analytics] Getting revenue for period: ${period}`);
       
       const endDate = new Date();
       const startDate = new Date();
@@ -280,27 +275,26 @@ export class TiendaNubeAPI {
       const orders = await this.getOrders({
         created_at_min: startDate.toISOString(),
         created_at_max: endDate.toISOString(),
-        status: 'closed',
-        payment_status: 'paid',
-        limit: 250,
+        status: 'paid',
+        limit: 100
       });
 
       const totalRevenue = orders.reduce((sum, order) => {
-        return sum + parseFloat(order.total);
+        const orderTotal = typeof order.total === 'string' ? parseFloat(order.total) : (order.total || 0);
+        return sum + orderTotal;
       }, 0);
+      const totalOrders = orders.length;
+      const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-      const result = {
+      return {
         period,
         totalRevenue,
-        totalOrders: orders.length,
-        averageOrderValue: totalRevenue / (orders.length || 1),
-        orders: orders.slice(0, 10), // Return latest 10 orders
+        totalOrders,
+        averageOrderValue,
+        orders
       };
-
-      console.log(`[AGENT:analytics] Revenue analysis complete. Total: $${totalRevenue}, Orders: ${orders.length}`);
-      return result;
     } catch (error) {
-      console.error('[ERROR] Failed to get revenue:', error);
+      console.error(`[AGENT:analytics] Error getting revenue:`, error);
       throw error;
     }
   }
@@ -310,17 +304,14 @@ export class TiendaNubeAPI {
    */
   async getPendingOrders(): Promise<TiendaNubeOrder[]> {
     try {
-      console.log(`[AGENT:analytics] Getting pending orders`);
+      console.warn(`[AGENT:analytics] Getting pending orders`);
       
-      const orders = await this.getOrders({
-        status: 'open',
-        limit: 50,
+      return await this.getOrders({
+        status: 'pending',
+        limit: 50
       });
-
-      console.log(`[AGENT:analytics] Found ${orders.length} pending orders`);
-      return orders;
     } catch (error) {
-      console.error('[ERROR] Failed to get pending orders:', error);
+      console.error(`[AGENT:analytics] Error getting pending orders:`, error);
       throw error;
     }
   }
@@ -348,81 +339,70 @@ export class TiendaNubeAPI {
     averageOrderValue: number;
   }> {
     try {
-      console.log(`[AGENT:analytics] Getting comprehensive store analytics`);
+      console.warn(`[AGENT:analytics] Getting comprehensive store analytics`);
       
-      const [
-        revenueToday,
-        revenueWeek,
-        revenueMonth,
-        topProducts,
-        pendingOrders
-      ] = await Promise.all([
+      const [todayRevenue, weekRevenue, monthRevenue, pendingOrders, topProducts] = await Promise.all([
         this.getRevenue('day'),
         this.getRevenue('week'),
         this.getRevenue('month'),
-        this.getTopProducts('week', 5),
         this.getPendingOrders(),
+        this.getTopProducts('week', 5)
       ]);
 
-      const result = {
+      return {
         revenue: {
-          today: revenueToday.totalRevenue,
-          week: revenueWeek.totalRevenue,
-          month: revenueMonth.totalRevenue,
+          today: todayRevenue.totalRevenue,
+          week: weekRevenue.totalRevenue,
+          month: monthRevenue.totalRevenue,
         },
         orders: {
-          today: revenueToday.totalOrders,
-          week: revenueWeek.totalOrders,
-          month: revenueMonth.totalOrders,
+          today: todayRevenue.totalOrders,
+          week: weekRevenue.totalOrders,
+          month: monthRevenue.totalOrders,
           pending: pendingOrders.length,
         },
         topProducts,
-        averageOrderValue: revenueWeek.averageOrderValue,
+        averageOrderValue: weekRevenue.averageOrderValue,
       };
-
-      console.log(`[AGENT:analytics] Comprehensive analytics complete`);
-      return result;
     } catch (error) {
-      console.error('[ERROR] Failed to get store analytics:', error);
+      console.error(`[AGENT:analytics] Error getting store analytics:`, error);
       throw error;
     }
   }
 }
 
 // ================================================
-// OAUTH FLOW UTILITIES
+// OAUTH FUNCTIONS
 // ================================================
 
 /**
- * Generate Tienda Nube OAuth authorization URL
+ * Generate Tienda Nube OAuth URL
  */
 export const getTiendaNubeAuthUrl = (state?: string): string => {
   if (!CLIENT_ID || !REDIRECT_URI) {
-    console.warn('[WARN] TiendaNube CLIENT_ID or REDIRECT_URI not configured');
-    return '#';
+    throw new Error('TiendaNube CLIENT_ID or REDIRECT_URI not configured');
   }
 
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URI,
+    scope: 'read_products read_orders read_customers',
     response_type: 'code',
-    scope: 'read_products read_orders read_customers read_shipping',
-    ...(state && { state }),
   });
 
-  return `https://www.tiendanube.com/apps/${CLIENT_ID}/authorize?${params.toString()}`;
+  if (state) {
+    params.append('state', state);
+  }
+
+  return `https://www.tiendanube.com/apps/authorize?${params.toString()}`;
 };
 
 /**
  * Exchange authorization code for access token
  */
 export const exchangeCodeForToken = async (code: string): Promise<TiendaNubeAuthResponse> => {
-  if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
-    throw new Error('TiendaNube CLIENT_ID, CLIENT_SECRET or REDIRECT_URI not configured');
-  }
-
   try {
-    console.log('[INFO] Exchanging authorization code for access token');
+    console.warn("[OAUTH] Exchanging authorization code for token");
     
     const response = await fetch('https://www.tiendanube.com/apps/authorize/token', {
       method: 'POST',
@@ -434,28 +414,28 @@ export const exchangeCodeForToken = async (code: string): Promise<TiendaNubeAuth
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
         grant_type: 'authorization_code',
-        code,
-        redirect_uri: REDIRECT_URI, // Este es el campo que faltaba!
+        code: code,
+        redirect_uri: REDIRECT_URI,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[ERROR] Failed to exchange code for token:', response.status, errorText);
-      throw new Error(`Failed to exchange code for token: ${response.status}`);
+      console.error("[OAUTH] Token exchange failed:", response.status, errorText);
+      throw new Error(`Token exchange failed: ${response.status} ${errorText}`);
     }
 
-    const tokenData = await response.json();
-    console.log('[INFO] Successfully obtained access token');
-    return tokenData;
+    const data = await response.json();
+    console.warn("[OAUTH] Token exchange successful");
+    return data;
   } catch (error) {
-    console.error('[ERROR] Token exchange failed:', error);
+    console.error("[OAUTH] Token exchange error:", error);
     throw error;
   }
 };
 
 /**
- * Validate if TiendaNube API is properly configured
+ * Check if Tienda Nube is properly configured
  */
 export const isTiendaNubeConfigured = (): boolean => {
   return !!(CLIENT_ID && CLIENT_SECRET && REDIRECT_URI);

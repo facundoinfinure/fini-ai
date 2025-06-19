@@ -1,12 +1,14 @@
 "use client";
 
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { AlertTriangle, Home, RefreshCw } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle, Home, RefreshCw } from "lucide-react";
+
 
 const errorMessages: Record<string, { title: string; description: string; solution: string }> = {
   Configuration: {

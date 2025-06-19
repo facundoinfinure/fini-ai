@@ -97,8 +97,8 @@ export interface TiendaNubeOrder {
   updated_at: string;
   completed_at: string | null;
   next_action: string;
-  payment_details: any;
-  attributes: any[];
+  payment_details: unknown;
+  attributes: unknown[];
   note: string;
   customer: TiendaNubeCustomer;
   products: TiendaNubeOrderProduct[];
@@ -131,7 +131,7 @@ export interface TiendaNubeCustomer {
   billing_name: string;
   billing_phone: string;
   billing_address: TiendaNubeAddress;
-  extra: any;
+  extra: unknown;
   total_spent: string;
   total_spent_currency: string;
   last_order_id: number | null;

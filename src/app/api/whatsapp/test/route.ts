@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
+
 import { authOptions } from "@/lib/auth/config";
 import { TwilioWhatsAppService } from "@/lib/integrations/twilio";
 
-const twilioService = new TwilioWhatsAppService();
+const _twilioService = new TwilioWhatsAppService();
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const _session = await getServerSession(authOptions);
     
-    if (!session?.user?.id) {
+    if (!_session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { to, message, type = "text" } = body;
+    const _body = await request.json();
+    const { to, message, type = "text" } = _body;
 
     if (!to || !message) {
       return NextResponse.json({ 
@@ -23,12 +24,12 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log("[WHATSAPP-TEST] Sending test message:", { to, type, messageLength: message.length });
+    console.warn("[WHATSAPP-TEST] Sending test message:", { to, type, messageLength: message.length });
 
     let result;
 
     if (type === "text") {
-      result = await twilioService.sendMessage(to, message);
+      result = await _twilioService.sendMessage(to, message);
     } else {
       return NextResponse.json({ 
         error: "Unsupported message type", 
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (result.success) {
-      console.log("[WHATSAPP-TEST] Message sent successfully:", result.messageId);
+      console.warn("[WHATSAPP-TEST] Message sent successfully:", result.messageId);
       return NextResponse.json({
         success: true,
         data: {
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
           message,
           type,
           timestamp: new Date().toISOString(),
-          userId: session.user.id
+          userId: _session.user.id
         }
       });
     } else {
@@ -70,21 +71,21 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const _session = await getServerSession(authOptions);
     
-    if (!session?.user?.id) {
+    if (!_session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log("[WHATSAPP-TEST] Getting WhatsApp service status");
+    console.warn("[WHATSAPP-TEST] Getting WhatsApp service status");
 
     // Check Twilio service health
-    const healthCheck = await twilioService.checkServiceHealth();
+    const _healthCheck = await _twilioService.checkServiceHealth();
 
     // Get service configuration status
-    const configured = Boolean(
+    const _configured = Boolean(
       process.env.TWILIO_ACCOUNT_SID &&
       process.env.TWILIO_AUTH_TOKEN &&
       process.env.TWILIO_WHATSAPP_NUMBER
@@ -93,8 +94,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        configured,
-        serviceHealth: healthCheck,
+        configured: _configured,
+        serviceHealth: _healthCheck,
         configuration: {
           hasAccountSid: Boolean(process.env.TWILIO_ACCOUNT_SID),
           hasAuthToken: Boolean(process.env.TWILIO_AUTH_TOKEN),

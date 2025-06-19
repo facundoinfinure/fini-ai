@@ -83,7 +83,7 @@ async function validateToken(token: string): Promise<boolean> {
     // Por ahora, asumimos que cualquier token no vacío es válido
     return token.length > 0;
   } catch (error) {
-    console.error('[ERROR] Token validation failed:', error);
+    console.warn('[ERROR] Token validation failed:', error);
     return false;
   }
 }
@@ -126,7 +126,7 @@ function logSecurityEvent(event: string, request: NextRequest, details?: Record<
   const userAgent = request.headers.get('user-agent') || 'unknown';
   const pathname = request.nextUrl.pathname;
   
-  console.log(`[SECURITY] ${event}`, {
+  console.warn(`[SECURITY] ${event}`, {
     ip,
     userAgent,
     pathname,

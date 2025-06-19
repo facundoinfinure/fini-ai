@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Configuración de Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -15,7 +15,7 @@ async function checkSupabaseConnection(): Promise<{ status: 'healthy' | 'unhealt
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     // Verificar conexión con una query simple
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('_supabase_migrations')
       .select('version')
       .limit(1);
@@ -114,7 +114,7 @@ function checkOptionalServices(): Record<string, { status: 'configured' | 'not_c
   return status;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const startTime = Date.now();
   
   try {

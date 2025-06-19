@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { CheckCircle, ArrowRight, Store, MessageSquare, Bot, TrendingUp } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { useSession } from 'next-auth/react';
+import React, { useState, useEffect } from 'react';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CheckCircle, Circle, ExternalLink, MessageCircle, Store, Settings, Phone, Copy, Send, Bot, ArrowRight, Zap } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+
 
 interface OnboardingStep {
   id: string;
@@ -36,7 +39,7 @@ interface WhatsAppSetup {
 
 export default function OnboardingPage() {
   const { data: session, status } = useSession();
-  const router = useRouter();
+  const _router = useRouter();
   
   const [currentStep, setCurrentStep] = useState(0);
   const [storeConnection, setStoreConnection] = useState<StoreConnection>({
@@ -60,31 +63,31 @@ export default function OnboardingPage() {
   useEffect(() => {
     // Redirect to login if not authenticated
     if (status === 'unauthenticated') {
-      router.push('/auth/signin');
+      _router.push('/auth/signin');
     }
-  }, [status, router]);
+  }, [status, _router]);
 
   useEffect(() => {
     // Check if user already has store connected
     if (status === 'authenticated') {
-      checkExistingStore();
+      _checkExistingStore();
     }
   }, [status]);
 
-  const checkExistingStore = async () => {
+  const _checkExistingStore = async () => {
     setIsCheckingStore(true);
     try {
-      const response = await fetch('/api/dashboard/stats');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.storeConnected) {
+      const _response = await fetch('/api/dashboard/stats');
+      if (_response.ok) {
+        const _data = await _response.json();
+        if (_data.storeConnected) {
           // User already has store connected, skip to WhatsApp setup
           setStoreConnection(prev => ({
             ...prev,
             connected: true,
-            storeInfo: data.storeInfo
+            storeInfo: _data.storeInfo
           }));
-          updateStepCompletion('store', true);
+          _updateStepCompletion('store', true);
           setCurrentStep(1);
         }
       }
@@ -112,17 +115,17 @@ export default function OnboardingPage() {
     return null;
   }
 
-  const updateStepCompletion = (stepId: string, completed: boolean) => {
+  const _updateStepCompletion = (stepId: string, completed: boolean) => {
     setSteps(prev => prev.map(step => 
       step.id === stepId ? { ...step, completed } : step
     ));
   };
 
-  const connectTiendaNube = async () => {
+  const _connectTiendaNube = async () => {
     setIsLoading(true);
     try {
       // For OAuth flow - this would redirect to Tienda Nube
-      const response = await fetch('/api/tiendanube/oauth/connect', {
+      const _response = await fetch('/api/tiendanube/oauth/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -131,33 +134,33 @@ export default function OnboardingPage() {
         })
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('[ONBOARDING] OAuth response:', data);
+      if (_response.ok) {
+        const _data = await _response.json();
+        console.warn('[ONBOARDING] OAuth response:', _data);
         
         // Check both possible locations for authUrl
-        const authUrl = data.authUrl || data.data?.authUrl;
+        const _authUrl = _data.authUrl || _data.data?.authUrl;
         
-        if (authUrl) {
-          console.log('[ONBOARDING] Redirecting to OAuth URL:', authUrl);
+        if (_authUrl) {
+          console.warn('[ONBOARDING] Redirecting to OAuth URL:', _authUrl);
           // Redirect to Tienda Nube OAuth
-          window.location.href = authUrl;
+          window.location.href = _authUrl;
         } else {
-          console.error('[ONBOARDING] No authUrl found in response:', data);
+          console.error('[ONBOARDING] No authUrl found in response:', _data);
           throw new Error('No auth URL received from server');
         }
       } else {
-        console.error('[ONBOARDING] OAuth request failed:', response.status, response.statusText);
-        const errorData = await response.json();
-        console.error('[ONBOARDING] Error details:', errorData);
+        console.error('[ONBOARDING] OAuth request failed:', _response.status, _response.statusText);
+        const _errorData = await _response.json();
+        console.error('[ONBOARDING] Error details:', _errorData);
         
         // If it's an auth error, redirect to login
-        if (response.status === 401) {
-          router.push('/auth/signin');
+        if (_response.status === 401) {
+          _router.push('/auth/signin');
           return;
         }
         
-        throw new Error(errorData.error || 'Failed to connect to Tienda Nube');
+        throw new Error(_errorData.error || 'Failed to connect to Tienda Nube');
       }
     } catch (error) {
       console.error('Error connecting to Tienda Nube:', error);
@@ -167,7 +170,7 @@ export default function OnboardingPage() {
     }
   };
 
-  const addPhoneNumber = () => {
+  const _addPhoneNumber = () => {
     if (whatsappSetup.testNumber.trim()) {
       setWhatsappSetup(prev => ({
         ...prev,
@@ -177,14 +180,14 @@ export default function OnboardingPage() {
     }
   };
 
-  const removePhoneNumber = (index: number) => {
+  const _removePhoneNumber = (index: number) => {
     setWhatsappSetup(prev => ({
       ...prev,
       phoneNumbers: prev.phoneNumbers.filter((_, i) => i !== index)
     }));
   };
 
-  const configureWhatsApp = async () => {
+  const _configureWhatsApp = async () => {
     if (whatsappSetup.phoneNumbers.length === 0) {
       alert('Agrega al menos un número de teléfono');
       return;
@@ -192,7 +195,7 @@ export default function OnboardingPage() {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/whatsapp/configure', {
+      const _response = await fetch('/api/whatsapp/configure', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -201,14 +204,14 @@ export default function OnboardingPage() {
         })
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      if (_response.ok) {
+        const _data = await _response.json();
         setWhatsappSetup(prev => ({
           ...prev,
           configured: true,
-          webhookUrl: data.data?.webhookUrl
+          webhookUrl: _data.data?.webhookUrl
         }));
-        updateStepCompletion('whatsapp', true);
+        _updateStepCompletion('whatsapp', true);
         setCurrentStep(2);
       } else {
         throw new Error('Failed to configure WhatsApp');
@@ -221,7 +224,7 @@ export default function OnboardingPage() {
     }
   };
 
-  const sendInitialMessage = async (phoneNumber: string) => {
+  const _sendInitialMessage = async (phoneNumber: string) => {
     try {
       const response = await fetch('/api/whatsapp/send-welcome', {
         method: 'POST',
@@ -231,9 +234,9 @@ export default function OnboardingPage() {
 
       if (response.ok) {
         alert(`Mensaje enviado exitosamente a ${phoneNumber}`);
-        updateStepCompletion('activate', true);
+        _updateStepCompletion('activate', true);
         // Redirect to dashboard
-        router.push('/dashboard');
+        _router.push('/dashboard');
       } else {
         throw new Error('Failed to send message');
       }
@@ -243,7 +246,7 @@ export default function OnboardingPage() {
     }
   };
 
-  const copyToClipboard = (text: string) => {
+  const _copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
   };
 
@@ -341,7 +344,7 @@ export default function OnboardingPage() {
                           type="url"
                           placeholder="https://tu-tienda.mitiendanube.com"
                           value={storeConnection.storeUrl}
-                          onChange={(e) => setStoreConnection(prev => ({ ...prev, storeUrl: e.target.value }))}
+                          onChange={(_e) => setStoreConnection(prev => ({ ...prev, storeUrl: _e.target.value }))}
                         />
                         <p className="text-xs text-gray-500 mt-1">
                           Ejemplo: https://mi-tienda.mitiendanube.com
@@ -349,7 +352,7 @@ export default function OnboardingPage() {
                       </div>
 
                       <Button 
-                        onClick={connectTiendaNube}
+                        onClick={_connectTiendaNube}
                         disabled={isLoading || !storeConnection.storeUrl}
                         className="w-full"
                       >
@@ -387,9 +390,9 @@ export default function OnboardingPage() {
                         type="tel"
                         placeholder="+5491112345678"
                         value={whatsappSetup.testNumber}
-                        onChange={(e) => setWhatsappSetup(prev => ({ ...prev, testNumber: e.target.value }))}
+                        onChange={(_e) => setWhatsappSetup(prev => ({ ...prev, testNumber: _e.target.value }))}
                       />
-                      <Button onClick={addPhoneNumber} disabled={!whatsappSetup.testNumber}>
+                      <Button onClick={_addPhoneNumber} disabled={!whatsappSetup.testNumber}>
                         Agregar
                       </Button>
                     </div>
@@ -410,7 +413,7 @@ export default function OnboardingPage() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => removePhoneNumber(index)}
+                              onClick={() => _removePhoneNumber(index)}
                             >
                               Eliminar
                             </Button>
@@ -421,14 +424,14 @@ export default function OnboardingPage() {
                   )}
 
                   <Button 
-                    onClick={configureWhatsApp}
+                    onClick={_configureWhatsApp}
                     disabled={isLoading || whatsappSetup.phoneNumbers.length === 0}
                     className="w-full"
                   >
                     {isLoading ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                     ) : (
-                      <MessageCircle className="w-4 h-4 mr-2" />
+                      <MessageSquare className="w-4 h-4 mr-2" />
                     )}
                     Configurar WhatsApp
                   </Button>
@@ -455,10 +458,10 @@ export default function OnboardingPage() {
                         <p className="text-sm text-gray-600">Número configurado</p>
                       </div>
                       <Button
-                        onClick={() => sendInitialMessage(phone)}
+                        onClick={() => _sendInitialMessage(phone)}
                         variant="outline"
                       >
-                        <Send className="w-4 h-4 mr-2" />
+                        <MessageSquare className="w-4 h-4 mr-2" />
                         Enviar mensaje
                       </Button>
                     </div>
@@ -466,7 +469,7 @@ export default function OnboardingPage() {
 
                   <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
                     <div className="flex items-center mb-2">
-                      <Zap className="w-5 h-5 text-green-600 mr-2" />
+                      <TrendingUp className="w-5 h-5 text-green-600 mr-2" />
                       <h4 className="font-medium text-green-900">¡Todo listo!</h4>
                     </div>
                     <p className="text-green-700 text-sm">
@@ -477,7 +480,7 @@ export default function OnboardingPage() {
                   </div>
 
                   <Button 
-                    onClick={() => router.push('/dashboard')}
+                    onClick={() => _router.push('/dashboard')}
                     className="w-full bg-green-600 hover:bg-green-700"
                   >
                     Ir al Dashboard

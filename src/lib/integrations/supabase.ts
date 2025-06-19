@@ -1,11 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
-import type { TiendaNubeStore, TiendaNubeAuthResponse } from '@/types/tiendanube';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+// import type { TiendaNubeStore, TiendaNubeAuthResponse } from '@/types/tiendanube';
+
+const _supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const _supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 // Client with service role for server-side operations
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+const _supabaseAdmin = createClient(_supabaseUrl, _supabaseServiceKey);
 
 export interface StoredTiendaNubeStore {
   id: string;
@@ -18,7 +19,7 @@ export interface StoredTiendaNubeStore {
   token_expires_at?: string;
   webhook_url?: string;
   is_active: boolean;
-  store_data?: any;
+  store_data?: unknown;
   created_at: string;
   updated_at: string;
 }
@@ -32,17 +33,17 @@ export async function saveTiendaNubeStore(params: {
   storeName: string;
   accessToken: string;
   refreshToken?: string;
-  storeData?: any;
+  storeData?: unknown;
 }): Promise<{ success: true; store: StoredTiendaNubeStore } | { success: false; error: string }> {
   try {
-    console.log('[SUPABASE] Saving Tienda Nube store:', {
+    console.warn('[SUPABASE] Saving Tienda Nube store:', {
       userId: params.userId,
       storeId: params.storeId,
       storeName: params.storeName
     });
 
     // Check if store already exists for this user
-    const { data: existingStore, error: checkError } = await supabaseAdmin
+    const { data: existingStore, error: checkError } = await _supabaseAdmin
       .from('tienda_nube_stores')
       .select('*')
       .eq('user_id', params.userId)
@@ -51,11 +52,11 @@ export async function saveTiendaNubeStore(params: {
 
     if (checkError && checkError.code !== 'PGRST116') {
       // PGRST116 = no rows found, which is fine
-      console.error('[SUPABASE] Error checking existing store:', checkError);
+      console.warn('[SUPABASE] Error checking existing store:', checkError);
       return { success: false, error: checkError.message };
     }
 
-    const storeRecord = {
+    const _storeRecord = {
       user_id: params.userId,
       store_id: params.storeId,
       store_name: params.storeName,
@@ -69,40 +70,40 @@ export async function saveTiendaNubeStore(params: {
     let result;
     if (existingStore) {
       // Update existing store
-      console.log('[SUPABASE] Updating existing store');
-      const { data, error } = await supabaseAdmin
+      console.warn('[SUPABASE] Updating existing store');
+      const { data, error } = await _supabaseAdmin
         .from('tienda_nube_stores')
-        .update(storeRecord)
+        .update(_storeRecord)
         .eq('id', existingStore.id)
         .select()
         .single();
 
       if (error) {
-        console.error('[SUPABASE] Error updating store:', error);
+        console.warn('[SUPABASE] Error updating store:', error);
         return { success: false, error: error.message };
       }
       result = data;
     } else {
       // Create new store
-      console.log('[SUPABASE] Creating new store');
-      const { data, error } = await supabaseAdmin
+      console.warn('[SUPABASE] Creating new store');
+      const { data, error } = await _supabaseAdmin
         .from('tienda_nube_stores')
-        .insert(storeRecord)
+        .insert(_storeRecord)
         .select()
         .single();
 
       if (error) {
-        console.error('[SUPABASE] Error creating store:', error);
+        console.warn('[SUPABASE] Error creating store:', error);
         return { success: false, error: error.message };
       }
       result = data;
     }
 
-    console.log('[SUPABASE] Store saved successfully:', result.id);
+    console.warn('[SUPABASE] Store saved successfully:', result.id);
     return { success: true, store: result };
 
   } catch (error) {
-    console.error('[SUPABASE] Unexpected error saving store:', error);
+    console.warn('[SUPABASE] Unexpected error saving store:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -112,9 +113,9 @@ export async function saveTiendaNubeStore(params: {
  */
 export async function getUserTiendaNubeStores(userId: string): Promise<{ success: true; stores: StoredTiendaNubeStore[] } | { success: false; error: string }> {
   try {
-    console.log('[SUPABASE] Getting stores for user:', userId);
+    console.warn('[SUPABASE] Getting stores for user:', userId);
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await _supabaseAdmin
       .from('tienda_nube_stores')
       .select('*')
       .eq('user_id', userId)
@@ -122,15 +123,15 @@ export async function getUserTiendaNubeStores(userId: string): Promise<{ success
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('[SUPABASE] Error getting stores:', error);
+      console.warn('[SUPABASE] Error getting stores:', error);
       return { success: false, error: error.message };
     }
 
-    console.log('[SUPABASE] Found stores:', data.length);
+    console.warn('[SUPABASE] Found stores:', data.length);
     return { success: true, stores: data };
 
   } catch (error) {
-    console.error('[SUPABASE] Unexpected error getting stores:', error);
+    console.warn('[SUPABASE] Unexpected error getting stores:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -140,9 +141,9 @@ export async function getUserTiendaNubeStores(userId: string): Promise<{ success
  */
 export async function getTiendaNubeStore(userId: string, storeId: string): Promise<{ success: true; store: StoredTiendaNubeStore } | { success: false; error: string }> {
   try {
-    console.log('[SUPABASE] Getting store:', { userId, storeId });
+    console.warn('[SUPABASE] Getting store:', { userId, storeId });
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await _supabaseAdmin
       .from('tienda_nube_stores')
       .select('*')
       .eq('user_id', userId)
@@ -151,14 +152,14 @@ export async function getTiendaNubeStore(userId: string, storeId: string): Promi
       .single();
 
     if (error) {
-      console.error('[SUPABASE] Error getting store:', error);
+      console.warn('[SUPABASE] Error getting store:', error);
       return { success: false, error: error.message };
     }
 
     return { success: true, store: data };
 
   } catch (error) {
-    console.error('[SUPABASE] Unexpected error getting store:', error);
+    console.warn('[SUPABASE] Unexpected error getting store:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -168,24 +169,24 @@ export async function getTiendaNubeStore(userId: string, storeId: string): Promi
  */
 export async function deactivateTiendaNubeStore(userId: string, storeId: string): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    console.log('[SUPABASE] Deactivating store:', { userId, storeId });
+    console.warn('[SUPABASE] Deactivating store:', { userId, storeId });
 
-    const { error } = await supabaseAdmin
+    const { error } = await _supabaseAdmin
       .from('tienda_nube_stores')
       .update({ is_active: false, updated_at: new Date().toISOString() })
       .eq('user_id', userId)
       .eq('store_id', storeId);
 
     if (error) {
-      console.error('[SUPABASE] Error deactivating store:', error);
+      console.warn('[SUPABASE] Error deactivating store:', error);
       return { success: false, error: error.message };
     }
 
-    console.log('[SUPABASE] Store deactivated successfully');
+    console.warn('[SUPABASE] Store deactivated successfully');
     return { success: true };
 
   } catch (error) {
-    console.error('[SUPABASE] Unexpected error deactivating store:', error);
+    console.warn('[SUPABASE] Unexpected error deactivating store:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 } 

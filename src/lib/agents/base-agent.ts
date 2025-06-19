@@ -3,6 +3,7 @@
  * Abstract base class for all AI agents in the system
  */
 
+import { AGENT_CONFIG } from './config';
 import type { 
   Agent, 
   AgentContext, 
@@ -11,8 +12,8 @@ import type {
   AgentCapability,
   AgentTypeConfig 
 } from './types';
+
 import { ragEngine } from '@/lib/rag';
-import { AGENT_CONFIG } from './config';
 
 export abstract class BaseAgent implements Agent {
   public readonly type: AgentType;
@@ -44,26 +45,26 @@ export abstract class BaseAgent implements Agent {
    * Check if this agent can handle the given request
    */
   async canHandle(context: AgentContext): Promise<{ canHandle: boolean; confidence: number; reasoning: string }> {
-    const startTime = Date.now();
+    const _startTime = Date.now();
     
     try {
-      const { userMessage } = context;
-      const lowerMessage = userMessage.toLowerCase();
+      const { userMessage: _userMessage } = context;
+      // const _lowerMessage = userMessage.toLowerCase();
       
       // Get agent-specific handling logic
-      const handlingScore = await this.calculateHandlingScore(context);
+      const _handlingScore = await this.calculateHandlingScore(context);
       
-      const canHandle = handlingScore.confidence >= 0.5;
-      const executionTime = Date.now() - startTime;
+      const _canHandle = _handlingScore.confidence >= 0.5;
+      const _executionTime = Date.now() - _startTime;
       
       if (AGENT_CONFIG.debugMode) {
-        console.log(`[AGENT:${this.type}] canHandle check: ${canHandle} (${handlingScore.confidence.toFixed(3)}) in ${executionTime}ms`);
+        console.warn(`[AGENT:${this.type}] canHandle check: ${_canHandle} (${_handlingScore.confidence.toFixed(3)}) in ${_executionTime}ms`);
       }
       
       return {
-        canHandle,
-        confidence: handlingScore.confidence,
-        reasoning: handlingScore.reasoning
+        canHandle: _canHandle,
+        confidence: _handlingScore.confidence,
+        reasoning: _handlingScore.reasoning
       };
     } catch (error) {
       console.error(`[ERROR] Agent ${this.type} canHandle failed:`, error);
@@ -79,18 +80,18 @@ export abstract class BaseAgent implements Agent {
    * Get relevant context using RAG engine
    */
   async getRelevantContext(query: string, context: AgentContext): Promise<string> {
-    const startTime = Date.now();
+    const _startTime = Date.now();
     
     try {
       if (!this.config.ragConfig.enabled || !AGENT_CONFIG.enableRAG) {
         if (AGENT_CONFIG.debugMode) {
-          console.log(`[AGENT:${this.type}] RAG disabled, skipping context retrieval`);
+          console.warn(`[AGENT:${this.type}] RAG disabled, skipping context retrieval`);
         }
         return '';
       }
 
-      const ragQuery = {
-        query: query,
+      const _ragQuery = {
+        query,
         context: {
           storeId: context.storeId,
           userId: context.userId,
@@ -104,23 +105,23 @@ export abstract class BaseAgent implements Agent {
         }
       };
 
-      const ragResult = await ragEngine.search(ragQuery);
-      const executionTime = Date.now() - startTime;
+      const _ragResult = await ragEngine.search(_ragQuery);
+      const _executionTime = Date.now() - _startTime;
 
       if (AGENT_CONFIG.debugMode) {
-        console.log(`[AGENT:${this.type}] RAG retrieved ${ragResult.documents.length} contexts in ${executionTime}ms`);
+        console.warn(`[AGENT:${this.type}] RAG retrieved ${_ragResult.documents.length} contexts in ${_executionTime}ms`);
       }
 
-      if (ragResult.documents.length === 0) {
+      if (_ragResult.documents.length === 0) {
         return '';
       }
 
       // Format context for the agent
-      const contextSections = ragResult.documents.map((doc: any) => {
+      const _contextSections = _ragResult.documents.map((doc: any) => {
         return `[${doc.metadata?.type || 'data'}] ${doc.content}`;
       });
 
-      return contextSections.join('\n\n');
+      return _contextSections.join('\n\n');
     } catch (error) {
       console.error(`[ERROR] Agent ${this.type} RAG retrieval failed:`, error);
       return '';
@@ -151,7 +152,7 @@ export abstract class BaseAgent implements Agent {
       }
 
       // Use OpenAI API directly (we'll need to install it)
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const _response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -166,12 +167,12 @@ export abstract class BaseAgent implements Agent {
         })
       });
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      if (!_response.ok) {
+        throw new Error(`OpenAI API error: ${_response.status} ${_response.statusText}`);
       }
 
-      const data = await response.json();
-      return data.choices[0]?.message?.content || 'No pude generar una respuesta.';
+      const _data = await _response.json();
+      return _data.choices[0]?.message?.content || 'No pude generar una respuesta.';
     } catch (error) {
       console.error(`[ERROR] Agent ${this.type} response generation failed:`, error);
       throw new Error(`Failed to generate response: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -228,14 +229,14 @@ export abstract class BaseAgent implements Agent {
    * Utility method to check for keywords in text
    */
   protected hasKeywords(text: string, keywords: string[]): { found: boolean; matches: string[]; score: number } {
-    const lowerText = text.toLowerCase();
-    const matches = keywords.filter(keyword => lowerText.includes(keyword.toLowerCase()));
-    const score = matches.length / keywords.length;
+    const _lowerText = text.toLowerCase();
+    const _matches = keywords.filter(keyword => _lowerText.includes(keyword.toLowerCase()));
+    const _score = _matches.length / keywords.length;
     
     return {
-      found: matches.length > 0,
-      matches,
-      score
+      found: _matches.length > 0,
+      matches: _matches,
+      score: _score
     };
   }
 
@@ -246,8 +247,8 @@ export abstract class BaseAgent implements Agent {
     let formatted = template;
     
     Object.entries(variables).forEach(([key, value]) => {
-      const placeholder = `{${key}}`;
-      formatted = formatted.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
+      const _placeholder = `{${key}}`;
+      formatted = formatted.replace(new RegExp(_placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
     });
     
     return formatted;
@@ -259,17 +260,17 @@ export abstract class BaseAgent implements Agent {
   protected log(level: 'info' | 'debug' | 'error', message: string, data?: any): void {
     if (!AGENT_CONFIG.debugMode && level === 'debug') return;
     
-    const prefix = `[AGENT:${this.type.toUpperCase()}]`;
+    const _prefix = `[AGENT:${this.type.toUpperCase()}]`;
     
     switch (level) {
       case 'info':
-        console.log(`${prefix} ${message}`, data ? data : '');
+        console.warn(`${_prefix} ${message}`, data ? data : '');
         break;
       case 'debug':
-        console.debug(`${prefix} ${message}`, data ? data : '');
+        console.debug(`${_prefix} ${message}`, data ? data : '');
         break;
       case 'error':
-        console.error(`${prefix} ${message}`, data ? data : '');
+        console.error(`${_prefix} ${message}`, data ? data : '');
         break;
     }
   }

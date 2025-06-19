@@ -43,23 +43,23 @@ export class TwilioWhatsAppService {
    */
   async sendMessage(message: WhatsAppMessage): Promise<{ success: boolean; messageSid?: string; error?: string }> {
     try {
-      console.log('[TWILIO] Sending message to:', message.to);
+      console.warn('[TWILIO] Sending message to:', message.to);
 
-      const twilioMessage = await this.client.messages.create({
+      const _twilioMessage = await this.client.messages.create({
         body: message.body,
         from: `whatsapp:${this.config.phoneNumber}`,
         to: `whatsapp:${message.to}`,
         ...(message.mediaUrl && { mediaUrl: [message.mediaUrl] })
       });
 
-      console.log('[TWILIO] Message sent successfully:', twilioMessage.sid);
+      console.warn('[TWILIO] Message sent successfully:', _twilioMessage.sid);
 
       return {
         success: true,
-        messageSid: twilioMessage.sid
+        messageSid: _twilioMessage.sid
       };
     } catch (error) {
-      console.error('[ERROR] Twilio send message failed:', error);
+      console.warn('[ERROR] Twilio send message failed:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -71,7 +71,7 @@ export class TwilioWhatsAppService {
    * Send welcome message to activate Fini AI
    */
   async sendWelcomeMessage(phoneNumber: string, storeName?: string): Promise<{ success: boolean; error?: string }> {
-    const welcomeMessage = `¡Hola! Soy Fini AI, tu asistente de IA para ${storeName || 'tu tienda'}.
+    const _welcomeMessage = `¡Hola Soy Fini AI, tu asistente de IA para ${storeName || 'tu tienda'}.
 
 🤖 Puedo ayudarte con:
 • 📊 Analytics y ventas
@@ -81,32 +81,49 @@ export class TwilioWhatsAppService {
 
 Escribe "hola" para comenzar o "ayuda" para ver todas mis funciones.
 
-¡Estoy aquí para ayudarte a hacer crecer tu negocio! 🚀`;
+¡Estoy aquí para ayudarte a hacer crecer tu negocio 🚀`;
 
     return this.sendMessage({
       to: phoneNumber,
       from: this.config.phoneNumber,
-      body: welcomeMessage
+      body: _welcomeMessage
     });
   }
 
   /**
    * Send analytics response
    */
-  async sendAnalyticsResponse(phoneNumber: string, analyticsData: any): Promise<{ success: boolean; error?: string }> {
-    const message = `📊 *Analytics de tu tienda*
+  async sendAnalyticsResponse(phoneNumber: string, analyticsData: unknown): Promise<{ success: boolean; error?: string }> {
+    let _message = '';
+    if (
+      analyticsData &&
+      typeof analyticsData === 'object' &&
+      'totalSales' in analyticsData &&
+      'totalOrders' in analyticsData &&
+      'newCustomers' in analyticsData &&
+      'topProduct' in analyticsData
+    ) {
+      const data = analyticsData as {
+        totalSales: number;
+        totalOrders: number;
+        newCustomers: number;
+        topProduct: string;
+      };
+      _message = `📊 *Analytics de tu tienda*
 
-💰 Ventas: $${analyticsData.totalSales}
-📦 Pedidos: ${analyticsData.totalOrders}
-👥 Clientes nuevos: ${analyticsData.newCustomers}
-🔥 Producto top: ${analyticsData.topProduct}
+💰 Ventas: $${data.totalSales}
+📦 Pedidos: ${data.totalOrders}
+👥 Clientes nuevos: ${data.newCustomers}
+🔥 Producto top: ${data.topProduct}
 
 ¿Te gustaría ver más detalles o comparar con otros períodos?`;
-
+    } else {
+      _message = 'No se pudo obtener analytics de la tienda.';
+    }
     return this.sendMessage({
       to: phoneNumber,
       from: this.config.phoneNumber,
-      body: message
+      body: _message
     });
   }
 
@@ -114,7 +131,7 @@ Escribe "hola" para comenzar o "ayuda" para ver todas mis funciones.
    * Send marketing suggestions
    */
   async sendMarketingSuggestions(phoneNumber: string, suggestions: string[]): Promise<{ success: boolean; error?: string }> {
-    const message = `🎯 *Ideas de Marketing*
+    const _message = `🎯 *Ideas de Marketing*
 
 ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n')}
 
@@ -123,14 +140,14 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
     return this.sendMessage({
       to: phoneNumber,
       from: this.config.phoneNumber,
-      body: message
+      body: _message
     });
   }
 
   /**
    * Validate webhook signature
    */
-  validateWebhookSignature(body: string, signature: string, url: string): boolean {
+  validateWebhookSignature(_body: string, _signature: string, _url: string): boolean {
     try {
       // For now, we'll skip signature validation in development
       // In production, you should implement proper signature validation
@@ -142,7 +159,7 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
       console.warn('[WARNING] Webhook signature validation not implemented');
       return true;
     } catch (error) {
-      console.error('[ERROR] Webhook signature validation failed:', error);
+      console.warn('[ERROR] Webhook signature validation failed:', error);
       return false;
     }
   }
@@ -150,16 +167,28 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
   /**
    * Parse incoming webhook
    */
-  parseWebhook(body: any): WhatsAppWebhook {
-    return {
-      MessageSid: body.MessageSid,
-      From: body.From.replace('whatsapp:', ''),
-      To: body.To.replace('whatsapp:', ''),
-      Body: body.Body,
-      MediaUrl0: body.MediaUrl0,
-      NumMedia: body.NumMedia,
-      Timestamp: body.Timestamp
-    };
+  parseWebhook(body: unknown): WhatsAppWebhook {
+    if (
+      body &&
+      typeof body === 'object' &&
+      'MessageSid' in body &&
+      'From' in body &&
+      'To' in body &&
+      'Body' in body &&
+      'Timestamp' in body
+    ) {
+      const b = body as Record<string, any>;
+      return {
+        MessageSid: b.MessageSid,
+        From: b.From.replace('whatsapp:', ''),
+        To: b.To.replace('whatsapp:', ''),
+        Body: b.Body,
+        MediaUrl0: b.MediaUrl0,
+        NumMedia: b.NumMedia,
+        Timestamp: b.Timestamp
+      };
+    }
+    throw new Error('Invalid webhook body');
   }
 
   /**
@@ -167,10 +196,10 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
    */
   async getMessageStatus(messageSid: string): Promise<{ status: string; error?: string }> {
     try {
-      const message = await this.client.messages(messageSid).fetch();
-      return { status: message.status };
+      const _message = await this.client.messages(messageSid).fetch();
+      return { status: _message.status };
     } catch (error) {
-      console.error('[ERROR] Get message status failed:', error);
+      console.warn('[ERROR] Get message status failed:', error);
       return { 
         status: 'unknown',
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -184,9 +213,9 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
  */
 export function createTwilioWhatsAppService(): TwilioWhatsAppService {
   const config: TwilioConfig = {
-    accountSid: process.env.TWILIO_ACCOUNT_SID!,
-    authToken: process.env.TWILIO_AUTH_TOKEN!,
-    phoneNumber: process.env.TWILIO_PHONE_NUMBER!,
+    accountSid: process.env.TWILIO_ACCOUNT_SID || "",
+    authToken: process.env.TWILIO_AUTH_TOKEN || "",
+    phoneNumber: process.env.TWILIO_PHONE_NUMBER || "",
     webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/whatsapp/webhook`
   };
 

@@ -1,25 +1,26 @@
 import twilio from 'twilio';
+
 import type { TwilioWhatsAppMessage } from '@/types/whatsapp';
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID!;
-const authToken = process.env.TWILIO_AUTH_TOKEN!;
-const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER!;
+const _accountSid = process.env.TWILIO_ACCOUNT_SID || "";
+const _authToken = process.env.TWILIO_AUTH_TOKEN || "";
+const _whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER || "";
 
 // Initialize Twilio client only if credentials are available
 let twilioClient: twilio.Twilio | null = null;
 
 // Development mode - simulate WhatsApp without real credentials
-const isDevelopmentMode = process.env.NODE_ENV === 'development' && (!accountSid || !authToken || !whatsappNumber);
+const _isDevelopmentMode = process.env.NODE_ENV === 'development' && (!_accountSid || !_authToken || !_whatsappNumber);
 
-if (accountSid && authToken && !isDevelopmentMode) {
+if (_accountSid && _authToken && !_isDevelopmentMode) {
   try {
-    twilioClient = twilio(accountSid, authToken);
-    console.log('[INFO] Twilio client initialized successfully');
+    twilioClient = twilio(_accountSid, _authToken);
+    console.warn('[INFO] Twilio client initialized successfully');
   } catch (error) {
-    console.error('[ERROR] Failed to initialize Twilio client:', error);
+    console.warn('[ERROR] Failed to initialize Twilio client:', error);
   }
 } else {
-  if (isDevelopmentMode) {
+  if (_isDevelopmentMode) {
     console.warn('[WARN] Twilio running in DEVELOPMENT MODE - messages will be simulated');
   } else {
     console.warn('[WARN] Twilio credentials not configured. WhatsApp functionality will be limited.');
@@ -36,39 +37,39 @@ export class TwilioWhatsAppService {
    */
   async sendMessage(to: string, body: string): Promise<{ success: true; messageId: string } | { success: false; error: string }> {
     // Development mode simulation
-    if (isDevelopmentMode) {
-      console.log(`[DEV] Simulating WhatsApp message to ${to}: "${body}"`);
+    if (_isDevelopmentMode) {
+      console.warn(`[DEV] Simulating WhatsApp message to ${to}: "${body}"`);
       
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      const mockMessageId = `mock_msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const _mockMessageId = `mock_msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      console.log(`[DEV] Simulated WhatsApp message sent successfully. Mock SID: ${mockMessageId}`);
+      console.warn(`[DEV] Simulated WhatsApp message sent successfully. Mock SID: ${_mockMessageId}`);
       return { 
         success: true, 
-        messageId: mockMessageId 
+        messageId: _mockMessageId 
       };
     }
 
-    if (!twilioClient || !whatsappNumber) {
-      console.error('[ERROR] Twilio not configured properly');
+    if (!twilioClient || !_whatsappNumber) {
+      console.warn('[ERROR] Twilio not configured properly');
       return { success: false, error: 'WhatsApp service not configured' };
     }
 
     try {
-      console.log(`[INFO] Sending WhatsApp message to ${to}`);
+      console.warn(`[INFO] Sending WhatsApp message to ${to}`);
       
-      const message = await twilioClient.messages.create({
-        from: whatsappNumber,
+      const _message = await twilioClient.messages.create({
+        from: _whatsappNumber,
         to: `whatsapp:${to}`,
-        body: body,
+        body,
       });
 
-      console.log(`[INFO] WhatsApp message sent successfully. SID: ${message.sid}`);
-      return { success: true, messageId: message.sid };
+      console.warn(`[INFO] WhatsApp message sent successfully. SID: ${_message.sid}`);
+      return { success: true, messageId: _message.sid };
     } catch (error) {
-      console.error('[ERROR] Failed to send WhatsApp message:', error);
+      console.warn('[ERROR] Failed to send WhatsApp message:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error occurred' 
@@ -84,16 +85,16 @@ export class TwilioWhatsAppService {
     templateName: string, 
     variables: string[] = []
   ): Promise<{ success: true; messageId: string } | { success: false; error: string }> {
-    if (!twilioClient || !whatsappNumber) {
-      console.error('[ERROR] Twilio not configured properly');
+    if (!twilioClient || !_whatsappNumber) {
+      console.warn('[ERROR] Twilio not configured properly');
       return { success: false, error: 'WhatsApp service not configured' };
     }
 
     try {
-      console.log(`[INFO] Sending WhatsApp template ${templateName} to ${to}`);
+      console.warn(`[INFO] Sending WhatsApp template ${templateName} to ${to}`);
       
-      const message = await twilioClient.messages.create({
-        from: whatsappNumber,
+      const _message = await twilioClient.messages.create({
+        from: _whatsappNumber,
         to: `whatsapp:${to}`,
         contentSid: templateName,
         contentVariables: JSON.stringify(variables.reduce((acc, val, idx) => {
@@ -102,10 +103,10 @@ export class TwilioWhatsAppService {
         }, {} as Record<string, string>)),
       });
 
-      console.log(`[INFO] WhatsApp template sent successfully. SID: ${message.sid}`);
-      return { success: true, messageId: message.sid };
+      console.warn(`[INFO] WhatsApp template sent successfully. SID: ${_message.sid}`);
+      return { success: true, messageId: _message.sid };
     } catch (error) {
-      console.error('[ERROR] Failed to send WhatsApp template:', error);
+      console.warn('[ERROR] Failed to send WhatsApp template:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error occurred' 
@@ -121,25 +122,25 @@ export class TwilioWhatsAppService {
     mediaUrl: string, 
     caption?: string
   ): Promise<{ success: true; messageId: string } | { success: false; error: string }> {
-    if (!twilioClient || !whatsappNumber) {
-      console.error('[ERROR] Twilio not configured properly');
+    if (!twilioClient || !_whatsappNumber) {
+      console.warn('[ERROR] Twilio not configured properly');
       return { success: false, error: 'WhatsApp service not configured' };
     }
 
     try {
-      console.log(`[INFO] Sending WhatsApp media message to ${to}`);
+      console.warn(`[INFO] Sending WhatsApp media message to ${to}`);
       
-      const message = await twilioClient.messages.create({
-        from: whatsappNumber,
+      const _message = await twilioClient.messages.create({
+        from: _whatsappNumber,
         to: `whatsapp:${to}`,
         mediaUrl: [mediaUrl],
         ...(caption && { body: caption }),
       });
 
-      console.log(`[INFO] WhatsApp media message sent successfully. SID: ${message.sid}`);
-      return { success: true, messageId: message.sid };
+      console.warn(`[INFO] WhatsApp media message sent successfully. SID: ${_message.sid}`);
+      return { success: true, messageId: _message.sid };
     } catch (error) {
-      console.error('[ERROR] Failed to send WhatsApp media message:', error);
+      console.warn('[ERROR] Failed to send WhatsApp media message:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error occurred' 
@@ -154,8 +155,8 @@ export class TwilioWhatsAppService {
     recipients: string[], 
     body: string
   ): Promise<Array<{ to: string; success: boolean; messageId?: string; error?: string }>> {
-    if (!twilioClient || !whatsappNumber) {
-      console.error('[ERROR] Twilio not configured properly');
+    if (!twilioClient || !_whatsappNumber) {
+      console.warn('[ERROR] Twilio not configured properly');
       return recipients.map(to => ({ 
         to, 
         success: false, 
@@ -163,16 +164,16 @@ export class TwilioWhatsAppService {
       }));
     }
 
-    console.log(`[INFO] Sending bulk WhatsApp messages to ${recipients.length} recipients`);
+    console.warn(`[INFO] Sending bulk WhatsApp messages to ${recipients.length} recipients`);
     
-    const results = await Promise.allSettled(
-      recipients.map(async (to) => {
-        const result = await this.sendMessage(to, body);
-        return { to, ...result };
+    const _results = await Promise.allSettled(
+      recipients.map(async (_to) => {
+        const result = await this.sendMessage(_to, body);
+        return { to: _to, ...result };
       })
     );
 
-    return results.map((result, index) => {
+    return _results.map((result, index) => {
       if (result.status === 'fulfilled') {
         return result.value;
       } else {
@@ -188,9 +189,9 @@ export class TwilioWhatsAppService {
   /**
    * Check WhatsApp service health
    */
-  async checkServiceHealth(): Promise<{ configured: boolean; accountInfo?: any; error?: string }> {
+  async checkServiceHealth(): Promise<{ configured: boolean; accountInfo?: unknown; error?: string }> {
     // Development mode
-    if (isDevelopmentMode) {
+    if (_isDevelopmentMode) {
       return {
         configured: true,
         accountInfo: {
@@ -210,17 +211,17 @@ export class TwilioWhatsAppService {
     }
 
     try {
-      const account = await twilioClient.api.accounts(accountSid).fetch();
+      const _account = await twilioClient.api.accounts(_accountSid).fetch();
       return {
         configured: true,
         accountInfo: {
-          friendlyName: account.friendlyName,
-          status: account.status,
-          type: account.type,
+          friendlyName: _account.friendlyName,
+          status: _account.status,
+          type: _account.type,
         },
       };
     } catch (error) {
-      console.error('[ERROR] Twilio health check failed:', error);
+      console.warn('[ERROR] Twilio health check failed:', error);
       return {
         configured: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -232,58 +233,58 @@ export class TwilioWhatsAppService {
    * Parse incoming Twilio webhook data
    */
   parseWebhookData(body: string): TwilioWhatsAppMessage {
-    const data = new URLSearchParams(body);
+    const _data = new URLSearchParams(body);
     
     return {
-      From: data.get('From') || '',
-      To: data.get('To') || '',
-      Body: data.get('Body') || '',
-      MessageSid: data.get('MessageSid') || '',
-      AccountSid: data.get('AccountSid') || '',
-      MessagingServiceSid: data.get('MessagingServiceSid') || undefined,
-      NumMedia: data.get('NumMedia') || '0',
-      ProfileName: data.get('ProfileName') || undefined,
-      WaId: data.get('WaId') || '',
+      From: _data.get('From') || '',
+      To: _data.get('To') || '',
+      Body: _data.get('Body') || '',
+      MessageSid: _data.get('MessageSid') || '',
+      AccountSid: _data.get('AccountSid') || '',
+      MessagingServiceSid: _data.get('MessagingServiceSid') || undefined,
+      NumMedia: _data.get('NumMedia') || '0',
+      ProfileName: _data.get('ProfileName') || undefined,
+      WaId: _data.get('WaId') || '',
     };
   }
 
         /**
     * Validate Twilio webhook signature (for security)
     */
-   validateWebhookSignature(signature: string, url: string, params: Record<string, any>): boolean {
-     if (!authToken) {
+   validateWebhookSignature(signature: string, url: string, params: Record<string, unknown>): boolean {
+     if (!_authToken) {
        console.warn('[WARN] Cannot validate webhook signature - auth token not configured');
        return false;
      }
 
      try {
-       const webhookSecret = process.env.WEBHOOK_SECRET || authToken;
-       return twilio.validateRequestWithBody(webhookSecret, JSON.stringify(params), url, signature);
+       const _webhookSecret = process.env.WEBHOOK_SECRET || _authToken;
+       return twilio.validateRequestWithBody(_webhookSecret, JSON.stringify(params), url, signature);
      } catch (error) {
-       console.error('[ERROR] Webhook signature validation failed:', error);
+       console.warn('[ERROR] Webhook signature validation failed:', error);
        return false;
      }
    }
 }
 
 // Export singleton instance
-export const whatsappService = new TwilioWhatsAppService();
+export const _whatsappService = new TwilioWhatsAppService();
 
 /**
  * Validate if Twilio WhatsApp is properly configured
  */
-export const isTwilioConfigured = (): boolean => {
-  return !!(accountSid && authToken && whatsappNumber);
+export const _isTwilioConfigured = (): boolean => {
+  return !!(_accountSid && _authToken && _whatsappNumber);
 };
 
 /**
  * Get Twilio configuration status
  */
-export const getTwilioConfig = () => {
+export const _getTwilioConfig = () => {
   return {
-    configured: isTwilioConfigured(),
-    hasAccountSid: !!accountSid,
-    hasAuthToken: !!authToken,
-    hasWhatsAppNumber: !!whatsappNumber,
+    configured: _isTwilioConfigured(),
+    hasAccountSid: !!_accountSid,
+    hasAuthToken: !!_authToken,
+    hasWhatsAppNumber: !!_whatsappNumber,
   };
 }; 
