@@ -72,7 +72,7 @@ function SignInContent() {
           setError("Acceso denegado. Verifica que tu tienda esté activa en Tienda Nube.");
           break;
         case "OAuthCallback":
-          setError("Error conectando con Tienda Nube. Intenta nuevamente.");
+          setError("Error en el inicio de sesión con el proveedor externo. Intenta nuevamente o usa otro método.");
           break;
         case "no_session":
           setError("Sesión expirada. Inicia sesión nuevamente.");

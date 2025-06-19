@@ -70,110 +70,86 @@ export const authOptions: NextAuthOptions = {
         console.warn("[AUTH] Sign in attempt:", { 
           provider: account?.provider, 
           email: user.email,
-          userId: user.id,
-          profile
+          userId: user.id
         });
 
-        // Si el usuario no tiene email, generamos uno temporal
+        // Si el usuario de Tienda Nube no tiene email, generamos uno temporal.
+        // El adapter se encargará de crear el usuario con este email.
         if (!user.email && account?.provider === "tiendanube") {
           user.email = `${account.providerAccountId}@tiendanube.temp`;
         }
 
-        // Asegurarnos que el usuario exista en Supabase
-        const { data: existingUser, error: _queryError } = await _supabase
-          .from('users')
-          .select('id')
-          .eq('email', user.email)
-          .single();
-
-        if (!existingUser) {
-          // Crear usuario en Supabase si no existe
-          const { data: newUser, error: insertError } = await _supabase
+        // Lógica específica de Tienda Nube para guardar/actualizar datos de la tienda
+        if (account?.provider === "tiendanube" && profile) {
+          // El adapter ya debería haber creado el usuario. Necesitamos su ID.
+          const { data: dbUser, error: userError } = await _supabase
             .from('users')
-            .insert([
-              { 
-                email: user.email,
-                name: user.name || 'Usuario',
-                provider: account?.provider,
-                provider_id: account?.providerAccountId
-              }
-            ])
-            .select()
+            .select('id')
+            .eq('email', user.email)
             .single();
 
-          if (insertError) {
-            console.warn("[AUTH] Error creating Supabase user:", insertError);
-            return false;
+          if (userError || !dbUser) {
+            console.error('[AUTH] No se pudo encontrar el usuario en la BD inmediatamente después del login.', { email: user.email, error: userError });
+            return false; // Bloquear si no se encuentra el usuario
           }
 
-          console.warn("[AUTH] New user created:", newUser);
-        }
+          const userId = dbUser.id;
+          const _tiendaNubeProfile = profile as any;
+          
+          const { data: existingStore } = await _supabase
+            .from('stores')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('provider', 'tiendanube')
+            .single();
 
-        // Si es Tienda Nube, guardar la información de la tienda
-        if (account?.provider === "tiendanube" && profile) {
-          try {
-            const _tiendaNubeProfile = profile as any;
-            
-            // Buscar si ya existe una tienda para este usuario
-            const { data: existingStore } = await _supabase
+          if (!existingStore) {
+            // Crear tienda
+            const { error: storeError } = await _supabase
               .from('stores')
-              .select('id')
-              .eq('user_id', existingUser?.id || user.id)
-              .eq('provider', 'tiendanube')
-              .single();
-
-            if (!existingStore) {
-              // Crear la tienda
-              const { data: newStore, error: storeError } = await _supabase
-                .from('stores')
-                .insert([
-                  {
-                    user_id: existingUser?.id || user.id,
-                    name: _tiendaNubeProfile.store?.name || 'Mi Tienda',
-                    url: _tiendaNubeProfile.store?.url || _tiendaNubeProfile.store?.domain,
-                    provider: 'tiendanube',
-                    provider_id: account.providerAccountId,
-                    access_token: account.access_token,
-                    plan_type: _tiendaNubeProfile.store?.plan_name || 'basic',
-                    is_active: true
-                  }
-                ])
-                .select()
-                .single();
-
-              if (storeError) {
-                console.warn("[AUTH] Error creating store:", storeError);
-              } else {
-                console.warn("[AUTH] Store created:", newStore);
-              }
-            } else {
-              // Actualizar la tienda existente
-              const { error: updateError } = await _supabase
-                .from('stores')
-                .update({
+              .insert([{
+                  user_id: userId,
+                  name: _tiendaNubeProfile.store?.name || 'Mi Tienda',
+                  url: _tiendaNubeProfile.store?.url || _tiendaNubeProfile.store?.domain,
+                  provider: 'tiendanube',
+                  provider_id: account.providerAccountId,
                   access_token: account.access_token,
                   plan_type: _tiendaNubeProfile.store?.plan_name || 'basic',
-                  is_active: true,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', existingStore.id);
+                  is_active: true
+                }]);
 
-              if (updateError) {
-                console.warn("[AUTH] Error updating store:", updateError);
-              } else {
-                console.warn("[AUTH] Store updated");
-              }
+            if (storeError) {
+              console.error('[AUTH] Error creando la tienda:', storeError);
+              // Podríamos decidir si bloquear el login si la creación de la tienda falla
+              // return false;
+            } else {
+               console.warn("[AUTH] Tienda creada para el usuario:", userId);
             }
-          } catch (error) {
-            console.warn("[AUTH] Error handling Tienda Nube store:", error);
+          } else {
+            // Actualizar tienda
+            const { error: updateError } = await _supabase
+              .from('stores')
+              .update({
+                access_token: account.access_token,
+                plan_type: _tiendaNubeProfile.store?.plan_name || 'basic',
+                is_active: true,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', existingStore.id);
+
+            if (updateError) {
+              console.error('[AUTH] Error actualizando la tienda:', updateError);
+            } else {
+              console.warn("[AUTH] Tienda actualizada para el usuario:", userId);
+            }
           }
         }
 
-        console.warn("[AUTH] Sign in successful for:", user.email);
-        return true;
+        console.warn("[AUTH] Verificación de inicio de sesión completada para:", user.email);
+        return true; // Permitir el inicio de sesión
       } catch (error) {
-        console.warn("[AUTH] Sign in error:", error);
-        return false;
+        console.error("[AUTH] Error no manejado en el callback signIn:", error);
+        return false; // Bloquear el inicio de sesión en caso de cualquier error
       }
     },
     async jwt({ token, user, account }) {
