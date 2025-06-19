@@ -65,34 +65,87 @@ export const authOptions: NextAuthOptions = {
     verifyRequest: "/auth/verify-request",
   },
   callbacks: {
-    async signIn({ user, account }) {
-      // DEBUG: Simplificando el callback para aislar el problema.
-      // Se aprueban todos los inicios de sesión temporalmente.
-      console.warn(`[AUTH] Approving sign-in for provider: ${account?.provider} | email: ${user.email}`);
-      return true;
+    async signIn({ user, account, profile }) {
+      console.log(`[AUTH] signIn callback triggered for provider: ${account?.provider}`);
+      
+      // Para Google y Email, el adapter se encarga de todo. Solo permitimos el acceso.
+      if (account?.provider === "google" || account?.provider === "email") {
+        console.log(`[AUTH] Allowing sign-in for ${user.email} with ${account.provider}.`);
+        return true;
+      }
+
+      // Lógica personalizada para Tienda Nube para crear/actualizar la tienda.
+      if (account?.provider === "tiendanube") {
+        console.log(`[AUTH] Handling Tienda Nube sign-in for user ID: ${user.id}`);
+        if (!user.id || !profile) {
+            console.error('[AUTH] Tienda Nube sign-in failed: Missing user ID or profile.');
+            return false; // Información crítica ausente
+        }
+
+        try {
+          const tiendaNubeProfile = profile as any;
+          
+          // Usamos `upsert` para simplificar la lógica de creación/actualización.
+          // Busca una tienda con el mismo `provider_id` y la actualiza, o crea una nueva.
+          const { error } = await _supabase
+            .from('stores')
+            .upsert(
+              {
+                user_id: user.id,
+                name: tiendaNubeProfile.store?.name || 'Mi Tienda',
+                url: tiendaNubeProfile.store?.url || tiendaNubeProfile.store?.domain,
+                provider: 'tiendanube',
+                provider_id: account.providerAccountId,
+                access_token: account.access_token,
+                plan_type: tiendaNubeProfile.store?.plan_name || 'basic',
+                is_active: true,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'provider_id' }
+            );
+
+          if (error) {
+            console.error('[AUTH] Error upserting Tienda Nube store:', error);
+            throw error; // Lanza el error para que sea capturado por el catch
+          }
+          
+          console.log(`[AUTH] Tienda Nube sign-in successful for user ID: ${user.id}`);
+          return true;
+
+        } catch (error) {
+          console.error('[AUTH] Unhandled error during Tienda Nube sign-in logic:', error);
+          return false; // Bloquea el inicio de sesión en caso de error
+        }
+      }
+
+      // Por defecto, denegar el acceso si el proveedor no es manejado.
+      console.warn(`[AUTH] Denying sign-in for unhandled provider: ${account?.provider}`);
+      return false;
     },
-    async jwt({ token, user }) {
-      // Al iniciar sesión por primera vez, `user` está disponible.
-      // El `SupabaseAdapter` ya debería haber creado el usuario en la BD,
-      // y el objeto `user` debería contener el ID de la base de datos.
-      if (user) {
-        token.supabaseId = user.id;
-        token.onboardingCompleted = false; // Valor por defecto para nuevos usuarios
-        token.planType = "basic"; // Valor por defecto
+
+    async jwt({ token, user, account }) {
+      console.log(`[AUTH] jwt callback. User present: ${!!user}, Provider: ${account?.provider}`);
+      if (user) { // `user` solo está presente en el inicio de sesión inicial
+        token.id = user.id;
+        token.onboardingCompleted = false;
+        token.planType = 'basic';
+      }
+      // Guardamos el access_token de Tienda Nube en el token por si se necesita después
+      if (account?.provider === "tiendanube" && account?.access_token) {
+        token.tiendaNubeAccessToken = account.access_token;
       }
       return token;
     },
+
     async session({ session, token }) {
-      // Pasamos los datos del token a la sesión del cliente.
-      if (token && session.user) {
-        session.user.id = token.sub; // `sub` es el subject del token, que NextAuth pone como el user ID
-        session.user.supabaseId = token.supabaseId as string;
-        session.user.planType = token.planType as string;
+      console.log(`[AUTH] session callback for token subject: ${token.sub}`);
+      // El `sub` es el ID de usuario en la base de datos
+      if (session.user && token.id) {
+        session.user.id = token.id as string;
         session.user.onboardingCompleted = token.onboardingCompleted as boolean;
-        
-        // Eliminamos propiedades que ya no usamos para mantener la sesión limpia
-        delete (session.user as any).subscriptionStatus;
-        delete (session.user as any).needsTiendaNubeSetup;
+        session.user.planType = token.planType as string;
+      } else {
+        console.error('[AUTH] Critical session failure: session.user or token.id is missing.');
       }
       return session;
     },
@@ -116,28 +169,19 @@ export const authOptions: NextAuthOptions = {
 declare module "next-auth" {
   interface Session {
     user: {
-      id: string;
+      id: string; // ID de usuario de la base de datos
       email: string;
       name?: string | null;
       image?: string | null;
       planType: string;
       onboardingCompleted: boolean;
-      supabaseId: string;
     };
   }
 
-  interface User {
-    id: string;
-    email: string;
-    name?: string | null;
-    image?: string | null;
-  }
-}
-
-declare module "next-auth/jwt" {
   interface JWT {
+    id?: string;
     planType?: string;
     onboardingCompleted?: boolean;
-    supabaseId?: string;
+    tiendaNubeAccessToken?: string;
   }
 } 
