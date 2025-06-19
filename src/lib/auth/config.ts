@@ -65,92 +65,11 @@ export const authOptions: NextAuthOptions = {
     verifyRequest: "/auth/verify-request",
   },
   callbacks: {
-    async signIn({ user, account, profile }) {
-      try {
-        console.warn("[AUTH] Sign in attempt:", { 
-          provider: account?.provider, 
-          email: user.email,
-          userId: user.id
-        });
-
-        // Si el usuario de Tienda Nube no tiene email, generamos uno temporal.
-        // El adapter se encargará de crear el usuario con este email.
-        if (!user.email && account?.provider === "tiendanube") {
-          user.email = `${account.providerAccountId}@tiendanube.temp`;
-        }
-
-        // Lógica específica de Tienda Nube para guardar/actualizar datos de la tienda
-        if (account?.provider === "tiendanube" && profile) {
-          // El adapter ya debería haber creado el usuario. Necesitamos su ID.
-          const { data: dbUser, error: userError } = await _supabase
-            .from('users')
-            .select('id')
-            .eq('email', user.email)
-            .single();
-
-          if (userError || !dbUser) {
-            console.error('[AUTH] No se pudo encontrar el usuario en la BD inmediatamente después del login.', { email: user.email, error: userError });
-            return false; // Bloquear si no se encuentra el usuario
-          }
-
-          const userId = dbUser.id;
-          const _tiendaNubeProfile = profile as any;
-          
-          const { data: existingStore } = await _supabase
-            .from('stores')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('provider', 'tiendanube')
-            .single();
-
-          if (!existingStore) {
-            // Crear tienda
-            const { error: storeError } = await _supabase
-              .from('stores')
-              .insert([{
-                  user_id: userId,
-                  name: _tiendaNubeProfile.store?.name || 'Mi Tienda',
-                  url: _tiendaNubeProfile.store?.url || _tiendaNubeProfile.store?.domain,
-                  provider: 'tiendanube',
-                  provider_id: account.providerAccountId,
-                  access_token: account.access_token,
-                  plan_type: _tiendaNubeProfile.store?.plan_name || 'basic',
-                  is_active: true
-                }]);
-
-            if (storeError) {
-              console.error('[AUTH] Error creando la tienda:', storeError);
-              // Podríamos decidir si bloquear el login si la creación de la tienda falla
-              // return false;
-            } else {
-               console.warn("[AUTH] Tienda creada para el usuario:", userId);
-            }
-          } else {
-            // Actualizar tienda
-            const { error: updateError } = await _supabase
-              .from('stores')
-              .update({
-                access_token: account.access_token,
-                plan_type: _tiendaNubeProfile.store?.plan_name || 'basic',
-                is_active: true,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', existingStore.id);
-
-            if (updateError) {
-              console.error('[AUTH] Error actualizando la tienda:', updateError);
-            } else {
-              console.warn("[AUTH] Tienda actualizada para el usuario:", userId);
-            }
-          }
-        }
-
-        console.warn("[AUTH] Verificación de inicio de sesión completada para:", user.email);
-        return true; // Permitir el inicio de sesión
-      } catch (error) {
-        console.error("[AUTH] Error no manejado en el callback signIn:", error);
-        return false; // Bloquear el inicio de sesión en caso de cualquier error
-      }
+    async signIn({ user, account }) {
+      // DEBUG: Simplificando el callback para aislar el problema.
+      // Se aprueban todos los inicios de sesión temporalmente.
+      console.warn(`[AUTH] Approving sign-in for provider: ${account?.provider} | email: ${user.email}`);
+      return true;
     },
     async jwt({ token, user, account }) {
       if (user) {
