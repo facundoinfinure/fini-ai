@@ -1,0 +1,222 @@
+# .cursorrules
+
+## Proyecto: Fini AI - Tienda Nube + WhatsApp Analytics con RAG
+
+### Contexto del Proyecto
+Estás desarrollando Fini AI, una aplicación que permite a usuarios de Tienda Nube chatear con su tienda por WhatsApp para obtener analytics en tiempo real utilizando un sistema multi-agente con RAG (Retrieval-Augmented Generation). La app incluye:
+
+- Plan Básico (gratis): Analytics básicos, resumen diario, RAG básico
+- Plan Pro ($39/mes): Sistema multi-agente completo, forecasting con IA, análisis de competencia, ideas de marketing, memoria extendida
+- Plan Enterprise ($99/mes): Agentes personalizados, integraciones avanzadas, ML models custom
+
+### Stack Tecnológico
+- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS + shadcn/ui
+- **Backend**: Next.js API Routes + tRPC
+- **Base de Datos**: Supabase (PostgreSQL)
+- **WhatsApp API**: Twilio
+- **Auth**: NextAuth.js + Supabase Auth
+- **Deploy**: Vercel
+- **State Management**: Zustand
+- **Vector Database**: Pinecone/Weaviate para RAG
+- **LLM**: OpenAI GPT-4 + embeddings
+- **Memory Store**: Redis/Upstash
+
+### Arquitectura Multi-Agente
+```
+ORCHESTRATOR AGENT (Coordinador Principal)
+├── Analytics Agent (Especialista en Datos)
+├── Customer Service Agent (Atención al Cliente)
+├── Marketing Agent (Especialista en Marketing)
+└── RAG Engine (Vector DB + Semantic Search)
+```
+
+### Estructura del Proyecto
+```
+src/
+├── app/                 # App Router de Next.js
+│   ├── api/            # API routes
+│   ├── dashboard/      # Dashboard UI
+│   └── onboarding/     # Onboarding flow
+├── components/          # Componentes React reutilizables
+│   ├── ui/             # shadcn/ui components
+│   ├── dashboard/      # Dashboard specific
+│   ├── chat/           # Chat components
+│   └── analytics/      # Analytics visualizations
+├── lib/                # Configuraciones y servicios
+│   ├── agents/         # Sistema de agentes
+│   ├── rag/            # RAG engine
+│   └── integrations/   # APIs externas
+├── types/              # Definiciones TypeScript
+├── hooks/              # Custom hooks
+├── stores/             # Zustand stores
+└── utils/              # Funciones utilitarias
+```
+
+### Reglas de Desarrollo
+
+#### 1. Calidad de Código
+- Usa TypeScript estricto, siempre tipea todo
+- Implementa error handling robusto en todas las funciones
+- Valida todas las entradas con Zod schemas
+- Usa early returns para reducir anidamiento
+- Nombra variables y funciones de manera descriptiva
+- Agrega comentarios JSDoc para funciones complejas
+- Prefijo [DEBUG], [ERROR], [INFO] para logs
+
+#### 2. Componentes React
+- Usa componentes funcionales con hooks
+- Implementa error boundaries para componentes críticos
+- Usa React.memo solo cuando sea necesario para performance
+- Prefiere composición sobre herencia
+- Usa shadcn/ui para componentes base
+- Implementa loading states y empty states
+
+#### 3. Sistema de Agentes
+- Cada agente debe implementar su interfaz TypeScript correspondiente
+- Mantén contexto de conversación entre agentes
+- Implementa logging detallado para debugging de agentes
+- Usa RAG Engine para búsqueda semántica
+- Implementa fallbacks cuando agentes fallan
+- Respeta límites de tokens y timeouts
+
+#### 4. API y Datos
+- Todas las llamadas a API deben tener try/catch
+- Usa Supabase RLS (Row Level Security) para seguridad
+- Implementa rate limiting en endpoints críticos
+- Valida tokens de autenticación en todas las rutas protegidas
+- Usa transacciones de DB para operaciones críticas
+- Implementa logging detallado para debugging
+
+#### 5. Integraciones Externas
+- **Tienda Nube API**: Siempre incluye User-Agent header
+- **Twilio WhatsApp**: Maneja webhooks de manera idempotente
+- **OpenAI**: Implementa retry logic y manejo de rate limits
+- **Vector DB**: Cache embeddings cuando sea posible
+- **Supabase**: Usa service role key solo en server-side
+- Implementa retry logic para APIs externas
+
+#### 6. RAG y Vector Database
+- Crea embeddings para todos los documentos de la tienda
+- Implementa búsqueda semántica para queries complejas
+- Mantén índices actualizados con datos frescos
+- Usa metadata filtering para mejorar relevancia
+- Implementa similarity threshold apropiado
+- Cache resultados de búsqueda frecuentes
+
+#### 7. Seguridad
+- Nunca expongas secrets en client-side
+- Valida todos los webhooks con signatures
+- Sanitiza inputs de usuarios
+- Usa HTTPS en todos los endpoints
+- Implementa CORS apropiadamente
+- Encripta datos sensibles de conversaciones
+
+#### 8. Performance
+- Usa Next.js Image component para imágenes
+- Implementa lazy loading para componentes pesados
+- Usa React Query/SWR para caching de datos
+- Optimiza consultas de DB con indexes apropiados
+- Minimiza re-renders innecesarios
+- Implementa paginación para listas grandes
+
+#### 9. Testing y Debugging
+- Agrega logging para todas las operaciones críticas de agentes
+- Usa console.error para errores, console.log para debugging
+- Implementa health checks para servicios externos
+- Agrega métricas de performance donde sea relevante
+- Testea flujos de conversación completos
+- Implementa fallbacks para cuando falla la IA
+
+### Convenciones de Nombres
+- **Archivos**: kebab-case (ej: `analytics-agent.ts`)
+- **Componentes**: PascalCase (ej: `AnalyticsAgent`)
+- **Variables/Funciones**: camelCase (ej: `processUserMessage`)
+- **Constantes**: UPPER_SNAKE_CASE (ej: `MAX_CONTEXT_LENGTH`)
+- **Tipos**: PascalCase (ej: `AgentResponse`)
+- **Agentes**: Sufijo "Agent" (ej: `OrchestratorAgent`)
+
+### Manejo de Errores para Agentes
+```typescript
+// Patrón preferido para agentes
+try {
+  const result = await agent.process(message, context);
+  return { success: true, data: result, agentType: 'analytics' };
+} catch (error) {
+  console.error('[ERROR] Agent failed:', error);
+  // Fallback to basic response
+  return { success: false, error: error.message, fallback: true };
+}
+```
+
+### Estructura de Respuestas Agent
+```typescript
+// Respuesta de agente exitosa
+{ 
+  success: true, 
+  data: T, 
+  agentType: AgentType,
+  confidence: number,
+  reasoning?: string 
+}
+
+// Respuesta con error
+{ 
+  success: false, 
+  error: string, 
+  agentType: AgentType,
+  fallback?: boolean 
+}
+```
+
+### Variables de Entorno Requeridas
+```bash
+# Database
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# External APIs
+TIENDANUBE_CLIENT_ID=
+TIENDANUBE_CLIENT_SECRET=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+OPENAI_API_KEY=
+
+# Vector Database (RAG)
+PINECONE_API_KEY=
+PINECONE_ENVIRONMENT=
+PINECONE_INDEX_NAME=
+
+# Agent Configuration
+MAX_CONTEXT_LENGTH=8000
+AGENT_TIMEOUT_MS=30000
+MAX_PARALLEL_AGENTS=3
+```
+
+### Tareas Pendientes
+Revisa siempre el archivo `TASKMANAGER.md` para ver qué necesita ser implementado y en qué orden. Prioriza:
+
+1. **Configuración Base** (ACTUAL)
+2. **RAG Engine** - Vector database y embeddings
+3. **Agentes Básicos** - Orchestrator + Analytics
+4. **Integración WhatsApp** - Webhooks y conversaciones
+5. **Sistema Completo** - Todos los agentes coordinados
+
+### Consideraciones Especiales para Agentes
+- Los agentes deben mantener memoria de conversación
+- Implementar context switching inteligente entre agentes
+- El Orchestrator decide qué agente maneja cada query
+- RAG Engine provee contexto relevante a todos los agentes
+- Fallback a respuestas básicas si agentes fallan
+- Considera time zones para reportes automáticos
+- Los webhooks de WhatsApp pueden llegar duplicados
+- Tienda Nube API tiene rate limits
+- Implementa graceful degradation si servicios externos fallan
+
+### Debug Agents
+- Usa `[AGENT:tipo]` para logs específicos de agentes
+- Incluye `conversationId`, `agentType`, y `confidence` en logs
+- Trackea tiempo de respuesta de cada agente
+- Log de decisiones de routing del Orchestrator
+
+Siempre sigue estas reglas y consulta el TASKMANAGER.md antes de implementar nuevas features. 

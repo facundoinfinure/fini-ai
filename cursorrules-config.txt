@@ -1,0 +1,139 @@
+# .cursorrules
+
+## Proyecto: Tienda Nube + WhatsApp Analytics App
+
+### Contexto del Proyecto
+Estás desarrollando una aplicación que permite a usuarios de Tienda Nube chatear con su tienda por WhatsApp para obtener analytics en tiempo real. La app incluye:
+
+- Plan Básico (gratis): Analytics básicos, resumen diario
+- Plan Pro ($39/mes): Forecasting con IA, análisis de competencia, ideas de marketing
+
+### Stack Tecnológico
+- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS + shadcn/ui
+- **Backend**: Next.js API Routes + tRPC
+- **Base de Datos**: Supabase (PostgreSQL)
+- **WhatsApp API**: Twilio
+- **Auth**: NextAuth.js + Supabase Auth
+- **Deploy**: Vercel
+- **State Management**: Zustand
+
+### Estructura del Proyecto
+```
+src/
+├── app/                 # App Router de Next.js
+├── components/          # Componentes React reutilizables
+├── lib/                # Configuraciones y servicios
+├── types/              # Definiciones TypeScript
+├── hooks/              # Custom hooks
+├── stores/             # Zustand stores
+└── utils/              # Funciones utilitarias
+```
+
+### Reglas de Desarrollo
+
+#### 1. Calidad de Código
+- Usa TypeScript estricto, siempre tipea todo
+- Implementa error handling robusto en todas las funciones
+- Valida todas las entradas con Zod schemas
+- Usa early returns para reducir anidamiento
+- Nombra variables y funciones de manera descriptiva
+- Agrega comentarios JSDoc para funciones complejas
+
+#### 2. Componentes React
+- Usa componentes funcionales con hooks
+- Implementa error boundaries para componentes críticos
+- Usa React.memo solo cuando sea necesario para performance
+- Prefiere composición sobre herencia
+- Usa shadcn/ui para componentes base
+- Implementa loading states y empty states
+
+#### 3. API y Datos
+- Todas las llamadas a API deben tener try/catch
+- Usa Supabase RLS (Row Level Security) para seguridad
+- Implementa rate limiting en endpoints críticos
+- Valida tokens de autenticación en todas las rutas protegidas
+- Usa transacciones de DB para operaciones críticas
+- Implementa logging detallado para debugging
+
+#### 4. Integraciones Externas
+- **Tienda Nube API**: Siempre incluye User-Agent header
+- **Twilio WhatsApp**: Maneja webhooks de manera idempotente
+- **Supabase**: Usa service role key solo en server-side
+- Implementa retry logic para APIs externas
+- Cache respuestas cuando sea apropiado
+
+#### 5. Seguridad
+- Nunca expongas secrets en client-side
+- Valida todos los webhooks con signatures
+- Sanitiza inputs de usuarios
+- Usa HTTPS en todos los endpoints
+- Implementa CORS apropiadamente
+
+#### 6. Performance
+- Usa Next.js Image component para imágenes
+- Implementa lazy loading para componentes pesados
+- Usa React Query/SWR para caching de datos
+- Optimiza consultas de DB con indexes apropiados
+- Minimiza re-renders innecesarios
+
+#### 7. Testing y Debugging
+- Agrega logging para todas las operaciones críticas
+- Usa console.error para errores, console.log para debugging
+- Implementa health checks para servicios externos
+- Agrega métricas de performance donde sea relevante
+
+### Convenciones de Nombres
+- **Archivos**: kebab-case (ej: `user-profile.tsx`)
+- **Componentes**: PascalCase (ej: `UserProfile`)
+- **Variables/Funciones**: camelCase (ej: `getUserData`)
+- **Constantes**: UPPER_SNAKE_CASE (ej: `API_BASE_URL`)
+- **Tipos**: PascalCase (ej: `UserProfile`)
+
+### Manejo de Errores
+```typescript
+// Patrón preferido para manejo de errores
+try {
+  const result = await apiCall();
+  return { success: true, data: result };
+} catch (error) {
+  console.error('Operation failed:', error);
+  return { success: false, error: error.message };
+}
+```
+
+### Estructura de Respuestas API
+```typescript
+// Respuestas exitosas
+{ success: true, data: T }
+
+// Respuestas con error
+{ success: false, error: string, code?: string }
+```
+
+### Variables de Entorno Requeridas
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY
+- SUPABASE_SERVICE_ROLE_KEY
+- TIENDANUBE_CLIENT_ID
+- TIENDANUBE_CLIENT_SECRET
+- TWILIO_ACCOUNT_SID
+- TWILIO_AUTH_TOKEN
+- WHATSAPP_VERIFY_TOKEN
+
+### Tareas Pendientes
+Revisa siempre el archivo `TASKMANAGER.md` para ver qué necesita ser implementado y en qué orden.
+
+### Debugging
+- Usa el prefijo [DEBUG] para logs de debugging
+- Usa el prefijo [ERROR] para logs de errores
+- Usa el prefijo [INFO] para información general
+- Incluye context relevante en todos los logs
+
+### Consideraciones Especiales
+- La app debe manejar múltiples tiendas por usuario
+- Los webhooks de WhatsApp pueden llegar duplicados
+- Tienda Nube API tiene rate limits
+- Implementa graceful degradation si servicios externos fallan
+- Considera time zones para reportes automáticos
+
+Siempre sigue estas reglas y consulta el TASKMANAGER.md antes de implementar nuevas features.

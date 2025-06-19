@@ -1,0 +1,45 @@
+/**
+ * Agents Index
+ * Exports all agents and the multi-agent system
+ */
+
+// Types
+export type * from './types';
+
+// Configuration
+export { 
+  AGENT_CONFIG,
+  ORCHESTRATOR_CONFIG,
+  ANALYTICS_CONFIG,
+  CUSTOMER_SERVICE_CONFIG,
+  MARKETING_CONFIG,
+  ROUTING_KEYWORDS,
+  ROUTING_THRESHOLDS,
+  AGENT_PRIORITIES
+} from './config';
+
+// Base Agent
+export { BaseAgent } from './base-agent';
+
+// Specialized Agents
+export { OrchestratorAgent } from './orchestrator-agent';
+export { AnalyticsAgent } from './analytics-agent';
+export { CustomerServiceAgent } from './customer-service-agent';
+export { MarketingAgent } from './marketing-agent';
+
+// Multi-Agent System
+export { 
+  FiniMultiAgentSystem,
+  multiAgentSystem 
+} from './multi-agent-system';
+
+// Re-export for convenience - import multiAgentSystem if you need the methods
+import { multiAgentSystem as mas } from './multi-agent-system';
+
+export const processMessage = mas.processMessage.bind(mas);
+export const routeMessage = mas.routeMessage.bind(mas);
+export const getAgent = mas.getAgent.bind(mas);
+export const getSystemStats = mas.getSystemStats.bind(mas);
+export const testAgentCapabilities = mas.testAgentCapabilities.bind(mas);
+export const healthCheck = mas.healthCheck.bind(mas);
+export const getAvailableAgents = mas.getAvailableAgents.bind(mas); 
