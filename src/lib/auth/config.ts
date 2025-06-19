@@ -22,8 +22,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 export const authOptions: NextAuthOptions = {
   adapter: SupabaseAdapter({
     url: supabaseUrl,
-    secret: supabaseServiceKey,
-    schema: "public"
+    secret: supabaseServiceKey
   }),
   providers: [
     // Tienda Nube provider (principal)
