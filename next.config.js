@@ -164,17 +164,10 @@ const nextConfig = {
   // Configuración de trailing slash
   trailingSlash: false,
 
-  // Configuración de base path (si es necesario)
-  // basePath: '',
-
-  // Configuración de asset prefix (para CDN)
-  // assetPrefix: process.env.NODE_ENV === 'production' ? 'https://cdn.example.com' : '',
-
-  // Variables de entorno
+  // Variables de entorno públicas
   env: {
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-    NODE_ENV: process.env.NODE_ENV,
   },
 
   // Configuración de redirecciones
@@ -187,16 +180,6 @@ const nextConfig = {
       },
     ];
   },
-
-  // Configuración de rewrites (si es necesario)
-  // async rewrites() {
-  //   return [
-  //     {
-  //       source: '/api/:path*',
-  //       destination: '/api/:path*',
-  //     },
-  //   ];
-  // },
 };
 
 module.exports = withBundleAnalyzer(nextConfig); 
