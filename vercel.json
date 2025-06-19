@@ -1,7 +1,8 @@
 {
   "version": 2,
+  "buildCommand": "npm run build",
   "functions": {
-    "src/app/api/**/*.ts": {
+    "src/app/api/**/*": {
       "maxDuration": 30
     }
   },
@@ -20,6 +21,23 @@
         {
           "key": "Access-Control-Allow-Headers",
           "value": "Content-Type, Authorization"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
         }
       ]
     }
