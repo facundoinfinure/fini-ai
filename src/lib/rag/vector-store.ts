@@ -14,6 +14,7 @@ export class PineconeVectorStore implements VectorStore {
   constructor() {
     this.pinecone = new Pinecone({
       apiKey: RAG_CONFIG.pinecone.apiKey,
+      environment: RAG_CONFIG.pinecone.environment,
     });
     this.indexName = RAG_CONFIG.pinecone.indexName;
   }
