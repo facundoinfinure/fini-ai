@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run type-check && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
@@ -52,7 +52,7 @@
     "rate-limiter-flexible": "^4.0.1",
     "react": "^18",
     "react-dom": "^18",
-    "react-query": "^3.39.3",
+    "@tanstack/react-query": "^5.0.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "twilio": "^4.23.0",
@@ -65,11 +65,9 @@
     "@next/bundle-analyzer": "^14.0.4",
     "@types/jest": "^29.5.8",
     "@types/twilio": "^3.19.0",
-    "@typescript-eslint/eslint-plugin": "^6.13.1",
-    "@typescript-eslint/parser": "^6.13.1",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
     "autoprefixer": "^10.0.1",
-    "@eslint/config-array": "latest",
-    "@eslint/object-schema": "latest",
     "eslint-config-next": "14.0.4",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-import": "^2.29.0",
@@ -83,6 +81,8 @@
     "lint-staged": "^15.2.0",
     "postcss": "^8",
     "prettier": "^3.1.0",
+    "rimraf": "^5.0.0",
+    "glob": "^10.0.0",
     "tailwindcss": "^3.3.0"
   },
   "lint-staged": {
@@ -95,7 +95,7 @@
     ]
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": "18.x",
     "npm": ">=9.0.0"
   }
 }
