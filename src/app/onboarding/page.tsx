@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CheckCircle, Circle, ExternalLink, MessageCircle, Store, Settings, Phone, Copy, Send, Bot } from 'lucide-react';
+import { CheckCircle, Circle, ExternalLink, MessageCircle, Store, Settings, Phone, Copy, Send, Bot, ArrowRight, Zap } from 'lucide-react';
 
 interface OnboardingStep {
   id: string;
@@ -49,6 +49,7 @@ export default function OnboardingPage() {
     configured: false
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingStore, setIsCheckingStore] = useState(true);
 
   const [steps, setSteps] = useState<OnboardingStep[]>([
     { id: 'store', title: 'Conectar Tienda', description: 'Conecta tu tienda de Tienda Nube', completed: false },
@@ -63,13 +64,44 @@ export default function OnboardingPage() {
     }
   }, [status, router]);
 
+  useEffect(() => {
+    // Check if user already has store connected
+    if (status === 'authenticated') {
+      checkExistingStore();
+    }
+  }, [status]);
+
+  const checkExistingStore = async () => {
+    setIsCheckingStore(true);
+    try {
+      const response = await fetch('/api/dashboard/stats');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.storeConnected) {
+          // User already has store connected, skip to WhatsApp setup
+          setStoreConnection(prev => ({
+            ...prev,
+            connected: true,
+            storeInfo: data.storeInfo
+          }));
+          updateStepCompletion('store', true);
+          setCurrentStep(1);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking store status:', error);
+    } finally {
+      setIsCheckingStore(false);
+    }
+  };
+
   // Show loading while checking authentication
-  if (status === 'loading') {
+  if (status === 'loading' || isCheckingStore) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Bot className="h-8 w-8 animate-pulse mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Verificando autenticación...</p>
+          <p className="text-gray-600">Verificando configuración...</p>
         </div>
       </div>
     );
@@ -270,44 +302,67 @@ export default function OnboardingPage() {
           <CardContent className="p-6">
             {currentStep === 0 && (
               <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Conectar Tienda Nube
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    Ingresa la URL de tu tienda de Tienda Nube para conectarla automáticamente.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      URL de tu tienda
-                    </label>
-                    <Input
-                      type="url"
-                      placeholder="https://tu-tienda.mitiendanube.com"
-                      value={storeConnection.storeUrl}
-                      onChange={(e) => setStoreConnection(prev => ({ ...prev, storeUrl: e.target.value }))}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Ejemplo: https://mi-tienda.mitiendanube.com
+                {storeConnection.connected ? (
+                  <div className="text-center py-8">
+                    <div className="bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      ¡Tienda ya conectada!
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      Tu tienda <strong>{storeConnection.storeInfo?.name || 'Tienda Nube'}</strong> ya está conectada.
                     </p>
+                    <Button 
+                      onClick={() => setCurrentStep(1)}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      Continuar con WhatsApp
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
                   </div>
+                ) : (
+                  <>
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        Conectar Tienda Nube
+                      </h3>
+                      <p className="text-gray-600 mb-4">
+                        Ingresa la URL de tu tienda de Tienda Nube para conectarla automáticamente.
+                      </p>
+                    </div>
 
-                  <Button 
-                    onClick={connectTiendaNube}
-                    disabled={isLoading || !storeConnection.storeUrl}
-                    className="w-full"
-                  >
-                    {isLoading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    ) : (
-                      <Store className="w-4 h-4 mr-2" />
-                    )}
-                    Conectar Tienda
-                  </Button>
-                </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          URL de tu tienda
+                        </label>
+                        <Input
+                          type="url"
+                          placeholder="https://tu-tienda.mitiendanube.com"
+                          value={storeConnection.storeUrl}
+                          onChange={(e) => setStoreConnection(prev => ({ ...prev, storeUrl: e.target.value }))}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Ejemplo: https://mi-tienda.mitiendanube.com
+                        </p>
+                      </div>
+
+                      <Button 
+                        onClick={connectTiendaNube}
+                        disabled={isLoading || !storeConnection.storeUrl}
+                        className="w-full"
+                      >
+                        {isLoading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                        ) : (
+                          <Store className="w-4 h-4 mr-2" />
+                        )}
+                        Conectar Tienda
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -318,7 +373,7 @@ export default function OnboardingPage() {
                     Configurar WhatsApp
                   </h3>
                   <p className="text-gray-600 mb-4">
-                    Agrega los números de teléfono que usarás para recibir mensajes.
+                    Agrega los números de teléfono que usarás para recibir mensajes de Fini AI.
                   </p>
                 </div>
 
@@ -385,10 +440,10 @@ export default function OnboardingPage() {
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Activar Fini AI
+                    ¡Activa Fini AI!
                   </h3>
                   <p className="text-gray-600 mb-4">
-                    Envía un mensaje inicial para activar tu asistente de IA.
+                    Envía un mensaje inicial para activar tu asistente de IA y comenzar a chatear.
                   </p>
                 </div>
 
@@ -409,19 +464,24 @@ export default function OnboardingPage() {
                     </div>
                   ))}
 
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-900 mb-2">¡Todo listo!</h4>
-                    <p className="text-blue-700 text-sm">
+                  <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center mb-2">
+                      <Zap className="w-5 h-5 text-green-600 mr-2" />
+                      <h4 className="font-medium text-green-900">¡Todo listo!</h4>
+                    </div>
+                    <p className="text-green-700 text-sm">
                       Una vez que envíes el mensaje inicial, podrás comenzar a usar Fini AI 
-                      para obtener analytics de tu tienda por WhatsApp.
+                      para obtener analytics de tu tienda por WhatsApp. ¡Pregunta sobre ventas, 
+                      productos, clientes y mucho más!
                     </p>
                   </div>
 
                   <Button 
                     onClick={() => router.push('/dashboard')}
-                    className="w-full"
+                    className="w-full bg-green-600 hover:bg-green-700"
                   >
                     Ir al Dashboard
+                    <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
               </div>
