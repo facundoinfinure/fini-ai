@@ -71,42 +71,28 @@ export const authOptions: NextAuthOptions = {
       console.warn(`[AUTH] Approving sign-in for provider: ${account?.provider} | email: ${user.email}`);
       return true;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
+      // Al iniciar sesión por primera vez, `user` está disponible.
+      // El `SupabaseAdapter` ya debería haber creado el usuario en la BD,
+      // y el objeto `user` debería contener el ID de la base de datos.
       if (user) {
-        // Buscar o crear el usuario en Supabase
-        let supabaseId;
-        
-        const { data: existingUser } = await _supabase
-          .from('users')
-          .select('id')
-          .eq('email', user.email)
-          .single();
-
-        if (existingUser) {
-          supabaseId = existingUser.id;
-        }
-
-        // Actualizar el token con la información necesaria
-        token.supabaseId = supabaseId;
-        token.planType = "basic";
-        token.subscriptionStatus = "active";
-        token.onboardingCompleted = false;
-
-        // Si es un login de Tienda Nube, marcar para redirección posterior
-        if (account?.provider === "tiendanube") {
-          token.needsTiendaNubeSetup = true;
-        }
+        token.supabaseId = user.id;
+        token.onboardingCompleted = false; // Valor por defecto para nuevos usuarios
+        token.planType = "basic"; // Valor por defecto
       }
       return token;
     },
     async session({ session, token }) {
+      // Pasamos los datos del token a la sesión del cliente.
       if (token && session.user) {
-        session.user.id = token.sub;
-        session.user.planType = token.planType as string;
-        session.user.subscriptionStatus = token.subscriptionStatus as string;
-        session.user.onboardingCompleted = token.onboardingCompleted as boolean;
+        session.user.id = token.sub; // `sub` es el subject del token, que NextAuth pone como el user ID
         session.user.supabaseId = token.supabaseId as string;
-        session.user.needsTiendaNubeSetup = token.needsTiendaNubeSetup as boolean;
+        session.user.planType = token.planType as string;
+        session.user.onboardingCompleted = token.onboardingCompleted as boolean;
+        
+        // Eliminamos propiedades que ya no usamos para mantener la sesión limpia
+        delete (session.user as any).subscriptionStatus;
+        delete (session.user as any).needsTiendaNubeSetup;
       }
       return session;
     },
@@ -135,26 +121,23 @@ declare module "next-auth" {
       name?: string | null;
       image?: string | null;
       planType: string;
-      subscriptionStatus: string;
       onboardingCompleted: boolean;
       supabaseId: string;
-      needsTiendaNubeSetup?: boolean;
     };
   }
 
   interface User {
-    planType?: string;
-    subscriptionStatus?: string;
-    onboardingCompleted?: boolean;
+    id: string;
+    email: string;
+    name?: string | null;
+    image?: string | null;
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
     planType?: string;
-    subscriptionStatus?: string;
     onboardingCompleted?: boolean;
     supabaseId?: string;
-    needsTiendaNubeSetup?: boolean;
   }
 } 
