@@ -1,0 +1,201 @@
+# ========================================
+# SEGURIDAD - ARCHIVOS SENSIBLES
+# ========================================
+# NUNCA committear estos archivos
+.env*
+!.env.example
+.env.local
+.env.development
+.env.test
+.env.production
+.env.staging
+.env.backup
+*.env
+secrets.json
+credentials.json
+service-account-key.json
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_rsa.pub
+*.crt
+*.csr
+*.pem
+*.p12
+*.pfx
+*.key
+*.keystore
+*.jks
+
+# ========================================
+# DEPENDENCIAS
+# ========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ========================================
+# NEXT.JS
+# ========================================
+.next/
+out/
+build/
+dist/
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# ========================================
+# TYPESCRIPT
+# ========================================
+*.tsbuildinfo
+next-env.d.ts
+
+# ========================================
+# IDE Y EDITORES
+# ========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ========================================
+# LOGS Y TEMPORALES
+# ========================================
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# ========================================
+# COVERAGE Y TESTING
+# ========================================
+coverage/
+*.lcov
+.nyc_output
+junit.xml
+test-results/
+playwright-report/
+test-results.xml
+
+# ========================================
+# CACHE Y TEMPORALES
+# ========================================
+.npm
+.eslintcache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+.node_repl_history
+*.tgz
+.yarn-integrity
+.cache
+.parcel-cache
+.vscode-test
+
+# ========================================
+# YARN V2
+# ========================================
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# ========================================
+# SUPABASE
+# ========================================
+.supabase/
+
+# ========================================
+# DESARROLLO LOCAL
+# ========================================
+*.local
+tmp/
+temp/
+.tmp/
+.temp/
+
+# ========================================
+# ARCHIVOS DE CONFIGURACIÓN SENSIBLES
+# ========================================
+# Configuraciones de APIs y servicios
+config/secrets/
+config/credentials/
+config/private/
+*.config.local.js
+*.config.local.ts
+
+# ========================================
+# BACKUPS Y ARCHIVOS DE RESPALDO
+# ========================================
+*.backup
+*.bak
+*.old
+*.orig
+*.save
+
+# ========================================
+# ARCHIVOS DE DATOS SENSIBLES
+# ========================================
+data/private/
+data/secrets/
+*.sqlite
+*.db
+*.sql
+
+# ========================================
+# ARCHIVOS DE DEPLOYMENT SENSIBLES
+# ========================================
+deploy/
+deployment/
+*.deploy
+deploy.sh
+deploy.yml
+deploy.yaml
+
+# ========================================
+# ARCHIVOS DE MONITOREO Y LOGS SENSIBLES
+# ========================================
+logs/
+*.log
+monitoring/
+metrics/
+analytics/
+
+# ========================================
+# ARCHIVOS DE TESTING CON DATOS REALES
+# ========================================
+test-data/
+fixtures/real/
+mocks/real/
+*.test.data
+*.test.json
+*.test.yml
+
+# ========================================
+# ARCHIVOS DE DESARROLLO TEMPORALES
+# ========================================
+scratch/
+temp/
+tmp/
+draft/
+wip/ 

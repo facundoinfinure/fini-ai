@@ -1,14 +1,33 @@
 /** @type {import('next').NextConfig} */
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+
 const nextConfig = {
-  images: {
-    domains: ['api.tiendanube.com', 'cdn.tiendanube.com'],
+  // Optimizaciones de performance
+  experimental: {
+    optimizeCss: true,
+    optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
+    turbo: {
+      rules: {
+        '*.svg': {
+          loaders: ['@svgr/webpack'],
+          as: '*.js',
+        },
+      },
+    },
   },
 
-  env: {
-    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+  // Configuración de imágenes optimizada
+  images: {
+    domains: ['api.tiendanube.com', 'cdn.tiendanube.com'],
+    formats: ['image/webp', 'image/avif'],
+    minimumCacheTTL: 60,
+    dangerouslyAllowSVG: false,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
-  // Add metadata base configuration
+
+  // Headers de seguridad mejorados
   async headers() {
     return [
       {
@@ -26,17 +45,149 @@ const nextConfig = {
             key: 'Referrer-Policy',
             value: 'origin-when-cross-origin',
           },
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on',
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https:",
+              "font-src 'self'",
+              "connect-src 'self' https:",
+              "media-src 'self'",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'",
+              "upgrade-insecure-requests"
+            ].join('; '),
+          },
+        ],
+      },
+      // Headers específicos para API routes
+      {
+        source: '/api/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, max-age=0',
+          },
+        ],
+      },
+      // Headers para assets estáticos
+      {
+        source: '/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
         ],
       },
     ];
   },
-  webpack: (config) => {
+
+  // Configuración de webpack optimizada
+  webpack: (config, { dev, isServer }) => {
+    // Alias para imports más limpios
     config.resolve.alias = {
       ...config.resolve.alias,
-      "@": require("path").resolve(__dirname, "./src"),
+      '@': require('path').resolve(__dirname, './src'),
+      '@/components': require('path').resolve(__dirname, './src/components'),
+      '@/lib': require('path').resolve(__dirname, './src/lib'),
+      '@/types': require('path').resolve(__dirname, './src/types'),
+      '@/utils': require('path').resolve(__dirname, './src/utils'),
+      '@/hooks': require('path').resolve(__dirname, './src/hooks'),
+      '@/stores': require('path').resolve(__dirname, './src/stores'),
     };
+
+    // Optimizaciones de producción
+    if (!dev && !isServer) {
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all',
+          },
+          common: {
+            name: 'common',
+            minChunks: 2,
+            chunks: 'all',
+            enforce: true,
+          },
+        },
+      };
+    }
+
+    // Configuración de seguridad para webpack
+    config.module.rules.push({
+      test: /\.svg$/,
+      use: ['@svgr/webpack'],
+    });
+
     return config;
   },
-}
 
-module.exports = nextConfig 
+  // Configuración de compresión
+  compress: true,
+
+  // Configuración de powered by header
+  poweredByHeader: false,
+
+  // Configuración de trailing slash
+  trailingSlash: false,
+
+  // Configuración de base path (si es necesario)
+  // basePath: '',
+
+  // Configuración de asset prefix (para CDN)
+  // assetPrefix: process.env.NODE_ENV === 'production' ? 'https://cdn.example.com' : '',
+
+  // Variables de entorno
+  env: {
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    NODE_ENV: process.env.NODE_ENV,
+  },
+
+  // Configuración de redirecciones
+  async redirects() {
+    return [
+      {
+        source: '/home',
+        destination: '/',
+        permanent: true,
+      },
+    ];
+  },
+
+  // Configuración de rewrites (si es necesario)
+  // async rewrites() {
+  //   return [
+  //     {
+  //       source: '/api/:path*',
+  //       destination: '/api/:path*',
+  //     },
+  //   ];
+  // },
+};
+
+module.exports = withBundleAnalyzer(nextConfig); 

@@ -1,0 +1,42 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+npm run pre-commit
+
+echo "🔒 Ejecutando verificaciones de seguridad..."
+
+# Verificar que no hay archivos sensibles en el staging area
+if git diff --cached --name-only | grep -E "\.(env|pem|key|p12|pfx|crt|csr)$|secrets\.json|credentials\.json"; then
+  echo "❌ ERROR: Archivos sensibles detectados en el staging area!"
+  echo "   Los siguientes archivos no deben ser committeados:"
+  git diff --cached --name-only | grep -E "\.(env|pem|key|p12|pfx|crt|csr)$|secrets\.json|credentials\.json"
+  echo ""
+  echo "💡 Soluciones:"
+  echo "   1. Agrega estos archivos a .gitignore"
+  echo "   2. Usa 'git reset HEAD <archivo>' para remover del staging"
+  echo "   3. Usa variables de entorno en lugar de archivos de configuración"
+  exit 1
+fi
+
+# Verificar que no hay secrets en el contenido de los archivos
+if git diff --cached | grep -E "(api[_-]?key|secret|password|token|auth)" | grep -v "example\|test\|mock"; then
+  echo "❌ ERROR: Posibles secrets detectados en el código!"
+  echo "   Revisa el contenido de los archivos antes de hacer commit"
+  echo ""
+  echo "💡 Recomendaciones:"
+  echo "   1. Usa variables de entorno para secrets"
+  echo "   2. Usa archivos .env.example para documentar variables"
+  echo "   3. Nunca hardcodees secrets en el código"
+  exit 1
+fi
+
+# Ejecutar script de verificación de seguridad
+if [ -f "scripts/security-check.js" ]; then
+  node scripts/security-check.js
+  if [ $? -ne 0 ]; then
+    echo "❌ Verificación de seguridad falló"
+    exit 1
+  fi
+fi
+
+echo "✅ Verificaciones de seguridad completadas" 

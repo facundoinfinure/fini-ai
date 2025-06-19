@@ -7,8 +7,23 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
     "verify-env": "node scripts/verify-env.js",
-    "db:generate": "supabase gen types typescript --project-id YOUR_PROJECT_ID > src/types/database.ts"
+    "security:check": "node scripts/security-check.js",
+    "security:scan": "npm run security:check",
+    "pre-commit": "npm run security:check && npm run lint && npm run type-check",
+    "verify-secrets": "npm run security:check",
+    "analyze": "ANALYZE=true npm run build",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "db:generate": "supabase gen types typescript --project-id YOUR_PROJECT_ID > src/types/database.ts",
+    "db:reset": "supabase db reset",
+    "db:migrate": "supabase db push",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky install"
   },
   "dependencies": {
     "@langchain/core": "^0.3.59",
@@ -28,27 +43,59 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "crypto": "^1.0.1",
+    "helmet": "^7.1.0",
     "langchain": "^0.3.28",
     "lucide-react": "^0.294.0",
-    "next": "14.0.4",
+    "next": "^14.2.30",
     "next-auth": "^4.24.11",
     "openai": "^5.5.1",
     "pdf-parse": "^1.1.1",
+    "rate-limiter-flexible": "^4.0.1",
     "react": "^18",
     "react-dom": "^18",
+    "react-query": "^3.39.3",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "twilio": "^4.23.0",
     "typescript": "^5",
     "uuid": "^11.1.0",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^14.0.4",
+    "@types/jest": "^29.5.8",
     "@types/twilio": "^3.19.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "@typescript-eslint/parser": "^6.13.1",
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
     "eslint-config-next": "14.0.4",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-jsx-a11y": "^6.8.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-security": "^2.1.0",
+    "husky": "^8.0.3",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "lint-staged": "^15.2.0",
     "postcss": "^8",
+    "prettier": "^3.1.0",
     "tailwindcss": "^3.3.0"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }
