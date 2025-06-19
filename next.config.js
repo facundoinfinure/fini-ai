@@ -82,7 +82,7 @@ const nextConfig = {
       },
       // Headers específicos para API routes
       {
-        source: '/api/(.*)',
+        source: '/api/:path*',
         headers: [
           {
             key: 'Cache-Control',
@@ -92,7 +92,16 @@ const nextConfig = {
       },
       // Headers para assets estáticos
       {
-        source: '/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))',
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/static/:path*',
         headers: [
           {
             key: 'Cache-Control',
