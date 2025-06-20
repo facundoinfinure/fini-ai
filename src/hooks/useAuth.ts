@@ -45,16 +45,24 @@ export function useAuth() {
     return () => subscription.unsubscribe()
   }, [router, supabase.auth])
 
+  const getRedirectUrl = () => {
+    let url =
+      process?.env?.NEXT_PUBLIC_APP_URL ?? // Set this to your site URL in production env.
+      process?.env?.NEXT_PUBLIC_VERCEL_URL ?? // Automatically set by Vercel.
+      'http://localhost:3000/'
+    // Make sure to include `https://` when not localhost.
+    url = url.includes('http') ? url : `https://${url}`
+    // Make sure to include a trailing `/`.
+    url = url.charAt(url.length - 1) === '/' ? url : `${url}/`
+    return `${url}auth/callback`
+  }
+
   const signInWithEmail = async (email: string) => {
     try {
-      const redirectTo = typeof window !== 'undefined' 
-        ? `${window.location.origin}/auth/callback`
-        : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`
-
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: redirectTo,
+          emailRedirectTo: getRedirectUrl(),
         },
       })
       
@@ -72,14 +80,10 @@ export function useAuth() {
 
   const signInWithGoogle = async () => {
     try {
-      const redirectTo = typeof window !== 'undefined' 
-        ? `${window.location.origin}/auth/callback`
-        : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`
-
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectTo,
+          redirectTo: getRedirectUrl(),
         },
       })
       
