@@ -14,10 +14,10 @@ async function checkSupabaseConnection(): Promise<{ status: 'healthy' | 'unhealt
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Verificar conexión con una query simple
+    // Verificar conexión con una query simple a la tabla users
     const { error } = await supabase
-      .from('_supabase_migrations')
-      .select('version')
+      .from('users')
+      .select('id')
       .limit(1);
     
     if (error) {

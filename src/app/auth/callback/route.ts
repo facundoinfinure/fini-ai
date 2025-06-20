@@ -1,5 +1,5 @@
+import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-
 import type { NextRequest } from 'next/server'
 
 export async function GET(request: NextRequest) {
@@ -7,11 +7,28 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code')
 
   if (code) {
-    // For now, we'll handle the code exchange in the client
-    // This is a simplified version that will work with Supabase
-    console.log('[INFO] Auth callback received code:', code)
+    const supabase = createClient()
+    
+    try {
+      // Exchange the code for a session
+      const { error } = await supabase.auth.exchangeCodeForSession(code)
+      
+      if (error) {
+        console.error('[ERROR] Auth callback error:', error)
+        return NextResponse.redirect(
+          `${requestUrl.origin}/auth/signin?message=${encodeURIComponent('Error de autenticación. Intenta nuevamente.')}`
+        )
+      }
+      
+      console.log('[INFO] Auth callback successful')
+    } catch (error) {
+      console.error('[ERROR] Auth callback exception:', error)
+      return NextResponse.redirect(
+        `${requestUrl.origin}/auth/signin?message=${encodeURIComponent('Error inesperado. Intenta nuevamente.')}`
+      )
+    }
   }
 
   // URL to redirect to after sign in process completes
-  return NextResponse.redirect(requestUrl.origin)
+  return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
 } 
