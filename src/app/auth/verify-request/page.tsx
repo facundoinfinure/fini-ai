@@ -1,16 +1,42 @@
 "use client";
 
-import { Mail, ArrowLeft, Bot } from "lucide-react";
-import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
+import { Mail, Bot, CheckCircle, ArrowLeft } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function VerifyRequestPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const email = searchParams.get("email");
+  const { user, loading } = useAuth();
+
+  // Redirect if user is already signed in
+  useEffect(() => {
+    if (user && !loading) {
+      router.push("/dashboard");
+    }
+  }, [user, loading, router]);
+
+  const handleBackToSignIn = () => {
+    router.push("/auth/signin");
+  };
+
+  const handleResendEmail = () => {
+    if (email) {
+      router.push(`/auth/signin?email=${email}`);
+    } else {
+      router.push("/auth/signin");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        {/* Logo */}
+        {/* Logo and Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <div className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl">
@@ -20,63 +46,71 @@ export default function VerifyRequestPage() {
           <h1 className="text-3xl font-bold text-gray-900">Fini AI</h1>
         </div>
 
-        <Card className="shadow-xl border-0">
+        <Card>
           <CardHeader className="text-center">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Mail className="h-8 w-8 text-blue-600" />
+            <div className="flex justify-center mb-4">
+              <div className="p-3 bg-green-100 rounded-full">
+                <Mail className="h-8 w-8 text-green-600" />
+              </div>
             </div>
-            <CardTitle className="text-2xl">Revisa tu email</CardTitle>
+            <CardTitle>Revisa tu email</CardTitle>
             <CardDescription>
-              Te enviamos un enlace mágico para iniciar sesión sin contraseña
+              Te hemos enviado un link de confirmación
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="text-center space-y-4">
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <h3 className="font-medium text-blue-900 mb-2">¿Qué hacer ahora?</h3>
-                <ol className="text-sm text-blue-700 space-y-1 text-left">
-                  <li>1. Revisa tu bandeja de entrada</li>
-                  <li>2. Busca el email de Fini AI</li>
-                  <li>3. Haz clic en el enlace para iniciar sesión</li>
-                  <li>4. ¡Listo! Serás redirigido automáticamente</li>
-                </ol>
-              </div>
-
+          <CardContent className="text-center">
+            <div className="space-y-4">
               <div className="text-sm text-gray-600">
-                <p>El enlace expirará en 1 hora por seguridad.</p>
-                <p className="mt-2">
-                  ¿No ves el email? Revisa tu carpeta de spam o{" "}
-                  <Link href="/auth/signin" className="text-blue-600 hover:underline">
-                    intenta nuevamente
-                  </Link>
+                <p className="mb-2">
+                  Hemos enviado un link de confirmación a:
                 </p>
+                <p className="font-medium text-gray-900">{email}</p>
               </div>
-            </div>
 
-            <div className="pt-4 border-t">
-              <Button variant="outline" asChild className="w-full">
-                <Link href="/auth/signin">
+              <div className="bg-blue-50 rounded-lg p-4 text-sm text-blue-800">
+                <div className="flex items-start">
+                  <CheckCircle className="h-4 w-4 mr-2 mt-0.5 text-blue-600 flex-shrink-0" />
+                  <div className="text-left">
+                    <p className="font-medium mb-1">¿No recibiste el email?</p>
+                    <ul className="space-y-1 text-xs">
+                      <li>• Revisa tu carpeta de spam</li>
+                      <li>• Verifica que el email esté correcto</li>
+                      <li>• Espera unos minutos y revisa nuevamente</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Button 
+                  onClick={handleResendEmail} 
+                  variant="outline" 
+                  className="w-full"
+                >
+                  Reenviar email
+                </Button>
+                
+                <Button 
+                  onClick={handleBackToSignIn} 
+                  variant="ghost" 
+                  className="w-full"
+                >
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Volver al inicio de sesión
-                </Link>
-              </Button>
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Help section */}
-        <div className="mt-6 text-center">
-          <div className="bg-gray-50 rounded-lg p-4 border">
-            <p className="text-sm font-medium text-gray-800 mb-1">
-              ¿Problemas para acceder?
-            </p>
-            <p className="text-xs text-gray-600">
-              Contacta nuestro soporte en{" "}
-              <a href="mailto:soporte@fini-ai.com" className="text-blue-600 hover:underline">
-                soporte@fini-ai.com
-              </a>
-            </p>
-          </div>
+        {/* Footer */}
+        <div className="mt-8 text-center text-sm text-gray-600">
+          <p>
+            ¿Necesitas ayuda?{" "}
+            <a href="/support" className="text-blue-600 hover:underline">
+              Contacta soporte
+            </a>
+          </p>
         </div>
       </div>
     </div>
