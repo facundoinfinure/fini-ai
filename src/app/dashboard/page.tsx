@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { StoreStatusCard } from "@/components/dashboard/store-status-card";
 
 export default function DashboardPage() {
   const { user, loading, signOut } = useAuth();
@@ -89,101 +90,66 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          {/* Welcome Section */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              ¡Bienvenido a Fini AI!
-            </h2>
-            <p className="text-gray-600">
-              Tu dashboard de analytics inteligente para Tienda Nube
-            </p>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
-                  Analytics
-                </CardTitle>
-                <CardDescription>
-                  Ver métricas y reportes de tu tienda
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <MessageSquare className="h-5 w-5 mr-2 text-green-600" />
-                  Chat con IA
-                </CardTitle>
-                <CardDescription>
-                  Pregunta sobre tu negocio por WhatsApp
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Settings className="h-5 w-5 mr-2 text-purple-600" />
-                  Configuración
-                </CardTitle>
-                <CardDescription>
-                  Gestiona tu cuenta y preferencias
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </div>
-
-          {/* User Info Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Información de la cuenta</CardTitle>
-              <CardDescription>
-                Detalles de tu perfil y configuración
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Email:</span>
-                  <span className="text-sm text-gray-900">{user.email}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Columna principal */}
+            <div className="lg:col-span-2">
+              <div className="space-y-8">
+                {/* Welcome Section */}
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    ¡Bienvenido a Fini AI!
+                  </h2>
+                  <p className="text-gray-600">
+                    Tu dashboard de analytics inteligente para Tienda Nube
+                  </p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">ID de usuario:</span>
-                  <span className="text-sm text-gray-900 font-mono">{user.id}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Último acceso:</span>
-                  <span className="text-sm text-gray-900">
-                    {user.last_sign_in_at 
-                      ? new Date(user.last_sign_in_at).toLocaleString('es-ES')
-                      : 'N/A'
-                    }
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-500">Estado:</span>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    Activo
-                  </span>
+
+                {/* Quick Actions */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
+                        Analytics
+                      </CardTitle>
+                      <CardDescription>
+                        Ver métricas y reportes de tu tienda
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                  <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <MessageSquare className="h-5 w-5 mr-2 text-green-600" />
+                        Chat con IA
+                      </CardTitle>
+                      <CardDescription>
+                        Pregunta sobre tu negocio por WhatsApp
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Coming Soon */}
-          <div className="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6 border border-blue-200">
-            <h3 className="text-lg font-semibold text-blue-900 mb-2">
-              🚀 Próximamente
-            </h3>
-            <p className="text-blue-800 text-sm">
-              Estamos trabajando en la integración con Tienda Nube y el sistema de agentes IA. 
-              Muy pronto podrás conectar tu tienda y comenzar a usar analytics inteligentes.
-            </p>
+            {/* Columna lateral */}
+            <div className="lg:col-span-1">
+              <div className="space-y-8">
+                <StoreStatusCard />
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Settings className="h-5 w-5 mr-2 text-purple-600" />
+                      Configuración
+                    </CardTitle>
+                    <CardDescription>
+                      Gestiona tu cuenta y preferencias
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </div>
+            </div>
           </div>
         </div>
       </main>
