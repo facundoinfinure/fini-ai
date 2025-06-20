@@ -3,12 +3,12 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Mail, Bot, CheckCircle, ArrowLeft } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function VerifyRequestPage() {
+function VerifyRequestContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
@@ -114,5 +114,13 @@ export default function VerifyRequestPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyRequestPage() {
+  return (
+    <Suspense>
+      <VerifyRequestContent />
+    </Suspense>
   );
 } 

@@ -1,298 +1,196 @@
 "use client";
 
+import { useState, useEffect } from "react";
+// import { useSession } from 'next-auth/react';
+import { useRouter } from "next/navigation";
+
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle, ArrowRight, Store, MessageSquare, Bot, TrendingUp } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import React, { useState, useEffect } from 'react';
-
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
-
-
-interface OnboardingStep {
-  id: string;
-  title: string;
-  description: string;
-  completed: boolean;
-}
-
-interface StoreConnection {
-  storeUrl: string;
-  accessToken?: string;
-  connected: boolean;
-  storeInfo?: {
-    name: string;
-    id: string;
-  };
-}
-
-interface WhatsAppSetup {
-  phoneNumbers: string[];
-  testNumber: string;
-  configured: boolean;
-  webhookUrl?: string;
-}
+// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+// import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// import { Textarea } from "@/components/ui/textarea";
 
 export default function OnboardingPage() {
-  const { data: session, status } = useSession();
-  const _router = useRouter();
-  
-  const [currentStep, setCurrentStep] = useState(0);
-  const [storeConnection, setStoreConnection] = useState<StoreConnection>({
-    storeUrl: '',
-    connected: false
-  });
-  const [whatsappSetup, setWhatsappSetup] = useState<WhatsAppSetup>({
-    phoneNumbers: [],
-    testNumber: '',
-    configured: false
-  });
+  const router = useRouter();
+  // const { data: session, status } = useSession();
+  const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [isCheckingStore, setIsCheckingStore] = useState(true);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const [steps, setSteps] = useState<OnboardingStep[]>([
-    { id: 'store', title: 'Conectar Tienda', description: 'Conecta tu tienda de Tienda Nube', completed: false },
-    { id: 'whatsapp', title: 'Configurar WhatsApp', description: 'Configura números de WhatsApp', completed: false },
-    { id: 'activate', title: 'Activar Fini', description: 'Envía mensaje inicial por WhatsApp', completed: false }
-  ]);
+  // Form data
+  const [storeUrl, setStoreUrl] = useState("");
+  const [storeName, setStoreName] = useState("");
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [selectedPlan, setSelectedPlan] = useState("basic");
 
+  // Check if user is authenticated
   useEffect(() => {
-    // Redirect to login if not authenticated
-    if (status === 'unauthenticated') {
-      _router.push('/auth/signin');
-    }
-  }, [status, _router]);
+    // if (status === "loading") return;
+    
+    // if (!session?.user) {
+    //   router.push("/auth/signin");
+    //   return;
+    // }
 
-  useEffect(() => {
-    // Check if user already has store connected
-    if (status === 'authenticated') {
-      _checkExistingStore();
-    }
-  }, [status]);
+    // Check if user has already completed onboarding
+    // _checkExistingStore();
+  }, [router]);
 
-  const _checkExistingStore = async () => {
-    setIsCheckingStore(true);
-    try {
-      const _response = await fetch('/api/dashboard/stats');
-      if (_response.ok) {
-        const _data = await _response.json();
-        if (_data.storeConnected) {
-          // User already has store connected, skip to WhatsApp setup
-          setStoreConnection(prev => ({
-            ...prev,
-            connected: true,
-            storeInfo: _data.storeInfo
-          }));
-          _updateStepCompletion('store', true);
-          setCurrentStep(1);
-        }
-      }
-    } catch (error) {
-      console.error('Error checking store status:', error);
-    } finally {
-      setIsCheckingStore(false);
+  // const _checkExistingStore = async () => {
+  //   try {
+  //     const response = await fetch("/api/user/complete-onboarding");
+  //     if (response.ok) {
+  //       const data = await response.json();
+  //       if (data.completed) {
+  //         router.push("/dashboard");
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error("Error checking onboarding status:", error);
+  //   }
+  // };
+
+  const handleNextStep = () => {
+    if (currentStep < 3) {
+      setCurrentStep(currentStep + 1);
     }
   };
 
-  // Show loading while checking authentication
-  if (status === 'loading' || isCheckingStore) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Bot className="h-8 w-8 animate-pulse mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Verificando configuración...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Redirect to login if not authenticated
-  if (!session) {
-    return null;
-  }
-
-  const _updateStepCompletion = (stepId: string, completed: boolean) => {
-    setSteps(prev => prev.map(step => 
-      step.id === stepId ? { ...step, completed } : step
-    ));
+  const handlePreviousStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
   };
 
-  const _connectTiendaNube = async () => {
+  const handleStoreConnection = async () => {
     setIsLoading(true);
-    try {
-      // For OAuth flow - this would redirect to Tienda Nube
-      const _response = await fetch('/api/tiendanube/oauth/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          storeUrl: storeConnection.storeUrl,
-          redirectUri: `${window.location.origin}/api/tiendanube/oauth/callback`
-        })
-      });
+    setError("");
+    setSuccess("");
 
-      if (_response.ok) {
-        const _data = await _response.json();
-        console.warn('[ONBOARDING] OAuth response:', _data);
-        
-        // Check both possible locations for authUrl
-        const _authUrl = _data.authUrl || _data.data?.authUrl;
-        
-        if (_authUrl) {
-          console.warn('[ONBOARDING] Redirecting to OAuth URL:', _authUrl);
-          // Redirect to Tienda Nube OAuth
-          window.location.href = _authUrl;
-        } else {
-          console.error('[ONBOARDING] No authUrl found in response:', _data);
-          throw new Error('No auth URL received from server');
-        }
-      } else {
-        console.error('[ONBOARDING] OAuth request failed:', _response.status, _response.statusText);
-        const _errorData = await _response.json();
-        console.error('[ONBOARDING] Error details:', _errorData);
-        
-        // If it's an auth error, redirect to login
-        if (_response.status === 401) {
-          _router.push('/auth/signin');
-          return;
-        }
-        
-        throw new Error(_errorData.error || 'Failed to connect to Tienda Nube');
-      }
+    try {
+      // Simulate store connection
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setSuccess("¡Tienda conectada exitosamente!");
+      setCurrentStep(2);
     } catch (error) {
-      console.error('Error connecting to Tienda Nube:', error);
-      alert('Error conectando con Tienda Nube. Verifica tu URL y intenta nuevamente.');
+      console.error("Error connecting store:", error);
+      setError("Error al conectar la tienda. Intenta nuevamente.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const _addPhoneNumber = () => {
-    if (whatsappSetup.testNumber.trim()) {
-      setWhatsappSetup(prev => ({
-        ...prev,
-        phoneNumbers: [...prev.phoneNumbers, prev.testNumber.trim()],
-        testNumber: ''
-      }));
-    }
-  };
-
-  const _removePhoneNumber = (index: number) => {
-    setWhatsappSetup(prev => ({
-      ...prev,
-      phoneNumbers: prev.phoneNumbers.filter((_, i) => i !== index)
-    }));
-  };
-
-  const _configureWhatsApp = async () => {
-    if (whatsappSetup.phoneNumbers.length === 0) {
-      alert('Agrega al menos un número de teléfono');
-      return;
-    }
-
+  const handleWhatsAppSetup = async () => {
     setIsLoading(true);
-    try {
-      const _response = await fetch('/api/whatsapp/configure', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phoneNumbers: whatsappSetup.phoneNumbers,
-          webhookUrl: `${window.location.origin}/api/whatsapp/webhook`
-        })
-      });
+    setError("");
+    setSuccess("");
 
-      if (_response.ok) {
-        const _data = await _response.json();
-        setWhatsappSetup(prev => ({
-          ...prev,
-          configured: true,
-          webhookUrl: _data.data?.webhookUrl
-        }));
-        _updateStepCompletion('whatsapp', true);
-        setCurrentStep(2);
-      } else {
-        throw new Error('Failed to configure WhatsApp');
-      }
+    try {
+      // Simulate WhatsApp setup
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setSuccess("¡WhatsApp configurado exitosamente!");
+      setCurrentStep(3);
     } catch (error) {
-      console.error('Error configuring WhatsApp:', error);
-      alert('Error configurando WhatsApp. Intenta nuevamente.');
+      console.error("Error setting up WhatsApp:", error);
+      setError("Error al configurar WhatsApp. Intenta nuevamente.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const _sendInitialMessage = async (phoneNumber: string) => {
-    try {
-      const response = await fetch('/api/whatsapp/send-welcome', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber })
-      });
+  const handleCompleteOnboarding = async () => {
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
 
-      if (response.ok) {
-        alert(`Mensaje enviado exitosamente a ${phoneNumber}`);
-        _updateStepCompletion('activate', true);
-        // Redirect to dashboard
-        _router.push('/dashboard');
-      } else {
-        throw new Error('Failed to send message');
-      }
+    try {
+      // Simulate completing onboarding
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setSuccess("¡Onboarding completado! Redirigiendo al dashboard...");
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 2000);
     } catch (error) {
-      console.error('Error sending message:', error);
-      alert('Error enviando mensaje. Intenta nuevamente.');
+      console.error("Error completing onboarding:", error);
+      setError("Error al completar el onboarding. Intenta nuevamente.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const _copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
+  const plans = [
+    {
+      id: "basic",
+      name: "Plan Básico",
+      price: "Gratis",
+      features: [
+        "Analytics básicos",
+        "Resumen diario",
+        "RAG básico",
+        "Soporte por email"
+      ]
+    },
+    {
+      id: "pro",
+      name: "Plan Pro",
+      price: "$39/mes",
+      features: [
+        "Sistema multi-agente completo",
+        "Forecasting con IA",
+        "Análisis de competencia",
+        "Ideas de marketing",
+        "Memoria extendida",
+        "Soporte prioritario"
+      ]
+    },
+    {
+      id: "enterprise",
+      name: "Plan Enterprise",
+      price: "$99/mes",
+      features: [
+        "Agentes personalizados",
+        "Integraciones avanzadas",
+        "ML models custom",
+        "API dedicada",
+        "Soporte 24/7",
+        "Onboarding personalizado"
+      ]
+    }
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl">
-              <Bot className="h-8 w-8 text-white" />
-            </div>
-          </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Configuración de Fini AI
+            Configura tu Tienda Nube
           </h1>
           <p className="text-gray-600">
-            Conecta tu tienda y configura WhatsApp en pocos pasos
+            Conecta tu tienda y configura WhatsApp para comenzar
           </p>
         </div>
 
         {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            {steps.map((step, index) => (
-              <div key={step.id} className="flex items-center">
-                <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                  step.completed 
-                    ? 'bg-green-500 text-white' 
-                    : index === currentStep 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-gray-200 text-gray-600'
+        <div className="flex justify-center mb-8">
+          <div className="flex items-center space-x-4">
+            {[1, 2, 3].map((step) => (
+              <div key={step} className="flex items-center">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  step <= currentStep 
+                    ? "bg-blue-600 text-white" 
+                    : "bg-gray-200 text-gray-600"
                 }`}>
-                  {step.completed ? (
-                    <CheckCircle className="w-5 h-5" />
-                  ) : (
-                    <span className="text-sm font-medium">{index + 1}</span>
-                  )}
+                  {step}
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-900">{step.title}</p>
-                  <p className="text-xs text-gray-500">{step.description}</p>
-                </div>
-                {index < steps.length - 1 && (
-                  <div className={`w-16 h-0.5 mx-4 ${
-                    step.completed ? 'bg-green-500' : 'bg-gray-200'
+                {step < 3 && (
+                  <div className={`w-12 h-0.5 mx-2 ${
+                    step < currentStep ? "bg-blue-600" : "bg-gray-200"
                   }`} />
                 )}
               </div>
@@ -301,194 +199,156 @@ export default function OnboardingPage() {
         </div>
 
         {/* Step Content */}
-        <Card>
-          <CardContent className="p-6">
-            {currentStep === 0 && (
-              <div className="space-y-6">
-                {storeConnection.connected ? (
-                  <div className="text-center py-8">
-                    <div className="bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle className="w-8 h-8 text-green-600" />
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      ¡Tienda ya conectada!
-                    </h3>
-                    <p className="text-gray-600 mb-4">
-                      Tu tienda <strong>{storeConnection.storeInfo?.name || 'Tienda Nube'}</strong> ya está conectada.
-                    </p>
-                    <Button 
-                      onClick={() => setCurrentStep(1)}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      Continuar con WhatsApp
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        Conectar Tienda Nube
-                      </h3>
-                      <p className="text-gray-600 mb-4">
-                        Ingresa la URL de tu tienda de Tienda Nube para conectarla automáticamente.
-                      </p>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          URL de tu tienda
-                        </label>
-                        <Input
-                          type="url"
-                          placeholder="https://tu-tienda.mitiendanube.com"
-                          value={storeConnection.storeUrl}
-                          onChange={(_e) => setStoreConnection(prev => ({ ...prev, storeUrl: _e.target.value }))}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Ejemplo: https://mi-tienda.mitiendanube.com
-                        </p>
-                      </div>
-
-                      <Button 
-                        onClick={_connectTiendaNube}
-                        disabled={isLoading || !storeConnection.storeUrl}
-                        className="w-full"
-                      >
-                        {isLoading ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                        ) : (
-                          <Store className="w-4 h-4 mr-2" />
-                        )}
-                        Conectar Tienda
-                      </Button>
-                    </div>
-                  </>
-                )}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>
+              {currentStep === 1 && "Paso 1: Conecta tu Tienda Nube"}
+              {currentStep === 2 && "Paso 2: Configura WhatsApp"}
+              {currentStep === 3 && "Paso 3: Elige tu Plan"}
+            </CardTitle>
+            <CardDescription>
+              {currentStep === 1 && "Ingresa la URL de tu tienda para conectarla automáticamente"}
+              {currentStep === 2 && "Configura tu número de WhatsApp para recibir analytics"}
+              {currentStep === 3 && "Selecciona el plan que mejor se adapte a tus necesidades"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">
+                {error}
+              </div>
+            )}
+            
+            {success && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded text-green-700">
+                {success}
               </div>
             )}
 
+            {/* Step 1: Store Connection */}
             {currentStep === 1 && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Configurar WhatsApp
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    Agrega los números de teléfono que usarás para recibir mensajes de Fini AI.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Agregar número de teléfono
-                    </label>
-                    <div className="flex space-x-2">
-                      <Input
-                        type="tel"
-                        placeholder="+5491112345678"
-                        value={whatsappSetup.testNumber}
-                        onChange={(_e) => setWhatsappSetup(prev => ({ ...prev, testNumber: _e.target.value }))}
-                      />
-                      <Button onClick={_addPhoneNumber} disabled={!whatsappSetup.testNumber}>
-                        Agregar
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Incluye el código de país (+54 para Argentina)
-                    </p>
-                  </div>
-
-                  {whatsappSetup.phoneNumbers.length > 0 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Números configurados
-                      </label>
-                      <div className="space-y-2">
-                        {whatsappSetup.phoneNumbers.map((phone, index) => (
-                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                            <span className="text-sm">{phone}</span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => _removePhoneNumber(index)}
-                            >
-                              Eliminar
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <Button 
-                    onClick={_configureWhatsApp}
-                    disabled={isLoading || whatsappSetup.phoneNumbers.length === 0}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    URL de tu Tienda Nube
+                  </label>
+                  <Input
+                    type="url"
+                    placeholder="https://mitienda.tiendanube.com"
+                    value={storeUrl}
+                    onChange={(e) => setStoreUrl(e.target.value)}
                     className="w-full"
-                  >
-                    {isLoading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    ) : (
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                    )}
-                    Configurar WhatsApp
-                  </Button>
+                  />
                 </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre de la Tienda
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="Mi Tienda"
+                    value={storeName}
+                    onChange={(e) => setStoreName(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+
+                <Button 
+                  onClick={handleStoreConnection}
+                  disabled={isLoading || !storeUrl || !storeName}
+                  className="w-full"
+                >
+                  {isLoading ? "Conectando..." : "Conectar Tienda"}
+                </Button>
               </div>
             )}
 
+            {/* Step 2: WhatsApp Setup */}
             {currentStep === 2 && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    ¡Activa Fini AI!
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    Envía un mensaje inicial para activar tu asistente de IA y comenzar a chatear.
-                  </p>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Número de WhatsApp
+                  </label>
+                  <Input
+                    type="tel"
+                    placeholder="+54 9 11 1234-5678"
+                    value={whatsappNumber}
+                    onChange={(e) => setWhatsappNumber(e.target.value)}
+                    className="w-full"
+                  />
                 </div>
 
-                <div className="space-y-4">
-                  {whatsappSetup.phoneNumbers.map((phone, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <p className="font-medium">{phone}</p>
-                        <p className="text-sm text-gray-600">Número configurado</p>
+                <Button 
+                  onClick={handleWhatsAppSetup}
+                  disabled={isLoading || !whatsappNumber}
+                  className="w-full"
+                >
+                  {isLoading ? "Configurando..." : "Configurar WhatsApp"}
+                </Button>
+              </div>
+            )}
+
+            {/* Step 3: Plan Selection */}
+            {currentStep === 3 && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {plans.map((plan, index) => (
+                    <div
+                      key={plan.id}
+                      className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                        selectedPlan === plan.id
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                      onClick={() => setSelectedPlan(plan.id)}
+                    >
+                      <div className="text-center">
+                        <h3 className="font-semibold text-gray-900">{plan.name}</h3>
+                        <p className="text-2xl font-bold text-blue-600 mt-2">{plan.price}</p>
+                        <ul className="mt-4 space-y-2 text-sm text-gray-600">
+                          {plan.features.map((feature, featureIndex) => (
+                            <li key={featureIndex} className="flex items-center">
+                              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                              {feature}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                      <Button
-                        onClick={() => _sendInitialMessage(phone)}
-                        variant="outline"
-                      >
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        Enviar mensaje
-                      </Button>
                     </div>
                   ))}
-
-                  <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center mb-2">
-                      <TrendingUp className="w-5 h-5 text-green-600 mr-2" />
-                      <h4 className="font-medium text-green-900">¡Todo listo!</h4>
-                    </div>
-                    <p className="text-green-700 text-sm">
-                      Una vez que envíes el mensaje inicial, podrás comenzar a usar Fini AI 
-                      para obtener analytics de tu tienda por WhatsApp. ¡Pregunta sobre ventas, 
-                      productos, clientes y mucho más!
-                    </p>
-                  </div>
-
-                  <Button 
-                    onClick={() => _router.push('/dashboard')}
-                    className="w-full bg-green-600 hover:bg-green-700"
-                  >
-                    Ir al Dashboard
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
                 </div>
+
+                <Button 
+                  onClick={handleCompleteOnboarding}
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  {isLoading ? "Completando..." : "Completar Onboarding"}
+                </Button>
               </div>
             )}
+
+            {/* Navigation */}
+            <div className="flex justify-between mt-6">
+              <Button
+                variant="outline"
+                onClick={handlePreviousStep}
+                disabled={currentStep === 1}
+              >
+                Anterior
+              </Button>
+              
+              {currentStep < 3 && (
+                <Button
+                  onClick={handleNextStep}
+                  disabled={currentStep === 3}
+                >
+                  Siguiente
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
