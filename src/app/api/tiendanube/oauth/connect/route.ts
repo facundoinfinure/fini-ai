@@ -23,17 +23,26 @@ export async function POST(_request: NextRequest) {
 
     // Generate OAuth URL
     const clientId = process.env.TIENDANUBE_CLIENT_ID;
+
+    if (!clientId) {
+      console.error('[ERROR] TIENDANUBE_CLIENT_ID is not set in environment variables.');
+      return NextResponse.json({
+        success: false,
+        error: 'Server configuration error: Tienda Nube client ID is missing.'
+      }, { status: 500 });
+    }
+
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/tiendanube/oauth/callback`;
     const scope = 'read_products read_orders read_customers';
     
-    const oauthUrl = `https://www.tiendanube.com/apps/authorize/token?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${userId}`;
+    const authUrl = `https://www.tiendanube.com/apps/authorize/token?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${userId}`;
 
     console.log('[INFO] OAuth URL generated successfully');
 
     return NextResponse.json({
       success: true,
       data: {
-        oauthUrl
+        authUrl
       }
     });
 
