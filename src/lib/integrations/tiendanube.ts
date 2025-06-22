@@ -398,12 +398,17 @@ export const getTiendaNubeAuthUrl = (state?: string): string => {
 };
 
 /**
- * Exchange authorization code for access token
+ * Exchange authorization code for an access token
  */
 export const exchangeCodeForToken = async (code: string): Promise<TiendaNubeAuthResponse> => {
   try {
-    console.warn("[OAUTH] Exchanging authorization code for token");
+    console.log('[INFO] Exchanging Tienda Nube authorization code for token');
     
+    if (!CLIENT_ID || !CLIENT_SECRET) {
+      console.error('[ERROR] Tienda Nube Client ID or Secret is not configured');
+      throw new Error('Server configuration error for Tienda Nube integration.');
+    }
+
     const response = await fetch('https://www.tiendanube.com/apps/authorize/token', {
       method: 'POST',
       headers: {
@@ -415,21 +420,21 @@ export const exchangeCodeForToken = async (code: string): Promise<TiendaNubeAuth
         client_secret: CLIENT_SECRET,
         grant_type: 'authorization_code',
         code,
-        redirect_uri: REDIRECT_URI,
       }),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[OAUTH] Token exchange failed:", response.status, errorText);
-      throw new Error(`Token exchange failed: ${response.status} ${errorText}`);
+      const errorData = await response.json();
+      console.error('[ERROR] Failed to exchange code for token:', errorData);
+      throw new Error(`Failed to get access token from Tienda Nube: ${errorData.error_description || response.statusText}`);
     }
 
-    const data = await response.json();
-    console.warn("[OAUTH] Token exchange successful");
-    return data;
+    const authData: TiendaNubeAuthResponse = await response.json();
+    console.log('[INFO] Successfully exchanged code for access token. User ID:', authData.user_id);
+    return authData;
+
   } catch (error) {
-    console.error("[OAUTH] Token exchange error:", error);
+    console.error('[ERROR] Exception during token exchange:', error);
     throw error;
   }
 };

@@ -32,10 +32,11 @@ export async function POST(_request: NextRequest) {
       }, { status: 500 });
     }
 
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/tiendanube/oauth/callback`;
-    const scope = 'read_products read_orders read_customers';
-    
-    const authUrl = `https://www.tiendanube.com/apps/authorize/token?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${userId}`;
+    // The redirect URI and scope are configured in the Tienda Nube Partner Dashboard.
+    // We only need to construct the initial authorization URL here.
+    // The `state` parameter is used to pass the user's ID through the OAuth process for security.
+    // Reference: https://dev.tiendanube.com/docs/applications/authentication
+    const authUrl = `https://www.tiendanube.com/apps/${clientId}/authorize?state=${userId}`;
 
     console.log('[INFO] OAuth URL generated successfully');
 
