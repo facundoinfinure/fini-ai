@@ -5,37 +5,39 @@
 
 import type { WhatsAppConfig } from './types';
 
-export const WHATSAPP_CONFIG: WhatsAppConfig = {
-  twilio: {
-    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
-    authToken: process.env.TWILIO_AUTH_TOKEN || '',
-    whatsappNumber: process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886' // Twilio Sandbox number
-  },
-  webhook: {
-    url: process.env.WHATSAPP_WEBHOOK_URL || 'https://your-domain.com/api/whatsapp/webhook',
-    verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || 'fini-ai-verify-token'
-  },
-  features: {
-    enableMediaSupport: true,
-    enableLocationSupport: true,
-    enableFileSupport: false, // Disable for now
-    maxMessageLength: 1600,
-    rateLimitPerMinute: 60
-  },
-  businessHours: {
-    enabled: false, // Disable business hours restrictions for 24/7 AI support
-    timezone: 'America/Argentina/Buenos_Aires',
-    schedule: {
-      monday: { open: '09:00', close: '18:00', enabled: true },
-      tuesday: { open: '09:00', close: '18:00', enabled: true },
-      wednesday: { open: '09:00', close: '18:00', enabled: true },
-      thursday: { open: '09:00', close: '18:00', enabled: true },
-      friday: { open: '09:00', close: '18:00', enabled: true },
-      saturday: { open: '10:00', close: '14:00', enabled: true },
-      sunday: { open: '10:00', close: '14:00', enabled: false }
+export function getWhatsAppConfig(): WhatsAppConfig {
+  return {
+    twilio: {
+      accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+      authToken: process.env.TWILIO_AUTH_TOKEN || '',
+      whatsappNumber: process.env.TWILIO_PHONE_NUMBER || ''
+    },
+    webhook: {
+      url: process.env.WHATSAPP_WEBHOOK_URL || 'https://your-domain.com/api/whatsapp/webhook',
+      verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || 'fini-ai-verify-token'
+    },
+    features: {
+      enableMediaSupport: true,
+      enableLocationSupport: true,
+      enableFileSupport: false, // Disable for now
+      maxMessageLength: 1600,
+      rateLimitPerMinute: 60
+    },
+    businessHours: {
+      enabled: false, // Disable business hours restrictions for 24/7 AI support
+      timezone: 'America/Argentina/Buenos_Aires',
+      schedule: {
+        monday: { open: '09:00', close: '18:00', enabled: true },
+        tuesday: { open: '09:00', close: '18:00', enabled: true },
+        wednesday: { open: '09:00', close: '18:00', enabled: true },
+        thursday: { open: '09:00', close: '18:00', enabled: true },
+        friday: { open: '09:00', close: '18:00', enabled: true },
+        saturday: { open: '10:00', close: '14:00', enabled: true },
+        sunday: { open: '10:00', close: '14:00', enabled: false }
+      }
     }
-  }
-};
+  };
+}
 
 // WhatsApp message templates
 export const WHATSAPP_TEMPLATES = {
@@ -181,21 +183,22 @@ export const ANALYTICS_CONFIG = {
 
 // Environment validation
 export function validateWhatsAppConfig(): { valid: boolean; errors: string[] } {
+  const config = getWhatsAppConfig();
   const errors: string[] = [];
   
-  if (!WHATSAPP_CONFIG.twilio.accountSid) {
+  if (!config.twilio.accountSid) {
     errors.push('TWILIO_ACCOUNT_SID is required');
   }
   
-  if (!WHATSAPP_CONFIG.twilio.authToken) {
+  if (!config.twilio.authToken) {
     errors.push('TWILIO_AUTH_TOKEN is required');
   }
   
-  if (!WHATSAPP_CONFIG.twilio.whatsappNumber) {
-    errors.push('TWILIO_WHATSAPP_NUMBER is required');
+  if (!config.twilio.whatsappNumber) {
+    errors.push('TWILIO_PHONE_NUMBER is required');
   }
   
-  if (!WHATSAPP_CONFIG.webhook.verifyToken) {
+  if (!config.webhook.verifyToken) {
     errors.push('WHATSAPP_VERIFY_TOKEN is required');
   }
   

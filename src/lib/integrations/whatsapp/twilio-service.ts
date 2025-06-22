@@ -7,7 +7,7 @@ import crypto from 'crypto';
 
 import twilio from 'twilio';
 
-import { WHATSAPP_CONFIG, PHONE_UTILS } from './config';
+import { getWhatsAppConfig, PHONE_UTILS } from './config';
 // import { MESSAGE_CONFIG } from './config';
 import type { 
   WhatsAppService, 
@@ -26,9 +26,10 @@ export class TwilioWhatsAppService implements WhatsAppService {
   private conversations: Map<string, WhatsAppConversation> = new Map();
 
   constructor() {
+    const config = getWhatsAppConfig();
     this.client = twilio(
-      WHATSAPP_CONFIG.twilio.accountSid,
-      WHATSAPP_CONFIG.twilio.authToken
+      config.twilio.accountSid,
+      config.twilio.authToken
     );
     
     console.warn('[WHATSAPP] Twilio service initialized');
@@ -40,11 +41,11 @@ export class TwilioWhatsAppService implements WhatsAppService {
   async sendMessage(message: OutgoingWhatsAppMessage): Promise<{ sid: string; status: string }> {
     try {
       console.warn(`[WHATSAPP] Sending message to ${message.to}`);
-      
+      const config = getWhatsAppConfig();
       const _twilioMessage = await this.client.messages.create({
-        from: WHATSAPP_CONFIG.twilio.whatsappNumber,
+        from: config.twilio.whatsappNumber,
         to: `whatsapp:${PHONE_UTILS.formatPhoneNumber(message.to)}`,
-        body: message.body.substring(0, WHATSAPP_CONFIG.features.maxMessageLength),
+        body: message.body.substring(0, config.features.maxMessageLength),
         mediaUrl: message.mediaUrl ? [message.mediaUrl] : undefined
       });
 
@@ -141,9 +142,10 @@ export class TwilioWhatsAppService implements WhatsAppService {
         });
 
         // Update conversation with agent response
+        const config = getWhatsAppConfig();
         const responseMessage: WhatsAppMessage = {
           id: `response_${Date.now()}`,
-          from: WHATSAPP_CONFIG.twilio.whatsappNumber,
+          from: config.twilio.whatsappNumber,
           to: _cleanPhone,
           body: _agentResponse.response,
           timestamp: new Date().toISOString(),
@@ -273,27 +275,18 @@ export class TwilioWhatsAppService implements WhatsAppService {
    * Verify webhook signature
    */
   verifyWebhook(signature: string, body: string): boolean {
-    try {
-      if (!WHATSAPP_CONFIG.webhook.verifyToken) {
-        console.warn('[WHATSAPP] No verify token configured, skipping verification');
-        return true;
-      }
-
-      const _expectedSignature = crypto
-        .createHmac('sha1', WHATSAPP_CONFIG.twilio.authToken)
-        .update(Buffer.from(body, 'utf-8'))
-        .digest('base64');
-
-      const _twilioSignature = signature.replace('sha1=', '');
-      
-      return crypto.timingSafeEqual(
-        Buffer.from(_expectedSignature, 'base64'),
-        Buffer.from(_twilioSignature, 'base64')
-      );
-    } catch (error) {
-      console.warn('[ERROR] Webhook verification failed:', error);
-      return false;
+    const config = getWhatsAppConfig();
+    if (!config.webhook.verifyToken) {
+      console.warn('[WHATSAPP] Webhook verification skipped: no verify token set');
+      return true; // Or false, depending on security policy
     }
+
+    const expectedSignature = crypto
+      .createHmac('sha1', config.twilio.authToken)
+      .update(Buffer.from(JSON.stringify(body)))
+      .digest('base64');
+
+    return signature === expectedSignature;
   }
 
   /**
@@ -301,23 +294,19 @@ export class TwilioWhatsAppService implements WhatsAppService {
    */
   async getServiceStatus(): Promise<{ healthy: boolean; details: unknown }> {
     try {
-      // Test Twilio connection by getting account info
-      const _account = await this.client.api.accounts(WHATSAPP_CONFIG.twilio.accountSid).fetch();
+      const config = getWhatsAppConfig();
+      const _account = await this.client.api.accounts(config.twilio.accountSid).fetch();
       
       return {
-        healthy: true,
+        healthy: _account.status === 'active',
         details: {
-          twilioAccount: {
-            sid: _account.sid,
-            status: _account.status,
-            type: _account.type
-          },
-          configuration: {
-            whatsappNumber: WHATSAPP_CONFIG.twilio.whatsappNumber,
-            webhookConfigured: !!WHATSAPP_CONFIG.webhook.url,
-            verifyTokenSet: !!WHATSAPP_CONFIG.webhook.verifyToken
-          },
-          activeConversations: this.conversations.size
+          accountSid: _account.sid,
+          status: _account.status,
+          friendlyName: _account.friendlyName,
+          type: _account.type,
+          whatsappNumber: config.twilio.whatsappNumber,
+          webhookConfigured: !!config.webhook.url,
+          verifyTokenSet: !!config.webhook.verifyToken
         }
       };
     } catch (error) {
@@ -326,11 +315,9 @@ export class TwilioWhatsAppService implements WhatsAppService {
         healthy: false,
         details: {
           error: error instanceof Error ? error.message : 'Unknown error',
-          configuration: {
-            hasAccountSid: !!WHATSAPP_CONFIG.twilio.accountSid,
-            hasAuthToken: !!WHATSAPP_CONFIG.twilio.authToken,
-            hasWhatsAppNumber: !!WHATSAPP_CONFIG.twilio.whatsappNumber
-          }
+          hasAccountSid: !!getWhatsAppConfig().twilio.accountSid,
+          hasAuthToken: !!getWhatsAppConfig().twilio.authToken,
+          hasWhatsAppNumber: !!getWhatsAppConfig().twilio.whatsappNumber
         }
       };
     }
