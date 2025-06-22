@@ -116,35 +116,23 @@ export async function DELETE(
 
     const updatedNumbers = currentConfig.phone_numbers.filter(num => !numbersToDelete.includes(num));
 
-    if (updatedNumbers.length === 0) {
-        // If no numbers are left, delete the entire configuration
-        const { error: deleteError } = await supabase
-            .from('whatsapp_configs')
-            .delete()
-            .eq('id', configId);
+    // Update the numbers list, even if it becomes empty
+    const { error: updateError } = await supabase
+        .from('whatsapp_configs')
+        .update({ phone_numbers: updatedNumbers })
+        .eq('id', configId);
 
-        if (deleteError) {
-            console.error('[ERROR] Failed to delete empty WhatsApp config:', deleteError);
-            return NextResponse.json({ success: false, error: 'Failed to delete configuration' }, { status: 500 });
-        }
-        
-        console.log('[INFO] WhatsApp config deleted successfully as it was empty');
-        return NextResponse.json({ success: true, message: 'WhatsApp configuration deleted successfully' });
-    } else {
-        // Otherwise, just update the numbers list
-        const { error: updateError } = await supabase
-            .from('whatsapp_configs')
-            .update({ phone_numbers: updatedNumbers })
-            .eq('id', configId);
-
-        if (updateError) {
-            console.error('[ERROR] Failed to update phone numbers in WhatsApp config:', updateError);
-            return NextResponse.json({ success: false, error: 'Failed to update configuration' }, { status: 500 });
-        }
-
-        console.log('[INFO] Phone numbers deleted successfully from config');
-        return NextResponse.json({ success: true, message: 'Phone numbers removed successfully' });
+    if (updateError) {
+        console.error('[ERROR] Failed to update phone numbers in WhatsApp config:', updateError);
+        return NextResponse.json({ success: false, error: 'Failed to update configuration' }, { status: 500 });
     }
+
+    if (updatedNumbers.length === 0) {
+        console.log('[INFO] Last phone number removed, config kept for future use');
+    }
+
+    console.log('[INFO] Phone numbers deleted successfully from config');
+    return NextResponse.json({ success: true, message: 'Phone numbers removed successfully' });
 
   } catch (error) {
     console.error('[ERROR] Failed to delete from WhatsApp config:', error);
