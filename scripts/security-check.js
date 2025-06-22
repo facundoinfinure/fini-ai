@@ -15,6 +15,8 @@ function checkForSecrets(content, filePath) {
     '.env.test',
     'jest.config.js',
     'next.config.js',
+    'env-config.js', // Archivo de configuración de variables de entorno
+    'verify-env.js', // Script de verificación de entorno
   ];
 
   if (safeFiles.includes(path.basename(filePath))) {

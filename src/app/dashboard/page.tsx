@@ -1,8 +1,8 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
-import { Bot, LogOut, User, Settings, BarChart3, MessageSquare } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Bot, LogOut, User, Settings, BarChart3, MessageSquare, CheckCircle, AlertCircle } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -17,10 +17,30 @@ import { Store } from "@/types/db";
 export default function DashboardPage() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [activeSection, setActiveSection] = useState<'overview' | 'analytics' | 'subscription'>('overview');
   const [stores, setStores] = useState<Store[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Handle OAuth callback results
+  useEffect(() => {
+    const successParam = searchParams.get('success');
+    const errorParam = searchParams.get('error');
+    const messageParam = searchParams.get('message');
+    const storeNameParam = searchParams.get('store_name');
+
+    if (successParam === 'store_connected' && storeNameParam) {
+      setSuccess(`¡Tienda "${decodeURIComponent(storeNameParam)}" conectada exitosamente!`);
+      // Clear URL parameters
+      router.replace('/dashboard');
+    } else if (errorParam === 'oauth_failed') {
+      setError(`Error al conectar la tienda: ${messageParam ? decodeURIComponent(messageParam) : 'Error desconocido'}`);
+      // Clear URL parameters
+      router.replace('/dashboard');
+    }
+  }, [searchParams, router]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -152,6 +172,37 @@ export default function DashboardPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
+          {/* Success/Error Messages */}
+          {success && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center">
+              <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
+              <span className="text-green-800">{success}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSuccess(null)}
+                className="ml-auto text-green-600 hover:text-green-800"
+              >
+                ×
+              </Button>
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
+              <span className="text-red-800">{error}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setError(null)}
+                className="ml-auto text-red-600 hover:text-red-800"
+              >
+                ×
+              </Button>
+            </div>
+          )}
+
           {activeSection === 'overview' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Columna principal */}

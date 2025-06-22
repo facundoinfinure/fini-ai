@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-export async function POST(_request: NextRequest) {
+interface ConnectRequest {
+  storeUrl: string;
+  storeName: string;
+}
+
+export async function POST(request: NextRequest) {
   try {
     console.log('[INFO] Generating Tienda Nube OAuth URL');
     
@@ -19,7 +24,29 @@ export async function POST(_request: NextRequest) {
     }
 
     const userId = session.user.id;
-    console.log('[INFO] Generating OAuth URL for user:', userId);
+    
+    // Parse request body to get store information
+    let storeData: ConnectRequest;
+    try {
+      storeData = await request.json();
+    } catch (parseError) {
+      console.error('[ERROR] Failed to parse request body:', parseError);
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid request body'
+      }, { status: 400 });
+    }
+
+    // Validate store data
+    if (!storeData.storeUrl || !storeData.storeName) {
+      console.error('[ERROR] Missing store URL or name');
+      return NextResponse.json({
+        success: false,
+        error: 'Store URL and name are required'
+      }, { status: 400 });
+    }
+
+    console.log('[INFO] Generating OAuth URL for user:', userId, 'store:', storeData.storeName);
 
     // Generate OAuth URL
     const clientId = process.env.TIENDANUBE_CLIENT_ID;
@@ -32,13 +59,24 @@ export async function POST(_request: NextRequest) {
       }, { status: 500 });
     }
 
+    // Create state parameter with user ID and store information
+    // We'll encode the store info in the state to retrieve it in the callback
+    const stateData = {
+      userId,
+      storeUrl: storeData.storeUrl,
+      storeName: storeData.storeName,
+      timestamp: Date.now()
+    };
+    
+    const state = Buffer.from(JSON.stringify(stateData)).toString('base64');
+
     // The redirect URI and scope are configured in the Tienda Nube Partner Dashboard.
     // We only need to construct the initial authorization URL here.
-    // The `state` parameter is used to pass the user's ID through the OAuth process for security.
+    // The `state` parameter is used to pass the user's ID and store info through the OAuth process for security.
     // Reference: https://dev.tiendanube.com/docs/applications/authentication
-    const authUrl = `https://www.tiendanube.com/apps/${clientId}/authorize?state=${userId}`;
+    const authUrl = `https://www.tiendanube.com/apps/${clientId}/authorize?state=${encodeURIComponent(state)}`;
 
-    console.log('[INFO] OAuth URL generated successfully');
+    console.log('[INFO] OAuth URL generated successfully for store:', storeData.storeName);
 
     return NextResponse.json({
       success: true,

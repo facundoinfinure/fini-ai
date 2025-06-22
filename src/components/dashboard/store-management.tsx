@@ -57,24 +57,10 @@ export function StoreManagement() {
 
   const handleAddStore = async () => {
     try {
-      // For now, this will redirect to Tienda Nube OAuth
-      // In a real implementation, you'd handle the OAuth flow here
-      const response = await fetch('/api/tiendanube/oauth/connect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.data.authUrl) {
-        window.location.href = data.data.authUrl;
-      } else {
-        setError('Failed to initiate store connection');
-      }
+      // Redirect to onboarding to collect store information first
+      window.location.href = '/onboarding';
     } catch (err) {
-      setError('Failed to add store');
+      setError('Failed to redirect to onboarding');
     }
   };
 

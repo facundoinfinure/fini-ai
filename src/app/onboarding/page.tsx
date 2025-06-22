@@ -40,12 +40,25 @@ export default function OnboardingPage() {
 
   const checkExistingOnboarding = async () => {
     try {
-      const response = await fetch("/api/user/complete-onboarding");
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data.completed) {
+      // Check if user has already completed onboarding
+      const onboardingResponse = await fetch("/api/user/complete-onboarding");
+      if (onboardingResponse.ok) {
+        const onboardingData = await onboardingResponse.json();
+        if (onboardingData.success && onboardingData.data.completed) {
           console.log('[INFO] User has already completed onboarding, redirecting to dashboard');
           router.push("/dashboard");
+          return;
+        }
+      }
+
+      // Check if user already has stores connected
+      const storesResponse = await fetch("/api/stores");
+      if (storesResponse.ok) {
+        const storesData = await storesResponse.json();
+        if (storesData.success && storesData.stores && storesData.stores.length > 0) {
+          console.log('[INFO] User already has stores connected, redirecting to dashboard');
+          router.push("/dashboard");
+          return;
         }
       }
     } catch (error) {
@@ -76,12 +89,43 @@ export default function OnboardingPage() {
         throw new Error('La URL debe ser de Tienda Nube');
       }
 
-      // For now, just simulate store connection
-      // In the future, this will integrate with Tienda Nube OAuth
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setSuccess("¡Tienda conectada exitosamente!");
-      setCurrentStep(2);
+      // Validate store name
+      if (!storeName.trim()) {
+        throw new Error('El nombre de la tienda es requerido');
+      }
+
+      console.log('[INFO] Starting Tienda Nube OAuth flow for:', { storeUrl, storeName });
+
+      // Store the URL and name in sessionStorage for the OAuth callback
+      sessionStorage.setItem('pendingStoreUrl', storeUrl);
+      sessionStorage.setItem('pendingStoreName', storeName);
+
+      // Initiate Tienda Nube OAuth
+      const response = await fetch('/api/tiendanube/oauth/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          storeUrl,
+          storeName
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Error al iniciar la conexión con Tienda Nube');
+      }
+
+      if (data.data?.authUrl) {
+        console.log('[INFO] Redirecting to Tienda Nube OAuth:', data.data.authUrl);
+        // Redirect to Tienda Nube OAuth
+        window.location.href = data.data.authUrl;
+      } else {
+        throw new Error('No se recibió la URL de autorización de Tienda Nube');
+      }
+
     } catch (error) {
       console.error('[ERROR] Error connecting store:', error);
       setError(error instanceof Error ? error.message : "Error al conectar la tienda. Intenta nuevamente.");
