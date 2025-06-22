@@ -53,7 +53,7 @@ export function WhatsAppManagement() {
       const response = await fetch('/api/whatsapp/numbers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumbers: [formNumber] })
+        body: JSON.stringify({ phoneNumber: formNumber })
       });
       const data = await response.json();
       if (data.success) {
