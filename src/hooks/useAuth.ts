@@ -34,9 +34,8 @@ export function useAuth() {
         setUser(session?.user ?? null)
         setLoading(false)
 
-        if (event === 'SIGNED_IN') {
-          router.push('/dashboard')
-        } else if (event === 'SIGNED_OUT') {
+        // Only redirect on sign out, let individual pages handle sign in redirects
+        if (event === 'SIGNED_OUT') {
           router.push('/auth/signin')
         }
       }

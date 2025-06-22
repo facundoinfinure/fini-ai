@@ -29,6 +29,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // URL to redirect to after sign in process completes
-  return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+  // Redirect to onboarding instead of dashboard to let onboarding handle its own logic
+  return NextResponse.redirect(`${requestUrl.origin}/onboarding`)
 } 

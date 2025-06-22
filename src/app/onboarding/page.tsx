@@ -18,6 +18,7 @@ export default function OnboardingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   // Form data
   const [storeUrl, setStoreUrl] = useState("");
@@ -40,29 +41,78 @@ export default function OnboardingPage() {
 
   const checkExistingOnboarding = async () => {
     try {
+      console.log('[INFO] Checking onboarding status for user:', user?.id);
+      
+      const debugData: any = {
+        userId: user?.id,
+        timestamp: new Date().toISOString(),
+        checks: {}
+      };
+      
       // Check if user has already completed onboarding
+      console.log('[INFO] Checking onboarding completion status...');
       const onboardingResponse = await fetch("/api/user/complete-onboarding");
+      console.log('[INFO] Onboarding response status:', onboardingResponse.status);
+      
+      debugData.checks.onboarding = {
+        status: onboardingResponse.status,
+        ok: onboardingResponse.ok
+      };
+      
       if (onboardingResponse.ok) {
         const onboardingData = await onboardingResponse.json();
+        console.log('[INFO] Onboarding data:', onboardingData);
+        debugData.checks.onboarding.data = onboardingData;
+        
         if (onboardingData.success && onboardingData.data.completed) {
           console.log('[INFO] User has already completed onboarding, redirecting to dashboard');
+          debugData.redirectReason = 'onboarding_completed';
+          setDebugInfo(debugData);
           router.push("/dashboard");
           return;
         }
+      } else {
+        console.log('[INFO] Onboarding check failed, status:', onboardingResponse.status);
       }
 
       // Check if user already has stores connected
+      console.log('[INFO] Checking if user has stores...');
       const storesResponse = await fetch("/api/stores");
+      console.log('[INFO] Stores response status:', storesResponse.status);
+      
+      debugData.checks.stores = {
+        status: storesResponse.status,
+        ok: storesResponse.ok
+      };
+      
       if (storesResponse.ok) {
         const storesData = await storesResponse.json();
-        if (storesData.success && storesData.stores && storesData.stores.length > 0) {
+        console.log('[INFO] Stores data:', storesData);
+        debugData.checks.stores.data = storesData;
+        
+        if (storesData.success && storesData.data && storesData.data.length > 0) {
           console.log('[INFO] User already has stores connected, redirecting to dashboard');
+          debugData.redirectReason = 'stores_exist';
+          setDebugInfo(debugData);
           router.push("/dashboard");
           return;
         }
+      } else {
+        console.log('[INFO] Stores check failed, status:', storesResponse.status);
       }
+      
+      console.log('[INFO] User needs to complete onboarding');
+      debugData.redirectReason = 'none';
+      setDebugInfo(debugData);
     } catch (error) {
       console.error('[ERROR] Error checking onboarding status:', error);
+      setDebugInfo({
+        userId: user?.id,
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : 'Unknown error',
+        redirectReason: 'error'
+      });
+      // Don't redirect on error, let user stay on onboarding page
     }
   };
 
@@ -272,6 +322,20 @@ export default function OnboardingPage() {
             Conecta tu tienda y configura WhatsApp para comenzar
           </p>
         </div>
+
+        {/* Debug Info - Temporary */}
+        {debugInfo && (
+          <Card className="mb-4 border-orange-200 bg-orange-50">
+            <CardHeader>
+              <CardTitle className="text-orange-800">Debug Info</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <pre className="text-xs text-orange-700 overflow-auto">
+                {JSON.stringify(debugInfo, null, 2)}
+              </pre>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Progress Steps */}
         <div className="flex justify-center mb-8">
