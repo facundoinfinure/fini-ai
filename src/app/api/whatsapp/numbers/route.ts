@@ -73,7 +73,9 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.user.id;
-    const { phoneNumber, accountSid, authToken, webhookUrl } = await request.json();
+    const { phoneNumber, webhookUrl } = await request.json();
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
 
     if (!phoneNumber || !accountSid || !authToken) {
       return NextResponse.json({
