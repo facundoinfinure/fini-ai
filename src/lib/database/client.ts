@@ -56,13 +56,13 @@ export class UserService {
     }
   }
 
-  static async getUserById(userId: string): Promise<{ success: boolean; user?: User; error?: string }> {
+  static async getUserById(userId: string): Promise<{ success: boolean; user?: User | null; error?: string }> {
     try {
       const { data, error } = await _supabaseAdmin
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
