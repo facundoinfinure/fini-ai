@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Store, Plus, Edit, Trash2, ExternalLink, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Store as DBStore } from '@/types/db';
 
 interface StoreData {
   id: string;
@@ -43,7 +44,7 @@ export function StoreManagement() {
       const data = await response.json();
 
       if (data.success) {
-        setStores(data.data.stores || []);
+        setStores(data.stores || []);
       } else {
         setError(data.error || 'Failed to fetch stores');
       }

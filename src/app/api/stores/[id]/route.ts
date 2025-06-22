@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { StoreService } from '@/lib/database/client';
+import { WhatsAppService } from '@/lib/database/whatsapp-service';
 
 // PUT - Update a store
 export async function PUT(
@@ -92,6 +93,13 @@ export async function DELETE(
     }
 
     const _userId = session.user.id;
+
+    // First, delete associated WhatsApp config
+    const whatsappResult = await WhatsAppService.deleteConfigByStoreId(params.id);
+    if (!whatsappResult.success) {
+      // Log the error but don't block store deletion
+      console.error(`[WARNING] Could not delete WhatsApp config for store ${params.id}:`, whatsappResult.error);
+    }
 
     // Soft delete store by setting is_active to false
     const storeResult = await StoreService.updateStore(params.id, {

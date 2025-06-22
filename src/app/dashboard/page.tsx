@@ -36,7 +36,7 @@ export default function DashboardPage() {
       const response = await fetch('/api/stores');
       const data = await response.json();
       if (data.success) {
-        setStores(data.stores);
+        setStores(data.stores || []);
       } else {
         setError(data.error || 'Failed to fetch stores');
       }

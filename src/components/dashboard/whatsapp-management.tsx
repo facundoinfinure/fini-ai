@@ -40,10 +40,18 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
 
   useEffect(() => {
     fetchConfig();
+  }, []);
+
+  useEffect(() => {
     if (stores && stores.length > 0) {
-      setSelectedStoreId(stores[0].id);
+      const storeIds = stores.map(s => s.id);
+      if (!selectedStoreId || !storeIds.includes(selectedStoreId)) {
+        setSelectedStoreId(stores[0].id);
+      }
+    } else {
+      setSelectedStoreId(null);
     }
-  }, [stores]);
+  }, [stores, selectedStoreId]);
 
   const fetchConfig = async () => {
     try {
