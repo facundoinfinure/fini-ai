@@ -12,19 +12,38 @@ import { StoreManagement } from '@/components/dashboard/store-management';
 import { WhatsAppManagement } from '@/components/dashboard/whatsapp-management';
 import { SubscriptionManagement } from '@/components/dashboard/subscription-management';
 import { AnalyticsOverview } from '@/components/dashboard/analytics-overview';
+import { Store } from "@/types/db";
 
 export default function DashboardPage() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [activeSection, setActiveSection] = useState<'overview' | 'analytics' | 'subscription'>('overview');
+  const [stores, setStores] = useState<Store[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   // Redirect if not authenticated
   useEffect(() => {
     if (!loading && !user) {
       router.push("/auth/signin");
+    } else if (user) {
+      fetchStores();
     }
   }, [user, loading, router]);
+
+  const fetchStores = async () => {
+    try {
+      const response = await fetch('/api/stores');
+      const data = await response.json();
+      if (data.success) {
+        setStores(data.stores);
+      } else {
+        setError(data.error || 'Failed to fetch stores');
+      }
+    } catch (err) {
+      setError('An error occurred while fetching stores.');
+    }
+  };
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -180,7 +199,7 @@ export default function DashboardPage() {
                   {/* Store Management Section */}
                   <StoreManagement />
                   {/* WhatsApp Management Section */}
-                  <WhatsAppManagement />
+                  <WhatsAppManagement stores={stores} />
                 </div>
               </div>
 

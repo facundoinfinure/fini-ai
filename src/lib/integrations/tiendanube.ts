@@ -228,7 +228,7 @@ export class TiendaNubeAPI {
           } else {
             productStats.set(productId, {
               product: orderProduct,
-              quantity: quantity,
+              quantity,
               revenue: price * quantity
             });
           }
@@ -414,7 +414,7 @@ export const exchangeCodeForToken = async (code: string): Promise<TiendaNubeAuth
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
         grant_type: 'authorization_code',
-        code: code,
+        code,
         redirect_uri: REDIRECT_URI,
       }),
     });

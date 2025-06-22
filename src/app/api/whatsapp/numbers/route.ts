@@ -75,12 +75,16 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.user.id;
-    const { phoneNumber, webhookUrl } = await request.json();
+    const { phoneNumber, webhookUrl, storeId } = await request.json();
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
 
     if (!phoneNumber) {
         return NextResponse.json({ success: false, error: 'Phone number is required' }, { status: 400 });
+    }
+    
+    if (!storeId) {
+        return NextResponse.json({ success: false, error: 'Store ID is required' }, { status: 400 });
     }
     
     if (!accountSid || !authToken) {
@@ -90,11 +94,12 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check for an existing configuration for this user
+    // Check for an existing configuration for this user and store
     const { data: existingConfig, error: fetchError } = await supabase
         .from('whatsapp_configs')
         .select('*')
         .eq('user_id', userId)
+        .eq('store_id', storeId)
         .maybeSingle();
 
     if (fetchError) {
@@ -104,6 +109,10 @@ export async function POST(request: NextRequest) {
 
     if (existingConfig) {
         // Config exists, update it by adding the new phone number
+        if (existingConfig.phone_numbers.includes(phoneNumber)) {
+            return NextResponse.json({ success: false, error: 'Este número ya está configurado para esta tienda.' }, { status: 409 });
+        }
+        
         const updatedNumbers = [...existingConfig.phone_numbers, phoneNumber];
         
         const { data: updatedConfig, error: updateError } = await supabase
@@ -127,6 +136,7 @@ export async function POST(request: NextRequest) {
             .from('whatsapp_configs')
             .insert({
                 user_id: userId,
+                store_id: storeId,
                 phone_numbers: [phoneNumber],
                 twilio_account_sid: accountSid,
                 twilio_auth_token: authToken,

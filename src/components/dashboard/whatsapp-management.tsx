@@ -6,7 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Plus, Edit, Trash2, RefreshCw, AlertCircle } from 'lucide-react';
+import {
+  Phone,
+  Plus,
+  Edit,
+  Trash2,
+  RefreshCw,
+  AlertCircle,
+  Store as StoreIcon,
+} from 'lucide-react';
+import { Store } from '@/types/db';
 
 interface WhatsAppConfig {
   id: string;
@@ -15,7 +24,11 @@ interface WhatsAppConfig {
   is_configured: boolean;
 }
 
-export function WhatsAppManagement() {
+interface WhatsAppManagementProps {
+  stores: Store[];
+}
+
+export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   const [config, setConfig] = useState<WhatsAppConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,10 +36,14 @@ export function WhatsAppManagement() {
   const [editingNumber, setEditingNumber] = useState<string | null>(null);
   const [formNumber, setFormNumber] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchConfig();
-  }, []);
+    if (stores && stores.length > 0) {
+      setSelectedStoreId(stores[0].id);
+    }
+  }, [stores]);
 
   const fetchConfig = async () => {
     try {
@@ -46,14 +63,17 @@ export function WhatsAppManagement() {
   };
 
   const handleAddNumber = async () => {
-    if (!formNumber) return;
+    if (!formNumber || !selectedStoreId) return;
     setIsAdding(true);
     setError(null);
     try {
       const response = await fetch('/api/whatsapp/numbers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber: formNumber })
+        body: JSON.stringify({ 
+          phoneNumber: formNumber,
+          storeId: selectedStoreId
+        })
       });
       const data = await response.json();
       if (data.success) {
@@ -158,7 +178,7 @@ export function WhatsAppManagement() {
                 Administra los números de WhatsApp conectados a tu tienda
               </CardDescription>
             </div>
-            <Button onClick={openAddDialog} className="flex items-center">
+            <Button onClick={openAddDialog} className="flex items-center" disabled={stores.length === 0}>
               <Plus className="mr-2 h-4 w-4" />
               Agregar Número
             </Button>
@@ -168,11 +188,23 @@ export function WhatsAppManagement() {
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 flex items-center">
               <AlertCircle className="mr-2 h-4 w-4" />
-              {error}
+              {error === 'Failed to create WhatsApp configuration' 
+                ? 'Error al crear la configuración de WhatsApp. Asegúrate de que tus credenciales de Twilio están configuradas y que la tienda seleccionada es correcta.' 
+                : error}
             </div>
           )}
 
-          {!config || !config.phone_numbers || config.phone_numbers.length === 0 ? (
+          {stores.length === 0 ? (
+            <div className="text-center py-8">
+              <StoreIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Primero conecta una tienda
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Debes conectar al menos una tienda de Tienda Nube para poder agregar números de WhatsApp.
+              </p>
+            </div>
+          ) : !config || !config.phone_numbers || config.phone_numbers.length === 0 ? (
             <div className="text-center py-8">
               <Phone className="mx-auto h-12 w-12 text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -233,10 +265,28 @@ export function WhatsAppManagement() {
           <DialogHeader>
             <DialogTitle>{editingNumber ? 'Editar Número' : 'Agregar Número'}</DialogTitle>
             <DialogDescription>
-              {editingNumber ? 'Modifica el número de WhatsApp' : 'Agrega un nuevo número de WhatsApp'}
+              {editingNumber ? 'Modifica el número de WhatsApp' : 'Agrega un nuevo número de WhatsApp a tu tienda seleccionada'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {stores.length > 1 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Seleccionar Tienda
+                </label>
+                <select
+                  value={selectedStoreId || ''}
+                  onChange={(e) => setSelectedStoreId(e.target.value)}
+                  className="w-full p-2 border rounded-md"
+                >
+                  {stores.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.store_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Número de WhatsApp
