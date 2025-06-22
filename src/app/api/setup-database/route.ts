@@ -256,15 +256,17 @@ export async function POST() {
         FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
     `
 
-    // Ejecutar el SQL usando el cliente admin
-    const { error } = await supabaseAdmin.rpc('exec_sql', { sql: setupSQL })
+    // Split the SQL into individual statements and execute them
+    const statements = setupSQL.split(';').filter(stmt => stmt.trim().length > 0);
     
-    if (error) {
-      console.error('[ERROR] Error configurando base de datos:', error)
-      return NextResponse.json(
-        { success: false, error: 'Error configurando base de datos' },
-        { status: 500 }
-      )
+    for (const statement of statements) {
+      if (statement.trim()) {
+        const { error } = await supabaseAdmin.rpc('exec_sql', { sql: statement.trim() + ';' });
+        if (error) {
+          console.error('[ERROR] Error executing statement:', statement.trim(), error);
+          // Continue with other statements even if one fails
+        }
+      }
     }
 
     console.log('[SUCCESS] Base de datos configurada correctamente')

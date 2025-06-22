@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-// import { useSession } from 'next-auth/react';
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  // const { data: session, status } = useSession();
+  const { user, loading } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -23,34 +23,35 @@ export default function OnboardingPage() {
   const [storeUrl, setStoreUrl] = useState("");
   const [storeName, setStoreName] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
-  const [selectedPlan, setSelectedPlan] = useState("basic");
+  const [selectedPlan, setSelectedPlan] = useState<"free" | "pro" | "enterprise">("free");
 
-  // Check if user is authenticated
+  // Check if user is authenticated and has completed onboarding
   useEffect(() => {
-    // if (status === "loading") return;
+    if (loading) return;
     
-    // if (!session?.user) {
-    //   router.push("/auth/signin");
-    //   return;
-    // }
+    if (!user) {
+      router.push("/auth/signin");
+      return;
+    }
 
     // Check if user has already completed onboarding
-    // _checkExistingStore();
-  }, [router]);
+    checkExistingOnboarding();
+  }, [user, loading, router]);
 
-  // const _checkExistingStore = async () => {
-  //   try {
-  //     const response = await fetch("/api/user/complete-onboarding");
-  //     if (response.ok) {
-  //       const data = await response.json();
-  //       if (data.completed) {
-  //         router.push("/dashboard");
-  //       }
-  //     }
-  //   } catch (error) {
-  //     console.error("Error checking onboarding status:", error);
-  //   }
-  // };
+  const checkExistingOnboarding = async () => {
+    try {
+      const response = await fetch("/api/user/complete-onboarding");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data.completed) {
+          console.log('[INFO] User has already completed onboarding, redirecting to dashboard');
+          router.push("/dashboard");
+        }
+      }
+    } catch (error) {
+      console.error('[ERROR] Error checking onboarding status:', error);
+    }
+  };
 
   const handleNextStep = () => {
     if (currentStep < 3) {
@@ -70,14 +71,20 @@ export default function OnboardingPage() {
     setSuccess("");
 
     try {
-      // Simulate store connection
+      // Validate store URL format
+      if (!storeUrl.includes('tiendanube.com')) {
+        throw new Error('La URL debe ser de Tienda Nube');
+      }
+
+      // For now, just simulate store connection
+      // In the future, this will integrate with Tienda Nube OAuth
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       setSuccess("¡Tienda conectada exitosamente!");
       setCurrentStep(2);
     } catch (error) {
-      console.error("Error connecting store:", error);
-      setError("Error al conectar la tienda. Intenta nuevamente.");
+      console.error('[ERROR] Error connecting store:', error);
+      setError(error instanceof Error ? error.message : "Error al conectar la tienda. Intenta nuevamente.");
     } finally {
       setIsLoading(false);
     }
@@ -89,14 +96,23 @@ export default function OnboardingPage() {
     setSuccess("");
 
     try {
-      // Simulate WhatsApp setup
+      // Validate phone number format
+      const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+      const cleanNumber = whatsappNumber.replace(/\s+/g, '').replace(/[()-]/g, '');
+      
+      if (!phoneRegex.test(cleanNumber)) {
+        throw new Error('Ingresa un número de WhatsApp válido (ej: +54 9 11 1234-5678)');
+      }
+
+      // For now, just simulate WhatsApp setup
+      // In the future, this will integrate with Twilio
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       setSuccess("¡WhatsApp configurado exitosamente!");
       setCurrentStep(3);
     } catch (error) {
-      console.error("Error setting up WhatsApp:", error);
-      setError("Error al configurar WhatsApp. Intenta nuevamente.");
+      console.error('[ERROR] Error setting up WhatsApp:', error);
+      setError(error instanceof Error ? error.message : "Error al configurar WhatsApp. Intenta nuevamente.");
     } finally {
       setIsLoading(false);
     }
@@ -108,16 +124,41 @@ export default function OnboardingPage() {
     setSuccess("");
 
     try {
-      // Simulate completing onboarding
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('[INFO] Completing onboarding with data:', {
+        storeUrl,
+        storeName,
+        whatsappNumber,
+        selectedPlan
+      });
+
+      const response = await fetch("/api/user/complete-onboarding", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          storeUrl,
+          storeName,
+          whatsappNumber,
+          selectedPlan
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Error al completar el onboarding");
+      }
+
+      console.log('[INFO] Onboarding completed successfully:', data);
       
       setSuccess("¡Onboarding completado! Redirigiendo al dashboard...");
       setTimeout(() => {
         router.push("/dashboard");
       }, 2000);
     } catch (error) {
-      console.error("Error completing onboarding:", error);
-      setError("Error al completar el onboarding. Intenta nuevamente.");
+      console.error('[ERROR] Error completing onboarding:', error);
+      setError(error instanceof Error ? error.message : "Error al completar el onboarding. Intenta nuevamente.");
     } finally {
       setIsLoading(false);
     }
@@ -125,7 +166,7 @@ export default function OnboardingPage() {
 
   const plans = [
     {
-      id: "basic",
+      id: "free" as const,
       name: "Plan Básico",
       price: "Gratis",
       features: [
@@ -136,7 +177,7 @@ export default function OnboardingPage() {
       ]
     },
     {
-      id: "pro",
+      id: "pro" as const,
       name: "Plan Pro",
       price: "$39/mes",
       features: [
@@ -149,7 +190,7 @@ export default function OnboardingPage() {
       ]
     },
     {
-      id: "enterprise",
+      id: "enterprise" as const,
       name: "Plan Enterprise",
       price: "$99/mes",
       features: [
@@ -162,6 +203,18 @@ export default function OnboardingPage() {
       ]
     }
   ];
+
+  // Show loading while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Verificando sesión...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -239,6 +292,9 @@ export default function OnboardingPage() {
                     onChange={(e) => setStoreUrl(e.target.value)}
                     className="w-full"
                   />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Ejemplo: https://mitienda.tiendanube.com
+                  </p>
                 </div>
                 
                 <div>
@@ -278,6 +334,9 @@ export default function OnboardingPage() {
                     onChange={(e) => setWhatsappNumber(e.target.value)}
                     className="w-full"
                   />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Incluye el código de país (+54 para Argentina)
+                  </p>
                 </div>
 
                 <Button 
@@ -294,7 +353,7 @@ export default function OnboardingPage() {
             {currentStep === 3 && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {plans.map((plan, index) => (
+                  {plans.map((plan) => (
                     <div
                       key={plan.id}
                       className={`border rounded-lg p-4 cursor-pointer transition-colors ${

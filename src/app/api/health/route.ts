@@ -1,199 +1,82 @@
-import { createClient } from '@supabase/supabase-js';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
-// Configuración de Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-// Función para verificar conexión a Supabase
-async function checkSupabaseConnection(): Promise<{ status: 'healthy' | 'unhealthy'; details?: string }> {
-  if (!supabaseUrl || !supabaseServiceKey) {
-    return { status: 'unhealthy', details: 'Missing Supabase credentials' };
-  }
-
+export async function GET() {
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    console.log('[INFO] Running health check');
     
-    // Verificar conexión con una query simple a la tabla users
-    const { error } = await supabase
+    const supabase = createClient();
+    
+    // Test 1: Check environment variables
+    console.log('[INFO] Test 1: Checking environment variables');
+    const envCheck = {
+      hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      hasSupabaseAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Not set',
+      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Not set'
+    };
+
+    console.log('[INFO] Environment check:', envCheck);
+
+    // Test 2: Check if tables exist by trying to query them
+    console.log('[INFO] Test 2: Checking if tables exist');
+    const { data: usersTable, error: usersTableError } = await supabase
       .from('users')
-      .select('id')
+      .select('count')
       .limit(1);
     
-    if (error) {
-      return { status: 'unhealthy', details: `Database error: ${error.message}` };
-    }
-    
-    return { status: 'healthy' };
-  } catch (error) {
-    return { 
-      status: 'unhealthy', 
-      details: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}` 
-    };
-  }
-}
+    const { data: storesTable, error: storesTableError } = await supabase
+      .from('stores')
+      .select('count')
+      .limit(1);
 
-// Función para verificar variables de entorno críticas
-function checkEnvironmentVariables(): { status: 'healthy' | 'unhealthy'; details?: string } {
-  const requiredVars = [
-    'NEXT_PUBLIC_SUPABASE_URL',
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-    'SUPABASE_SERVICE_ROLE_KEY',
-    'NEXTAUTH_URL',
-    'NEXTAUTH_SECRET',
-  ];
+    const { data: whatsappConfigsTable, error: whatsappConfigsTableError } = await supabase
+      .from('whatsapp_configs')
+      .select('count')
+      .limit(1);
 
-  const missingVars = requiredVars.filter(varName => !process.env[varName]);
-  
-  if (missingVars.length > 0) {
-    return { 
-      status: 'unhealthy', 
-      details: `Missing environment variables: ${missingVars.join(', ')}` 
-    };
-  }
-  
-  return { status: 'healthy' };
-}
+    console.log('[INFO] Tables check:', {
+      usersTable: { exists: !usersTableError, error: usersTableError },
+      storesTable: { exists: !storesTableError, error: storesTableError },
+      whatsappConfigsTable: { exists: !whatsappConfigsTableError, error: whatsappConfigsTableError }
+    });
 
-// Función para verificar memoria del sistema
-function checkSystemResources(): { status: 'healthy' | 'unhealthy'; details?: string } {
-  const memUsage = process.memoryUsage();
-  const memUsagePercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
-  
-  // Considerar unhealthy si usa más del 90% de memoria
-  if (memUsagePercent > 90) {
-    return { 
-      status: 'unhealthy', 
-      details: `High memory usage: ${memUsagePercent.toFixed(2)}%` 
-    };
-  }
-  
-  return { status: 'healthy' };
-}
+    // Test 3: Check if we can connect to Supabase
+    console.log('[INFO] Test 3: Testing Supabase connection');
+    const { data: connectionTest, error: connectionError } = await supabase
+      .from('users')
+      .select('id')
+      .limit(0);
 
-// Función para verificar uptime
-function getUptime(): number {
-  return process.uptime();
-}
+    const connectionSuccess = !connectionError;
 
-// Función para verificar versión de Node.js
-function getNodeVersion(): string {
-  return process.version;
-}
+    console.log('[INFO] Connection test:', { success: connectionSuccess, error: connectionError });
 
-// Función para verificar variables de entorno opcionales
-function checkOptionalServices(): Record<string, { status: 'configured' | 'not_configured' }> {
-  const optionalServices = {
-    tiendanube: {
-      clientId: process.env.TIENDANUBE_CLIENT_ID,
-      clientSecret: process.env.TIENDANUBE_CLIENT_SECRET,
-    },
-    twilio: {
-      accountSid: process.env.TWILIO_ACCOUNT_SID,
-      authToken: process.env.TWILIO_AUTH_TOKEN,
-    },
-    openai: {
-      apiKey: process.env.OPENAI_API_KEY,
-    },
-    pinecone: {
-      apiKey: process.env.PINECONE_API_KEY,
-      environment: process.env.PINECONE_ENVIRONMENT,
-      indexName: process.env.PINECONE_INDEX_NAME,
-    },
-  };
-
-  const status: Record<string, { status: 'configured' | 'not_configured' }> = {};
-
-  Object.entries(optionalServices).forEach(([service, config]) => {
-    const hasAllRequired = Object.values(config).every(value => value);
-    status[service] = {
-      status: hasAllRequired ? 'configured' : 'not_configured',
-    };
-  });
-
-  return status;
-}
-
-export async function GET(_request: NextRequest) {
-  const startTime = Date.now();
-  
-  try {
-    // Verificaciones en paralelo para mejor performance
-    const [
-      envCheck,
-      supabaseCheck,
-      systemCheck,
-    ] = await Promise.all([
-      Promise.resolve(checkEnvironmentVariables()),
-      checkSupabaseConnection(),
-      Promise.resolve(checkSystemResources()),
-    ]);
-
-    const responseTime = Date.now() - startTime;
-    
-    // Determinar estado general
-    const checks = [envCheck, supabaseCheck, systemCheck];
-    const hasUnhealthy = checks.some(check => check.status === 'unhealthy');
-    const overallStatus = hasUnhealthy ? 'unhealthy' : 'healthy';
-    
-    // Construir respuesta
-    const healthData = {
-      status: overallStatus,
-      timestamp: new Date().toISOString(),
-      uptime: getUptime(),
-      responseTime: `${responseTime}ms`,
-      version: {
-        node: getNodeVersion(),
-        app: process.env.npm_package_version || '0.1.0',
-      },
-      environment: process.env.NODE_ENV || 'development',
-      checks: {
+    return NextResponse.json({
+      success: true,
+      data: {
         environment: envCheck,
-        database: supabaseCheck,
-        system: systemCheck,
+        tables: {
+          users: { exists: !usersTableError, error: usersTableError },
+          stores: { exists: !storesTableError, error: storesTableError },
+          whatsapp_configs: { exists: !whatsappConfigsTableError, error: whatsappConfigsTableError }
+        },
+        connection: {
+          success: connectionSuccess,
+          error: connectionError
+        }
       },
-      services: checkOptionalServices(),
-      memory: {
-        heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-        external: Math.round(process.memoryUsage().external / 1024 / 1024),
-        rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
-      },
-    };
-
-    // Headers de cache para health checks
-    const headers = {
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0',
-      'Content-Type': 'application/json',
-    };
-
-    // Status code basado en salud general
-    const statusCode = overallStatus === 'healthy' ? 200 : 503;
-
-    return NextResponse.json(healthData, {
-      status: statusCode,
-      headers,
+      message: 'Health check completed'
     });
 
   } catch (error) {
     console.error('[ERROR] Health check failed:', error);
-    
-    const errorResponse = {
-      status: 'unhealthy',
-      timestamp: new Date().toISOString(),
+    return NextResponse.json({
+      success: false,
       error: 'Health check failed',
-      details: error instanceof Error ? error.message : 'Unknown error',
-    };
-
-    return NextResponse.json(errorResponse, {
-      status: 500,
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Content-Type': 'application/json',
-      },
-    });
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
 

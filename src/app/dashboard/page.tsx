@@ -8,11 +8,16 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { StoreStatusCard } from "@/components/dashboard/store-status-card";
+import { StoreManagement } from '@/components/dashboard/store-management';
+import { WhatsAppManagement } from '@/components/dashboard/whatsapp-management';
+import { SubscriptionManagement } from '@/components/dashboard/subscription-management';
+import { AnalyticsOverview } from '@/components/dashboard/analytics-overview';
 
 export default function DashboardPage() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [activeSection, setActiveSection] = useState<'overview' | 'analytics' | 'subscription'>('overview');
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -50,7 +55,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -87,70 +92,148 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {/* Navigation Tabs */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex space-x-8">
+            <button
+              onClick={() => setActiveSection('overview')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeSection === 'overview'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Resumen
+            </button>
+            <button
+              onClick={() => setActiveSection('analytics')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeSection === 'analytics'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Analytics
+            </button>
+            <button
+              onClick={() => setActiveSection('subscription')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeSection === 'subscription'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Suscripción
+            </button>
+          </nav>
+        </div>
+      </div>
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Columna principal */}
-            <div className="lg:col-span-2">
-              <div className="space-y-8">
-                {/* Welcome Section */}
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                    ¡Bienvenido a Fini AI!
-                  </h2>
-                  <p className="text-gray-600">
-                    Tu dashboard de analytics inteligente para Tienda Nube
-                  </p>
-                </div>
+          {activeSection === 'overview' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Columna principal */}
+              <div className="lg:col-span-2">
+                <div className="space-y-8">
+                  {/* Welcome Section */}
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                      ¡Bienvenido a Fini AI!
+                    </h2>
+                    <p className="text-gray-600">
+                      Tu dashboard de analytics inteligente para Tienda Nube
+                    </p>
+                  </div>
 
-                {/* Quick Actions */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                  {/* Quick Actions */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card 
+                      className="hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => setActiveSection('analytics')}
+                    >
+                      <CardHeader>
+                        <CardTitle className="flex items-center">
+                          <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
+                          Analytics
+                        </CardTitle>
+                        <CardDescription>
+                          Ver métricas y reportes de tu tienda
+                        </CardDescription>
+                      </CardHeader>
+                    </Card>
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                      <CardHeader>
+                        <CardTitle className="flex items-center">
+                          <MessageSquare className="h-5 w-5 mr-2 text-green-600" />
+                          Chat con IA
+                        </CardTitle>
+                        <CardDescription>
+                          Pregunta sobre tu negocio por WhatsApp
+                        </CardDescription>
+                      </CardHeader>
+                    </Card>
+                  </div>
+
+                  {/* Store Management Section */}
+                  <StoreManagement />
+                  {/* WhatsApp Management Section */}
+                  <WhatsAppManagement />
+                </div>
+              </div>
+
+              {/* Columna lateral */}
+              <div className="lg:col-span-1">
+                <div className="space-y-8">
+                  <StoreStatusCard />
+                  
+                  <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center">
-                        <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
-                        Analytics
+                        <Settings className="h-5 w-5 mr-2 text-purple-600" />
+                        Configuración
                       </CardTitle>
                       <CardDescription>
-                        Ver métricas y reportes de tu tienda
-                      </CardDescription>
-                    </CardHeader>
-                  </Card>
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                    <CardHeader>
-                      <CardTitle className="flex items-center">
-                        <MessageSquare className="h-5 w-5 mr-2 text-green-600" />
-                        Chat con IA
-                      </CardTitle>
-                      <CardDescription>
-                        Pregunta sobre tu negocio por WhatsApp
+                        Gestiona tu cuenta y preferencias
                       </CardDescription>
                     </CardHeader>
                   </Card>
                 </div>
               </div>
             </div>
+          )}
 
-            {/* Columna lateral */}
-            <div className="lg:col-span-1">
-              <div className="space-y-8">
-                <StoreStatusCard />
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Settings className="h-5 w-5 mr-2 text-purple-600" />
-                      Configuración
-                    </CardTitle>
-                    <CardDescription>
-                      Gestiona tu cuenta y preferencias
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
+          {activeSection === 'analytics' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Analytics
+                </h2>
+                <p className="text-gray-600">
+                  Métricas detalladas y reportes de tu tienda
+                </p>
+              </div>
+              <AnalyticsOverview />
+            </div>
+          )}
+
+          {activeSection === 'subscription' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Suscripción
+                </h2>
+                <p className="text-gray-600">
+                  Gestiona tu plan y facturación
+                </p>
+              </div>
+              <div className="max-w-2xl">
+                <SubscriptionManagement />
               </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
     </div>
