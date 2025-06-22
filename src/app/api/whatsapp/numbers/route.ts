@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     if (!phoneNumber || !accountSid || !authToken) {
       return NextResponse.json({
         success: false,
-        error: 'Phone number, Account SID, and Auth Token are required'
+        error: 'POST Error: Phone number, Account SID, and Auth Token are required'
       }, { status: 400 });
     }
 
