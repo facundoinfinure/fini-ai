@@ -261,7 +261,7 @@ export async function POST() {
     
     for (const statement of statements) {
       if (statement.trim()) {
-        const { error } = await supabaseAdmin.rpc('exec_sql', { sql: statement.trim() + ';' });
+        const { error } = await supabaseAdmin.rpc('exec_sql', { sql: `${statement.trim()};` });
         if (error) {
           console.error('[ERROR] Error executing statement:', statement.trim(), error);
           // Continue with other statements even if one fails

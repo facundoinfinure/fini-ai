@@ -1,23 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import Stripe from 'stripe';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia',
-});
-
-const PLANS = {
-  pro: {
-    priceId: process.env.STRIPE_PRO_PRICE_ID!,
-    name: 'Plan Pro',
-    price: 39
-  },
-  enterprise: {
-    priceId: process.env.STRIPE_ENTERPRISE_PRICE_ID!,
-    name: 'Plan Enterprise', 
-    price: 99
-  }
-};
+import { stripe, PLANS } from '@/lib/integrations/stripe';
 
 export async function POST(request: NextRequest) {
   try {

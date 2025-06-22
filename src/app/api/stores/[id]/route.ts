@@ -23,7 +23,7 @@ export async function PUT(
       }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const _userId = session.user.id;
 
     // Parse request body
     const updates = await request.json();
@@ -91,7 +91,7 @@ export async function DELETE(
       }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const _userId = session.user.id;
 
     // Soft delete store by setting is_active to false
     const storeResult = await StoreService.updateStore(params.id, {

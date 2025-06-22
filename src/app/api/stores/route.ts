@@ -3,9 +3,9 @@ import { createClient } from '@/lib/supabase/server';
 import { StoreService } from '@/lib/database/client';
 
 // GET - Get all stores for the current user
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    console.log('[INFO] Getting user stores');
+    console.log('[INFO] Fetching user stores');
     
     const supabase = createClient();
     
@@ -21,34 +21,35 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user.id;
+    console.log('[INFO] Fetching stores for user:', userId);
 
-    // Get stores for user
-    const storesResult = await StoreService.getStoresByUserId(userId);
-    
-    if (!storesResult.success) {
-      console.error('[ERROR] Failed to get stores:', storesResult.error);
+    // Get user's stores
+    const { data: stores, error: storesError } = await supabase
+      .from('stores')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (storesError) {
+      console.error('[ERROR] Failed to fetch stores:', storesError);
       return NextResponse.json({
         success: false,
-        error: 'Failed to get stores',
-        details: storesResult.error
+        error: 'Failed to fetch stores'
       }, { status: 500 });
     }
 
-    console.log('[INFO] Retrieved stores for user:', storesResult.stores?.length || 0);
+    console.log('[INFO] Found stores:', stores?.length || 0);
 
     return NextResponse.json({
       success: true,
-      data: {
-        stores: storesResult.stores || []
-      }
+      data: stores || []
     });
 
   } catch (error) {
-    console.error('[ERROR] Failed to get stores:', error);
+    console.error('[ERROR] Failed to fetch stores:', error);
     return NextResponse.json({
       success: false,
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }
@@ -72,55 +73,47 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.user.id;
+    const { name, description } = await request.json();
 
-    // Parse request body
-    const { storeName, storeUrl, accessToken, storeId } = await request.json();
-
-    // Validate required fields
-    if (!storeName || !storeUrl || !accessToken || !storeId) {
+    if (!name) {
       return NextResponse.json({
         success: false,
-        error: 'Missing required fields: storeName, storeUrl, accessToken, storeId'
+        error: 'Store name is required'
       }, { status: 400 });
     }
 
-    // Create store
-    const storeResult = await StoreService.createStore({
-      user_id: userId,
-      tiendanube_store_id: storeId,
-      store_name: storeName,
-      store_url: storeUrl,
-      access_token: accessToken,
-      refresh_token: '', // Tienda Nube doesn't provide refresh tokens
-      token_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
-      is_active: true,
-      last_sync_at: new Date().toISOString()
-    });
+    // Create new store
+    const { data: store, error: storeError } = await supabase
+      .from('stores')
+      .insert({
+        name,
+        description: description || '',
+        user_id: userId,
+        is_active: true
+      })
+      .select()
+      .single();
 
-    if (!storeResult.success) {
-      console.error('[ERROR] Failed to create store:', storeResult.error);
+    if (storeError) {
+      console.error('[ERROR] Failed to create store:', storeError);
       return NextResponse.json({
         success: false,
-        error: 'Failed to create store',
-        details: storeResult.error
+        error: 'Failed to create store'
       }, { status: 500 });
     }
 
-    console.log('[INFO] Store created successfully:', storeResult.store?.id);
+    console.log('[INFO] Store created successfully:', store.id);
 
     return NextResponse.json({
       success: true,
-      data: {
-        store: storeResult.store
-      }
+      data: store
     });
 
   } catch (error) {
     console.error('[ERROR] Failed to create store:', error);
     return NextResponse.json({
       success: false,
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Internal server error'
     }, { status: 500 });
   }
 } 

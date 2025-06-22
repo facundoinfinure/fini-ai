@@ -55,8 +55,8 @@ export async function GET(request: NextRequest) {
         store_name: storeInfo.name,
         store_url: storeInfo.url,
         access_token: authResponse.access_token,
-        refresh_token: '', // Tienda Nube doesn't provide refresh tokens
-        token_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+        refresh_token: null, // Tienda Nube doesn't provide refresh tokens
+        token_expires_at: new Date(Date.now() + (parseInt(process.env.TIENDANUBE_TOKEN_EXPIRY_HOURS || '24') * 60 * 60 * 1000)).toISOString(),
         is_active: true,
         last_sync_at: new Date().toISOString()
       });

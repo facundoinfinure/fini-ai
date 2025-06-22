@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { UserService, StoreService, WhatsAppConfigService } from '@/lib/database/client';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    console.log('[INFO] Getting dashboard stats');
+    console.log('[INFO] Fetching dashboard stats');
     
     const supabase = createClient();
     
@@ -20,60 +20,39 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user.id;
-    const userEmail = session.user.email;
+    console.log('[INFO] Fetching stats for user:', userId);
 
-    console.log('[INFO] Getting stats for user:', { userId, userEmail });
+    // Get user's stores
+    const { data: stores, error: storesError } = await supabase
+      .from('stores')
+      .select('id, name, tiendanube_store_id, created_at')
+      .eq('user_id', userId);
 
-    // Get user data
-    const userResult = await UserService.getUserById(userId);
-    
-    if (!userResult.success) {
-      console.error('[ERROR] Failed to get user:', userResult.error);
+    if (storesError) {
+      console.error('[ERROR] Failed to fetch stores:', storesError);
       return NextResponse.json({
         success: false,
-        error: 'Failed to get user data'
+        error: 'Failed to fetch stores'
       }, { status: 500 });
     }
 
-    // Get stores data
-    const storesResult = await StoreService.getStoresByUserId(userId);
-    
-    if (!storesResult.success) {
-      console.error('[ERROR] Failed to get stores:', storesResult.error);
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to get stores data'
-      }, { status: 500 });
-    }
+    console.log('[INFO] Found stores:', stores?.length || 0);
 
-    // Get WhatsApp configs
-    const whatsappResult = await WhatsAppConfigService.getConfigByUserId(userId);
+    // Calculate basic stats
+    const totalStores = stores?.length || 0;
+    const activeStores = stores?.filter(store => store.tiendanube_store_id)?.length || 0;
+    const totalRevenue = 0; // TODO: Calculate from orders
+    const totalOrders = 0; // TODO: Calculate from orders
 
-    // Prepare stats
     const stats = {
-      user: {
-        exists: !!userResult.user,
-        onboardingCompleted: userResult.user?.onboarding_completed || false,
-        subscriptionPlan: userResult.user?.subscription_plan || 'free',
-        subscriptionStatus: userResult.user?.subscription_status || 'active'
-      },
-      stores: {
-        count: storesResult.stores?.length || 0,
-        active: storesResult.stores?.filter(s => s.is_active).length || 0,
-        data: storesResult.stores || []
-      },
-      whatsapp: {
-        configured: whatsappResult.success && !!whatsappResult.config,
-        config: whatsappResult.config || null
-      },
-      summary: {
-        hasCompletedOnboarding: userResult.user?.onboarding_completed || false,
-        hasStores: (storesResult.stores?.length || 0) > 0,
-        hasWhatsAppConfigured: whatsappResult.success && !!whatsappResult.config
-      }
+      totalStores,
+      activeStores,
+      totalRevenue,
+      totalOrders,
+      stores: stores || []
     };
 
-    console.log('[INFO] Dashboard stats:', stats);
+    console.log('[INFO] Dashboard stats calculated successfully');
 
     return NextResponse.json({
       success: true,
@@ -81,11 +60,10 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('[ERROR] Failed to get dashboard stats:', error);
+    console.error('[ERROR] Failed to fetch dashboard stats:', error);
     return NextResponse.json({
       success: false,
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Internal server error'
     }, { status: 500 });
   }
 } 

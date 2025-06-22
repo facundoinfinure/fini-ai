@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getTiendaNubeAuthUrl } from '@/lib/integrations/tiendanube';
 
-export async function POST(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    console.log('[INFO] Initiating Tienda Nube OAuth connection');
+    console.log('[INFO] Generating Tienda Nube OAuth URL');
     
     const supabase = createClient();
     
@@ -20,27 +19,29 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.user.id;
+    console.log('[INFO] Generating OAuth URL for user:', userId);
 
-    // Generate OAuth URL with state parameter for security
-    const state = `${userId}_${Date.now()}`;
-    const authUrl = getTiendaNubeAuthUrl(state);
+    // Generate OAuth URL
+    const clientId = process.env.TIENDANUBE_CLIENT_ID;
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/tiendanube/oauth/callback`;
+    const scope = 'read_products read_orders read_customers';
+    
+    const oauthUrl = `https://www.tiendanube.com/apps/authorize/token?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${userId}`;
 
-    console.log('[INFO] Generated Tienda Nube OAuth URL for user:', userId);
+    console.log('[INFO] OAuth URL generated successfully');
 
     return NextResponse.json({
       success: true,
       data: {
-        authUrl,
-        state
+        oauthUrl
       }
     });
 
   } catch (error) {
-    console.error('[ERROR] Failed to initiate OAuth connection:', error);
+    console.error('[ERROR] Failed to generate OAuth URL:', error);
     return NextResponse.json({
       success: false,
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Internal server error'
     }, { status: 500 });
   }
 } 

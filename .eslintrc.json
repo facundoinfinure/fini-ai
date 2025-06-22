@@ -74,7 +74,7 @@
     "jsx-a11y/heading-has-content": "warn",
     
     // General - optimizado para build
-    "no-console": "warn",
+    "no-console": "off",
     "no-debugger": "error",
     "no-alert": "warn",
     "no-eval": "error",

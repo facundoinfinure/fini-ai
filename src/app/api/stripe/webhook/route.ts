@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import Stripe from 'stripe';
+import { stripe } from '@/lib/integrations/stripe';
 import { headers } from 'next/headers';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-05-28.basil',
-});
+import type Stripe from 'stripe';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -46,7 +43,7 @@ export async function POST(request: NextRequest) {
         console.log('[INFO] Checkout session completed:', session.id);
         
         if (session.mode === 'subscription' && session.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+          const _subscription = await stripe.subscriptions.retrieve(session.subscription as string);
           const userId = session.metadata?.userId;
           const plan = session.metadata?.plan;
 
@@ -129,7 +126,7 @@ export async function POST(request: NextRequest) {
         console.log('[INFO] Payment failed for invoice:', invoice.id);
         
         // Get subscription from invoice metadata or line items
-        const subscriptionId = invoice.subscription || 
+        const subscriptionId = (invoice as any).subscription || 
                              (invoice.lines.data[0]?.subscription as string);
         
         if (subscriptionId) {
@@ -149,6 +146,37 @@ export async function POST(request: NextRequest) {
               console.error('[ERROR] Failed to update subscription status:', error);
             } else {
               console.log('[INFO] Subscription marked as inactive due to payment failure');
+            }
+          }
+        }
+        break;
+      }
+
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice;
+        console.log('[INFO] Processing invoice.payment_succeeded:', invoice.id);
+        
+        const subscriptionId = (invoice as any).subscription ||
+                              (invoice.lines.data[0]?.subscription as string) ||
+                              null;
+
+        if (subscriptionId) {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          const userId = subscription.metadata?.userId;
+
+          if (userId) {
+            const { error } = await supabase
+              .from('users')
+              .update({
+                subscription_status: 'active',
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', userId);
+
+            if (error) {
+              console.error('[ERROR] Failed to update subscription status:', error);
+            } else {
+              console.log('[INFO] Subscription marked as active due to payment success');
             }
           }
         }

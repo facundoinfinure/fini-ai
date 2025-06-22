@@ -47,9 +47,9 @@ jest.mock('next/navigation', () => ({
 
 // Mock environment variables
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 // process.env.NEXTAUTH_URL = 'http://localhost:3000';
-// process.env.NEXTAUTH_SECRET = 'test-secret';
+// process.env.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || '';
 
 // Mock console methods to reduce noise in tests
 global.console = {

@@ -23,55 +23,55 @@ export async function PUT(
       }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const _userId = session.user.id;
+    const configId = params.id;
 
     // Parse request body
-    const updates = await request.json();
+    const { phoneNumber, accountSid, authToken, webhookUrl, is_active } = await request.json();
 
     // Validate phone numbers if provided
-    if (updates.phone_numbers && Array.isArray(updates.phone_numbers)) {
-      const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-      const invalidNumbers = updates.phone_numbers.filter(num => !phoneRegex.test(num.replace(/\s+/g, '').replace(/[()-]/g, '')));
-      
-      if (invalidNumbers.length > 0) {
-        return NextResponse.json({
-          success: false,
-          error: 'Invalid phone number format',
-          details: `Invalid numbers: ${invalidNumbers.join(', ')}`
-        }, { status: 400 });
-      }
-    }
-
-    // Update WhatsApp config
-    const configResult = await WhatsAppConfigService.updateConfig(params.id, {
-      ...updates,
-      updated_at: new Date().toISOString()
-    });
-
-    if (!configResult.success) {
-      console.error('[ERROR] Failed to update WhatsApp config:', configResult.error);
+    if (phoneNumber && !phoneNumber.match(/^\+?[1-9]\d{1,14}$/)) {
       return NextResponse.json({
         success: false,
-        error: 'Failed to update WhatsApp configuration',
-        details: configResult.error
+        error: 'Invalid phone number format'
+      }, { status: 400 });
+    }
+
+    // Update WhatsApp configuration
+    const { data: config, error: configError } = await supabase
+      .from('whatsapp_configs')
+      .update({
+        phone_number: phoneNumber,
+        account_sid: accountSid,
+        auth_token: authToken,
+        webhook_url: webhookUrl,
+        is_active,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', configId)
+      .select()
+      .single();
+
+    if (configError) {
+      console.error('[ERROR] Failed to update WhatsApp config:', configError);
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to update WhatsApp configuration'
       }, { status: 500 });
     }
 
-    console.log('[INFO] WhatsApp configuration updated successfully:', params.id);
+    console.log('[INFO] WhatsApp config updated successfully');
 
     return NextResponse.json({
       success: true,
-      data: {
-        config: configResult.config
-      }
+      data: config
     });
 
   } catch (error) {
-    console.error('[ERROR] Failed to update WhatsApp configuration:', error);
+    console.error('[ERROR] Failed to update WhatsApp config:', error);
     return NextResponse.json({
       success: false,
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }
@@ -82,7 +82,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log('[INFO] Removing phone numbers from WhatsApp config:', params.id);
+    console.log('[INFO] Deleting WhatsApp configuration');
     
     const supabase = createClient();
     
@@ -97,72 +97,93 @@ export async function DELETE(
       }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const _userId = session.user.id;
+    const configId = params.id;
 
-    // Parse request body to get numbers to remove
-    const { phoneNumbers } = await request.json();
+    console.log('[INFO] Deleting WhatsApp config:', configId);
 
-    if (!phoneNumbers || !Array.isArray(phoneNumbers)) {
+    // Delete WhatsApp configuration
+    const { error: deleteError } = await supabase
+      .from('whatsapp_configs')
+      .delete()
+      .eq('id', configId);
+
+    if (deleteError) {
+      console.error('[ERROR] Failed to delete WhatsApp config:', deleteError);
       return NextResponse.json({
         success: false,
-        error: 'Phone numbers array is required'
-      }, { status: 400 });
+        error: 'Failed to delete WhatsApp configuration'
+      }, { status: 500 });
     }
 
-    // Get current config
-    const currentConfig = await WhatsAppConfigService.getConfigByUserId(userId);
+    console.log('[INFO] WhatsApp config deleted successfully');
+
+    return NextResponse.json({
+      success: true,
+      message: 'WhatsApp configuration deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('[ERROR] Failed to delete WhatsApp config:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Internal server error'
+    }, { status: 500 });
+  }
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    console.log('[INFO] Fetching WhatsApp configuration');
     
-    if (!currentConfig.success || !currentConfig.config) {
+    const supabase = createClient();
+    
+    // Get current user session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session?.user) {
+      console.error('[ERROR] No authenticated user found:', sessionError);
+      return NextResponse.json({
+        success: false,
+        error: 'No authenticated user found'
+      }, { status: 401 });
+    }
+
+    const _userId = session.user.id;
+    const configId = params.id;
+
+    console.log('[INFO] Fetching WhatsApp config:', configId);
+
+    // Get WhatsApp configuration
+    const { data: config, error: configError } = await supabase
+      .from('whatsapp_configs')
+      .select('*')
+      .eq('id', configId)
+      .single();
+
+    if (configError) {
+      console.error('[ERROR] Failed to fetch WhatsApp config:', configError);
       return NextResponse.json({
         success: false,
         error: 'WhatsApp configuration not found'
       }, { status: 404 });
     }
 
-    // Remove specified numbers
-    const updatedNumbers = currentConfig.config.phone_numbers.filter(
-      num => !phoneNumbers.includes(num)
-    );
-
-    // If no numbers left, deactivate the config
-    const updates: any = {
-      phone_numbers: updatedNumbers,
-      updated_at: new Date().toISOString()
-    };
-
-    if (updatedNumbers.length === 0) {
-      updates.is_active = false;
-      updates.is_configured = false;
-    }
-
-    // Update config
-    const configResult = await WhatsAppConfigService.updateConfig(params.id, updates);
-
-    if (!configResult.success) {
-      console.error('[ERROR] Failed to remove phone numbers:', configResult.error);
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to remove phone numbers',
-        details: configResult.error
-      }, { status: 500 });
-    }
-
-    console.log('[INFO] Phone numbers removed successfully:', params.id);
+    console.log('[INFO] WhatsApp config found successfully');
 
     return NextResponse.json({
       success: true,
-      data: {
-        config: configResult.config,
-        removedNumbers: phoneNumbers
-      }
+      data: config
     });
 
   } catch (error) {
-    console.error('[ERROR] Failed to remove phone numbers:', error);
+    console.error('[ERROR] Failed to fetch WhatsApp config:', error);
     return NextResponse.json({
       success: false,
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Internal server error'
     }, { status: 500 });
   }
 } 
