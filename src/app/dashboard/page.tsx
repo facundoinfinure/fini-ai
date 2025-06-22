@@ -3,7 +3,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Bot, LogOut, User, Settings, BarChart3, MessageSquare, CheckCircle, AlertCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -14,7 +14,8 @@ import { SubscriptionManagement } from '@/components/dashboard/subscription-mana
 import { AnalyticsOverview } from '@/components/dashboard/analytics-overview';
 import { Store } from "@/types/db";
 
-export default function DashboardPage() {
+// Componente separado para manejar los parámetros de búsqueda
+function DashboardContent() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -307,5 +308,13 @@ export default function DashboardPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DashboardContent />
+    </Suspense>
   );
 } 

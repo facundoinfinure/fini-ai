@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { UserService, StoreService, WhatsAppConfigService } from '@/lib/database/client';
 
-export async function GET(_request: NextRequest) {
+// Forzar renderizado dinámico
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export async function GET(request: NextRequest) {
   try {
     console.log('[INFO] Fetching dashboard stats');
     

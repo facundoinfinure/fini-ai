@@ -20,7 +20,7 @@ const nextConfig = {
 
   // Configuración de imágenes optimizada
   images: {
-    domains: ['api.tiendanube.com', 'cdn.tiendanube.com'],
+    domains: ['api.tiendanube.com', 'cdn.tiendanube.com', 'localhost'],
     formats: ['image/webp', 'image/avif'],
     minimumCacheTTL: 60,
     dangerouslyAllowSVG: false,
@@ -106,6 +106,33 @@ const nextConfig = {
           {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/api/dashboard/stats',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, must-revalidate',
+          },
+        ],
+      },
+      {
+        source: '/api/health',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, must-revalidate',
+          },
+        ],
+      },
+      {
+        source: '/api/tiendanube/oauth/callback',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, must-revalidate',
           },
         ],
       },

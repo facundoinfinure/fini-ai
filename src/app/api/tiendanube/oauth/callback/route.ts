@@ -4,6 +4,10 @@ import { exchangeCodeForToken } from '@/lib/integrations/tiendanube';
 import { TiendaNubeAPI } from '@/lib/integrations/tiendanube';
 import { StoreService } from '@/lib/database/client';
 
+// Forzar renderizado dinámico
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
