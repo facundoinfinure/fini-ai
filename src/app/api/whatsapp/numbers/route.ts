@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { WhatsAppConfigService } from '@/lib/database/client';
 
 // GET - Get WhatsApp configuration for the current user
 export async function GET(_request: NextRequest) {
@@ -40,9 +39,12 @@ export async function GET(_request: NextRequest) {
 
     console.log('[INFO] Found WhatsApp configs:', configs?.length || 0);
 
+    // A user should only have one config. Return the first one found, or null.
+    const config = configs && configs.length > 0 ? configs[0] : null;
+
     return NextResponse.json({
       success: true,
-      data: configs || []
+      data: { config }
     });
 
   } catch (error) {
@@ -54,10 +56,10 @@ export async function GET(_request: NextRequest) {
   }
 }
 
-// POST - Add new WhatsApp numbers
+// POST - Add a new WhatsApp number to the user's configuration
 export async function POST(request: NextRequest) {
   try {
-    console.log('[INFO] Creating WhatsApp configuration');
+    console.log('[INFO] Adding new WhatsApp number to configuration');
     
     const supabase = createClient();
     
@@ -77,44 +79,75 @@ export async function POST(request: NextRequest) {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
 
-    if (!phoneNumber || !accountSid || !authToken) {
+    if (!phoneNumber) {
+        return NextResponse.json({ success: false, error: 'Phone number is required' }, { status: 400 });
+    }
+    
+    if (!accountSid || !authToken) {
       return NextResponse.json({
         success: false,
         error: 'Phone number, Account SID, and Auth Token are required'
       }, { status: 400 });
     }
 
-    // Create WhatsApp configuration
-    const { data: config, error: configError } = await supabase
-      .from('whatsapp_configs')
-      .insert({
-        user_id: userId,
-        phone_number: phoneNumber,
-        account_sid: accountSid,
-        auth_token: authToken,
-        webhook_url: webhookUrl || '',
-        is_active: true
-      })
-      .select()
-      .single();
+    // Check for an existing configuration for this user
+    const { data: existingConfig, error: fetchError } = await supabase
+        .from('whatsapp_configs')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-    if (configError) {
-      console.error('[ERROR] Failed to create WhatsApp config:', configError);
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to create WhatsApp configuration'
-      }, { status: 500 });
+    if (fetchError) {
+        console.error('[ERROR] Failed to fetch existing WhatsApp config:', fetchError);
+        return NextResponse.json({ success: false, error: 'Failed to check for existing configuration' }, { status: 500 });
     }
 
-    console.log('[INFO] WhatsApp configuration created successfully:', config.id);
+    if (existingConfig) {
+        // Config exists, update it by adding the new phone number
+        const updatedNumbers = [...existingConfig.phone_numbers, phoneNumber];
+        
+        const { data: updatedConfig, error: updateError } = await supabase
+            .from('whatsapp_configs')
+            .update({ phone_numbers: updatedNumbers })
+            .eq('id', existingConfig.id)
+            .select()
+            .single();
 
-    return NextResponse.json({
-      success: true,
-      data: config
-    });
+        if (updateError) {
+            console.error('[ERROR] Failed to update WhatsApp config:', updateError);
+            return NextResponse.json({ success: false, error: 'Failed to update WhatsApp configuration' }, { status: 500 });
+        }
+
+        console.log('[INFO] WhatsApp configuration updated successfully:', updatedConfig.id);
+        return NextResponse.json({ success: true, data: updatedConfig });
+
+    } else {
+        // No config exists, create a new one
+        const { data: newConfig, error: createError } = await supabase
+            .from('whatsapp_configs')
+            .insert({
+                user_id: userId,
+                phone_numbers: [phoneNumber],
+                twilio_account_sid: accountSid,
+                twilio_auth_token: authToken,
+                webhook_url: webhookUrl || '/api/whatsapp/webhook', // Default webhook
+                is_active: true,
+                is_configured: false, // Mark as not fully configured until tested
+            })
+            .select()
+            .single();
+
+        if (createError) {
+            console.error('[ERROR] Failed to create WhatsApp config:', createError);
+            return NextResponse.json({ success: false, error: 'Failed to create WhatsApp configuration' }, { status: 500 });
+        }
+
+        console.log('[INFO] WhatsApp configuration created successfully:', newConfig.id);
+        return NextResponse.json({ success: true, data: newConfig });
+    }
 
   } catch (error) {
-    console.error('[ERROR] Failed to create WhatsApp configuration:', error);
+    console.error('[ERROR] Failed to create/update WhatsApp configuration:', error);
     return NextResponse.json({
       success: false,
       error: 'Internal server error'

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { WhatsAppConfigService } from '@/lib/database/client';
 
 // PUT - Update WhatsApp configuration
 export async function PUT(
@@ -27,13 +26,13 @@ export async function PUT(
     const configId = params.id;
 
     // Parse request body
-    const { phoneNumber, accountSid, authToken, webhookUrl, is_active } = await request.json();
+    const { phone_numbers, is_active } = await request.json();
 
     // Validate phone numbers if provided
-    if (phoneNumber && !phoneNumber.match(/^\+?[1-9]\d{1,14}$/)) {
+    if (!phone_numbers || !Array.isArray(phone_numbers)) {
       return NextResponse.json({
         success: false,
-        error: 'Invalid phone number format'
+        error: 'An array of phone numbers is required'
       }, { status: 400 });
     }
 
@@ -41,10 +40,7 @@ export async function PUT(
     const { data: config, error: configError } = await supabase
       .from('whatsapp_configs')
       .update({
-        phone_number: phoneNumber,
-        account_sid: accountSid,
-        auth_token: authToken,
-        webhook_url: webhookUrl,
+        phone_numbers,
         is_active,
         updated_at: new Date().toISOString()
       })
@@ -82,7 +78,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log('[INFO] Deleting WhatsApp configuration');
+    console.log('[INFO] Deleting number from WhatsApp configuration');
     
     const supabase = createClient();
     
@@ -97,34 +93,61 @@ export async function DELETE(
       }, { status: 401 });
     }
 
-    const _userId = session.user.id;
+    const userId = session.user.id;
     const configId = params.id;
+    const { phoneNumbers: numbersToDelete } = await request.json();
 
-    console.log('[INFO] Deleting WhatsApp config:', configId);
-
-    // Delete WhatsApp configuration
-    const { error: deleteError } = await supabase
-      .from('whatsapp_configs')
-      .delete()
-      .eq('id', configId);
-
-    if (deleteError) {
-      console.error('[ERROR] Failed to delete WhatsApp config:', deleteError);
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to delete WhatsApp configuration'
-      }, { status: 500 });
+    if (!numbersToDelete || !Array.isArray(numbersToDelete) || numbersToDelete.length === 0) {
+        return NextResponse.json({ success: false, error: 'Phone numbers to delete are required' }, { status: 400 });
     }
 
-    console.log('[INFO] WhatsApp config deleted successfully');
+    // Get the current config
+    const { data: currentConfig, error: fetchError } = await supabase
+        .from('whatsapp_configs')
+        .select('phone_numbers')
+        .eq('id', configId)
+        .eq('user_id', userId)
+        .single();
 
-    return NextResponse.json({
-      success: true,
-      message: 'WhatsApp configuration deleted successfully'
-    });
+    if (fetchError || !currentConfig) {
+        console.error('[ERROR] Failed to fetch WhatsApp config for deletion:', fetchError);
+        return NextResponse.json({ success: false, error: 'Configuration not found' }, { status: 404 });
+    }
+
+    const updatedNumbers = currentConfig.phone_numbers.filter(num => !numbersToDelete.includes(num));
+
+    if (updatedNumbers.length === 0) {
+        // If no numbers are left, delete the entire configuration
+        const { error: deleteError } = await supabase
+            .from('whatsapp_configs')
+            .delete()
+            .eq('id', configId);
+
+        if (deleteError) {
+            console.error('[ERROR] Failed to delete empty WhatsApp config:', deleteError);
+            return NextResponse.json({ success: false, error: 'Failed to delete configuration' }, { status: 500 });
+        }
+        
+        console.log('[INFO] WhatsApp config deleted successfully as it was empty');
+        return NextResponse.json({ success: true, message: 'WhatsApp configuration deleted successfully' });
+    } else {
+        // Otherwise, just update the numbers list
+        const { error: updateError } = await supabase
+            .from('whatsapp_configs')
+            .update({ phone_numbers: updatedNumbers })
+            .eq('id', configId);
+
+        if (updateError) {
+            console.error('[ERROR] Failed to update phone numbers in WhatsApp config:', updateError);
+            return NextResponse.json({ success: false, error: 'Failed to update configuration' }, { status: 500 });
+        }
+
+        console.log('[INFO] Phone numbers deleted successfully from config');
+        return NextResponse.json({ success: true, message: 'Phone numbers removed successfully' });
+    }
 
   } catch (error) {
-    console.error('[ERROR] Failed to delete WhatsApp config:', error);
+    console.error('[ERROR] Failed to delete from WhatsApp config:', error);
     return NextResponse.json({
       success: false,
       error: 'Internal server error'
