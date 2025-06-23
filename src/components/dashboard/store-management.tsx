@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Store as StoreIcon, Plus, Edit, Trash2, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
+import { Store as StoreIcon, Plus, Edit, Trash2, ExternalLink, RefreshCw, AlertCircle, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Store } from '@/types/db';
@@ -70,7 +70,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
   };
 
   const handleDeleteStore = async (storeId: string) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar esta tienda?')) {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta tienda? Esta acción no se puede deshacer.')) {
       return;
     }
 
@@ -95,21 +95,67 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
     }
   };
 
+  const handleSyncStore = async (storeId: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`/api/tiendanube/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storeId })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await onStoreUpdate();
+      } else {
+        setError(data.error || 'Failed to sync store');
+      }
+    } catch (err) {
+      setError('Failed to sync store');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const openEditDialog = (store: Store) => {
     setEditingStore(store);
     setFormData({
-      storeName: store.store_name,
-      storeUrl: store.store_url
+      storeName: store.store_name || '',
+      storeUrl: store.store_url || ''
     });
     setIsDialogOpen(true);
   };
 
-  if (loading) {
+  const getStoreStatus = (store: Store) => {
+    if (!store.store_id) {
+      return { status: 'disconnected', label: 'No Conectada', color: 'secondary', icon: XCircle };
+    }
+    if (!store.is_active) {
+      return { status: 'inactive', label: 'Inactiva', color: 'destructive', icon: XCircle };
+    }
+    if (store.updated_at) {
+      const lastSync = new Date(store.updated_at);
+      const now = new Date();
+      const diffHours = (now.getTime() - lastSync.getTime()) / (1000 * 60 * 60);
+      
+      if (diffHours < 24) {
+        return { status: 'active', label: 'Conectada', color: 'default', icon: CheckCircle };
+      } else {
+        return { status: 'needs_sync', label: 'Necesita Sync', color: 'secondary', icon: Clock };
+      }
+    }
+    return { status: 'pending', label: 'Pendiente', color: 'secondary', icon: Clock };
+  };
+
+  if (loading && stores.length === 0) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Gestión de Tiendas</CardTitle>
-          <CardDescription>Administra tus tiendas conectadas</CardDescription>
+          <CardDescription>Administra tus tiendas conectadas de Tienda Nube</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center p-10">
           <RefreshCw className="h-8 w-8 animate-spin text-primary" />
@@ -121,112 +167,160 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center">
-                <StoreIcon className="mr-2 h-5 w-5" />
-                Gestión de Tiendas
-              </CardTitle>
-              <CardDescription>
-                Administra tus tiendas conectadas de Tienda Nube
-              </CardDescription>
-            </div>
-            <Button onClick={handleAddStore} className="flex items-center">
-              <Plus className="mr-2 h-4 w-4" />
-              Conectar Tienda
-            </Button>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6">
+          <div>
+            <CardTitle className="flex items-center">
+              <StoreIcon className="mr-2 h-5 w-5" />
+              Gestión de Tiendas
+            </CardTitle>
+            <CardDescription>
+              Administra tus tiendas conectadas de Tienda Nube
+            </CardDescription>
           </div>
+          <Button onClick={handleAddStore} className="ml-auto">
+            <Plus className="mr-2 h-4 w-4" />
+            Conectar Tienda
+          </Button>
         </CardHeader>
+
         <CardContent>
+          {/* Error Alert */}
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 flex items-center">
-              <AlertCircle className="mr-2 h-4 w-4" />
-              {error}
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
+              <span className="text-red-800 flex-1">{error}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setError(null)}
+                className="text-red-600 hover:text-red-800"
+              >
+                ×
+              </Button>
             </div>
           )}
 
-          {stores.length === 0 ? (
-            <div className="text-center py-8">
-              <StoreIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          {/* Store List */}
+          {stores && stores.length > 0 ? (
+            <div className="space-y-4">
+              {stores.map((store) => {
+                const storeStatus = getStoreStatus(store);
+                const StatusIcon = storeStatus.icon;
+                
+                return (
+                  <div
+                    key={store.id}
+                    className="flex items-center justify-between p-6 border rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className={`p-3 rounded-lg ${
+                        storeStatus.status === 'active' ? 'bg-green-100' :
+                        storeStatus.status === 'inactive' ? 'bg-red-100' :
+                        storeStatus.status === 'needs_sync' ? 'bg-yellow-100' :
+                        'bg-gray-100'
+                      }`}>
+                        <StatusIcon className={`h-6 w-6 ${
+                          storeStatus.status === 'active' ? 'text-green-600' :
+                          storeStatus.status === 'inactive' ? 'text-red-600' :
+                          storeStatus.status === 'needs_sync' ? 'text-yellow-600' :
+                          'text-gray-600'
+                        }`} />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-3 mb-1">
+                          <h3 className="font-semibold text-gray-900 truncate">
+                            {store.store_name || 'Tienda sin nombre'}
+                          </h3>
+                          <Badge 
+                            variant={storeStatus.color as any}
+                            className="text-xs"
+                          >
+                            {storeStatus.label}
+                          </Badge>
+                        </div>
+                        
+                        {store.store_url && (
+                          <p className="text-sm text-gray-600 truncate mb-1">
+                            {store.store_url}
+                          </p>
+                        )}
+                        
+                        <div className="flex items-center space-x-4 text-xs text-gray-500">
+                          <span>
+                            Conectada: {format(new Date(store.created_at), 'dd/MM/yyyy', { locale: es })}
+                          </span>
+                          {store.updated_at && (
+                            <span>
+                              Último sync: {format(new Date(store.updated_at), 'dd/MM/yyyy HH:mm', { locale: es })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2 ml-4">
+                      {store.store_id && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSyncStore(store.id)}
+                          disabled={loading}
+                        >
+                          <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+                          Sync
+                        </Button>
+                      )}
+                      
+                      {store.store_url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          asChild
+                        >
+                          <a href={store.store_url} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      )}
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEditDialog(store)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteStore(store.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* Empty State */
+            <div className="text-center py-12">
+              <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <StoreIcon className="h-12 w-12 text-gray-400" />
+              </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 No tienes tiendas conectadas
               </h3>
-              <p className="text-gray-600 mb-4">
-                Conecta tu primera tienda de Tienda Nube para comenzar a usar Fini AI
+              <p className="text-gray-600 mb-6 max-w-sm mx-auto">
+                Conecta tu primera tienda de Tienda Nube para comenzar a usar Fini AI y obtener analytics en tiempo real.
               </p>
-              <Button onClick={handleAddStore}>
+              <Button onClick={handleAddStore} className="mx-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Conectar Primera Tienda
               </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Add Another Store Button - Prominent when stores exist */}
-              <div className="flex justify-between items-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div>
-                  <h4 className="font-medium text-blue-900">¿Tienes más tiendas?</h4>
-                  <p className="text-sm text-blue-700">Conecta múltiples tiendas para gestionar todo desde un solo lugar</p>
-                </div>
-                <Button onClick={handleAddStore} variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Agregar Otra Tienda
-                </Button>
-              </div>
-
-              {/* Existing Stores List */}
-              {stores.map((store) => (
-                <div
-                  key={store.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <StoreIcon className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900">{store.store_name}</h3>
-                      <p className="text-sm text-gray-600">{store.store_url}</p>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <Badge variant={store.is_active ? "default" : "secondary"}>
-                          {store.is_active ? "Activa" : "Inactiva"}
-                        </Badge>
-                        <span className="text-xs text-gray-500">
-                          Conectada el {format(new Date(store.created_at), 'dd/MM/yyyy', { locale: es })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openEditDialog(store)}
-                      disabled={loading}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Editar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(store.store_url, '_blank')}
-                    >
-                      <ExternalLink className="h-4 w-4 mr-1" />
-                      Visitar
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteStore(store.id)}
-                      disabled={loading}
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Eliminar
-                    </Button>
-                  </div>
-                </div>
-              ))}
             </div>
           )}
         </CardContent>
@@ -238,38 +332,55 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
           <DialogHeader>
             <DialogTitle>Editar Tienda</DialogTitle>
             <DialogDescription>
-              Modifica la información de tu tienda conectada
+              Actualiza la información de tu tienda
             </DialogDescription>
           </DialogHeader>
+          
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre de la Tienda
+              <label htmlFor="storeName" className="block text-sm font-medium text-gray-700 mb-2">
+                Nombre de la tienda
               </label>
               <Input
+                id="storeName"
+                type="text"
                 value={formData.storeName}
                 onChange={(e) => setFormData({ ...formData, storeName: e.target.value })}
                 placeholder="Mi Tienda"
               />
             </div>
+            
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                URL de la Tienda
+              <label htmlFor="storeUrl" className="block text-sm font-medium text-gray-700 mb-2">
+                URL de la tienda
               </label>
               <Input
+                id="storeUrl"
+                type="url"
                 value={formData.storeUrl}
                 onChange={(e) => setFormData({ ...formData, storeUrl: e.target.value })}
                 placeholder="https://mitienda.mitiendanube.com"
               />
             </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleEditStore} disabled={loading}>
-                {loading ? 'Guardando...' : 'Guardar'}
-              </Button>
-            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-2 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDialogOpen(false);
+                setEditingStore(null);
+                setFormData({ storeName: '', storeUrl: '' });
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleEditStore} disabled={loading}>
+              {loading ? (
+                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Guardar Cambios
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

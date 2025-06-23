@@ -1,13 +1,12 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
-import { Bot, LogOut, User, Settings, BarChart3, MessageSquare, CheckCircle, AlertCircle, X } from "lucide-react";
+import { Bot, LogOut, User, Settings, BarChart3, MessageSquare, CheckCircle, AlertCircle, X, RefreshCw } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense, useCallback } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { StoreStatusCard } from "@/components/dashboard/store-status-card";
 import { StoreManagement } from '@/components/dashboard/store-management';
 import { WhatsAppManagement } from '@/components/dashboard/whatsapp-management';
 import { SubscriptionManagement } from '@/components/dashboard/subscription-management';
@@ -27,108 +26,46 @@ const ERROR_MESSAGES = {
 };
 
 const ERROR_SOLUTIONS = {
-  oauth_failed: 'Hubo un problema durante la autorización. Intenta conectar la tienda nuevamente.',
-  token_exchange_failed: 'No se pudo completar la conexión con Tienda Nube. Esto puede deberse a:\n• Credenciales de aplicación incorrectas\n• URL de redirección mal configurada\n• Problemas de red temporales',
-  missing_parameters: 'Faltan parámetros necesarios en la respuesta de Tienda Nube. Intenta el proceso nuevamente.',
-  invalid_state: 'El estado de seguridad no es válido. Por favor, intenta conectar la tienda nuevamente.',
-  session_mismatch: 'Tu sesión no coincide con la solicitud. Cierra sesión y vuelve a intentar.',
-  internal_error: 'Error interno. Si el problema persiste, contacta soporte.'
+  oauth_failed: 'Intenta conectar tu tienda nuevamente desde la pestaña "Gestión de Tiendas"',
+  token_exchange_failed: 'Verifica que hayas autorizado correctamente el acceso a tu tienda',
+  missing_parameters: 'Asegúrate de completar todos los campos requeridos',
+  invalid_state: 'Por seguridad, intenta el proceso de conexión nuevamente',
+  session_mismatch: 'Inicia sesión nuevamente y reintenta la conexión',
+  internal_error: 'Por favor contacta soporte técnico si el error persiste'
 };
 
-// Componente separado para manejar los parámetros de búsqueda
+type NotificationType = 'success' | 'error' | 'warning' | 'info';
+
+interface Notification {
+  type: NotificationType;
+  message: string;
+  solution?: string;
+}
+
+interface DashboardStats {
+  totalStores: number;
+  activeStores: number;
+  connectedStores: number;
+  totalRevenue: number;
+  totalOrders: number;
+}
+
 function DashboardContent() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  const [activeSection, setActiveSection] = useState<'overview' | 'analytics' | 'subscription'>('overview');
+  
+  // State management
   const [stores, setStores] = useState<Store[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [showIncompleteSetupBanner, setShowIncompleteSetupBanner] = useState(false);
-  const [notification, setNotification] = useState<{
-    type: 'success' | 'error';
-    message: string;
-    solution?: string;
-  } | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [notification, setNotification] = useState<Notification | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState("resumen");
 
   // Handle OAuth callback results
-  useEffect(() => {
-    const successParam = searchParams.get('success');
-    const errorParam = searchParams.get('error');
-    const messageParam = searchParams.get('message');
-    const storeNameParam = searchParams.get('store_name');
-
-    if (successParam === 'store_connected' && storeNameParam) {
-      setSuccess(`¡Tienda "${decodeURIComponent(storeNameParam)}" conectada exitosamente!`);
-      // Clear URL parameters
-      router.replace('/dashboard');
-    } else if (errorParam === 'oauth_failed') {
-      setError(`Error al conectar la tienda: ${messageParam ? decodeURIComponent(messageParam) : 'Error desconocido'}`);
-      // Clear URL parameters
-      router.replace('/dashboard');
-    }
-  }, [searchParams, router]);
-
-  const checkIncompleteSetup = useCallback(() => {
-    // Show banner if user has no stores connected
-    if (stores.length === 0) {
-      setShowIncompleteSetupBanner(true);
-    } else {
-      setShowIncompleteSetupBanner(false);
-    }
-  }, [stores]);
-
-  const fetchUserData = useCallback(async () => {
-    try {
-      // Fetch user profile and stores in parallel
-      const [, storesResponse] = await Promise.all([
-        fetch('/api/user/complete-onboarding', { method: 'GET' }),
-        fetch('/api/stores')
-      ]);
-
-      // Handle stores
-      if (storesResponse.ok) {
-        const storesData = await storesResponse.json();
-        if (storesData.success) {
-          setStores(storesData.stores || []);
-        } else {
-          setError(storesData.error || 'Failed to fetch stores');
-        }
-      }
-
-      // Check if setup is incomplete
-      checkIncompleteSetup();
-    } catch (err) {
-      setError('An error occurred while fetching user data.');
-    }
-  }, [checkIncompleteSetup]);
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/auth/signin");
-    } else if (user) {
-      fetchUserData();
-    }
-  }, [user, loading, router, fetchUserData]);
-
-  // Re-check incomplete setup when stores change
-  useEffect(() => {
-    checkIncompleteSetup();
-  }, [checkIncompleteSetup]);
-
-  const handleSignOut = async () => {
-    setIsSigningOut(true);
-    const result = await signOut();
-    if (result.success) {
-      router.push("/auth/signin");
-    } else {
-      console.error("Error signing out:", result.error);
-      setIsSigningOut(false);
-    }
-  };
-
   useEffect(() => {
     const error = searchParams.get('error');
     const message = searchParams.get('message');
@@ -152,13 +89,92 @@ function DashboardContent() {
         type: 'success',
         message: `¡Tienda "${decodeURIComponent(storeName)}" conectada exitosamente!`
       });
+      // Auto refresh data after successful connection
+      setTimeout(() => {
+        fetchDashboardData();
+      }, 1000);
     }
   }, [searchParams]);
+
+  const fetchDashboardData = useCallback(async () => {
+    setIsRefreshing(true);
+    setError(null);
+    
+    try {
+      console.log('[INFO] Fetching dashboard data');
+      
+      // Fetch stores and stats in parallel
+      const [storesResponse, statsResponse] = await Promise.all([
+        fetch('/api/stores'),
+        fetch('/api/dashboard/stats')
+      ]);
+
+      // Handle stores
+      if (storesResponse.ok) {
+        const storesData = await storesResponse.json();
+        if (storesData.success) {
+          const storesArray = Array.isArray(storesData.data) ? storesData.data : [];
+          setStores(storesArray);
+          console.log('[INFO] Stores loaded:', storesArray.length);
+        } else {
+          console.error('[ERROR] Failed to fetch stores:', storesData.error);
+          setError('Error al cargar las tiendas: ' + storesData.error);
+        }
+      } else {
+        console.error('[ERROR] Stores API call failed');
+        setError('Error al conectar con el servidor');
+      }
+
+      // Handle stats
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        if (statsData.success) {
+          setStats({
+            totalStores: statsData.data.totalStores || 0,
+            activeStores: statsData.data.activeStores || 0,
+            connectedStores: statsData.data.activeStores || 0,
+            totalRevenue: statsData.data.totalRevenue || 0,
+            totalOrders: statsData.data.totalOrders || 0,
+          });
+        }
+      }
+
+    } catch (err) {
+      console.error('[ERROR] Failed to fetch dashboard data:', err);
+      setError('Error al cargar los datos del dashboard');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/auth/signin");
+    } else if (user) {
+      fetchDashboardData();
+    }
+  }, [user, loading, router, fetchDashboardData]);
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    const result = await signOut();
+    if (result.success) {
+      router.push("/auth/signin");
+    } else {
+      console.error("Error signing out:", result.error);
+      setIsSigningOut(false);
+    }
+  };
 
   const dismissNotification = () => {
     setNotification(null);
     // Clear URL parameters
     window.history.replaceState({}, '', '/dashboard');
+  };
+
+  const handleRefresh = () => {
+    fetchDashboardData();
   };
 
   // Show loading while checking auth
@@ -178,26 +194,54 @@ function DashboardContent() {
     return null;
   }
 
+  const getNotificationIcon = (type: NotificationType) => {
+    switch (type) {
+      case 'success': return <CheckCircle className="h-4 w-4" />;
+      case 'error': return <AlertCircle className="h-4 w-4" />;
+      case 'warning': return <AlertCircle className="h-4 w-4" />;
+      case 'info': return <AlertCircle className="h-4 w-4" />;
+    }
+  };
+
+  const getNotificationStyle = (type: NotificationType) => {
+    switch (type) {
+      case 'success': return 'border-green-200 bg-green-50 text-green-800';
+      case 'error': return 'border-red-200 bg-red-50 text-red-800';
+      case 'warning': return 'border-yellow-200 bg-yellow-50 text-yellow-800';
+      case 'info': return 'border-blue-200 bg-blue-50 text-blue-800';
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <div className="flex items-center">
-                <div className="p-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg">
-                  <Bot className="h-6 w-6 text-white" />
-                </div>
-                <h1 className="ml-3 text-xl font-bold text-gray-900">Fini AI</h1>
+              <Bot className="h-8 w-8 text-blue-600 mr-3" />
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Fini AI</h1>
+                <p className="text-sm text-gray-500">Dashboard de Analytics</p>
               </div>
             </div>
             
             <div className="flex items-center space-x-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Actualizar
+              </Button>
+              
               <div className="flex items-center space-x-2">
-                <User className="h-4 w-4 text-gray-500" />
+                <User className="h-5 w-5 text-gray-600" />
                 <span className="text-sm text-gray-700">{user.email}</span>
               </div>
+              
               <Button
                 variant="outline"
                 size="sm"
@@ -205,189 +249,176 @@ function DashboardContent() {
                 disabled={isSigningOut}
               >
                 {isSigningOut ? (
-                  <Bot className="h-4 w-4 animate-spin mr-2" />
+                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
                 ) : (
                   <LogOut className="h-4 w-4 mr-2" />
                 )}
-                Cerrar sesión
+                Salir
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Notifications */}
+      {/* Notification */}
       {notification && (
-        <Alert className={`${notification.type === 'error' ? 'border-destructive' : 'border-green-500'}`}>
-          <div className="flex items-start gap-2">
-            {notification.type === 'error' ? (
-              <AlertCircle className="h-4 w-4 text-destructive mt-0.5" />
-            ) : (
-              <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-            )}
-            <div className="flex-1">
-              <div className="font-medium">
-                {notification.type === 'error' ? 'Error al conectar la tienda' : 'Conexión exitosa'}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <Alert className={`${getNotificationStyle(notification.type)} relative`}>
+            <div className="flex items-start">
+              {getNotificationIcon(notification.type)}
+              <div className="ml-3 flex-1">
+                <AlertDescription className="text-sm">
+                  <strong>{notification.message}</strong>
+                  {notification.solution && (
+                    <div className="mt-1 text-xs opacity-90">
+                      {notification.solution}
+                    </div>
+                  )}
+                </AlertDescription>
               </div>
-              <AlertDescription className="mt-1">
-                {notification.message}
-                {notification.solution && (
-                  <div className="mt-2 text-sm bg-muted p-3 rounded whitespace-pre-line">
-                    <strong>Solución:</strong> {notification.solution}
-                  </div>
-                )}
-              </AlertDescription>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={dismissNotification}
+                className="absolute right-2 top-2 h-6 w-6 p-0 hover:bg-transparent"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={dismissNotification}
-              className="h-6 w-6 p-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </Alert>
+          </Alert>
+        </div>
       )}
 
-      {/* Configuration reminder */}
-      <Card className="bg-blue-50 border-blue-200">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Settings className="mr-2 h-5 w-5 text-blue-600" />
-            ¡Completa tu configuración!
-          </CardTitle>
-          <CardDescription>
-            Para aprovechar al máximo Fini AI, conecta tu tienda y configura WhatsApp.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex gap-3">
-          <Button>Completar configuración</Button>
-          <Button variant="outline">Recordar más tarde</Button>
-        </CardContent>
-      </Card>
-
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {/* Success/Error Messages */}
-          {success && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center">
-              <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
-              <span className="text-green-800">{success}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSuccess(null)}
-                className="ml-auto text-green-600 hover:text-green-800"
-              >
-                ×
-              </Button>
-            </div>
-          )}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Quick Stats */}
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Tiendas Totales</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalStores}</div>
+                <p className="text-xs text-muted-foreground">
+                  {stats.connectedStores} conectadas
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Tiendas Activas</CardTitle>
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.activeStores}</div>
+                <p className="text-xs text-muted-foreground">
+                  de {stats.totalStores} total
+                </p>
+              </CardContent>
+            </Card>
 
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center">
-              <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
-              <span className="text-red-800">{error}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setError(null)}
-                className="ml-auto text-red-600 hover:text-red-800"
-              >
-                ×
-              </Button>
-            </div>
-          )}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">
+                  Este mes
+                </p>
+              </CardContent>
+            </Card>
 
-          {/* Incomplete Setup Banner */}
-          {showIncompleteSetupBanner && (
-            <div className="mb-6 p-6 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start">
-                <AlertCircle className="h-6 w-6 text-blue-600 mr-3 mt-0.5" />
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-blue-900 mb-2">
-                    ¡Completa tu configuración!
-                  </h3>
-                  <p className="text-blue-800 mb-4">
-                    Para aprovechar al máximo Fini AI, conecta tu tienda y configura WhatsApp.
-                  </p>
-                  <div className="flex flex-wrap gap-3">
-                    <Button 
-                      onClick={() => router.push('/onboarding')}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      Completar configuración
-                    </Button>
-                    <Button 
-                      variant="outline"
-                      onClick={() => setShowIncompleteSetupBanner(false)}
-                      className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                    >
-                      Recordar más tarde
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Órdenes Totales</CardTitle>
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalOrders}</div>
+                <p className="text-xs text-muted-foreground">
+                  Este mes
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-          <Tabs defaultValue="resumen" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="resumen">Resumen</TabsTrigger>
-              <TabsTrigger value="chat">Chat</TabsTrigger>
-              <TabsTrigger value="analytics">Analytics</TabsTrigger>
-              <TabsTrigger value="suscripcion">Suscripción</TabsTrigger>
-            </TabsList>
+        {/* Error Alert */}
+        {error && (
+          <Alert className="mb-6 border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-red-800">
+              {error}
+            </AlertDescription>
+          </Alert>
+        )}
 
-            <TabsContent value="resumen" className="space-y-6">
-              {/* Store Status Overview - Quick visual confirmation */}
-              <StoreStatusCard />
-              
-              {/* Store Management - Detailed management */}
-              <StoreManagement stores={stores} onStoreUpdate={fetchUserData} />
+        {/* Success Alert */}
+        {success && (
+          <Alert className="mb-6 border-green-200 bg-green-50">
+            <CheckCircle className="h-4 w-4" />
+            <AlertDescription className="text-green-800">
+              {success}
+            </AlertDescription>
+          </Alert>
+        )}
 
-              {/* WhatsApp Management */}
-              <WhatsAppManagement stores={stores} />
-            </TabsContent>
+        {/* Main Dashboard Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-5 mb-8">
+            <TabsTrigger value="resumen">Resumen</TabsTrigger>
+            <TabsTrigger value="tiendas">Tiendas</TabsTrigger>
+            <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="suscripcion">Suscripción</TabsTrigger>
+          </TabsList>
 
-            <TabsContent value="chat" className="space-y-6">
-              {/* Chat Preview and Management */}
-              <ChatPreview />
-              
-              {/* Additional chat components can go here */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Conversaciones Recientes</CardTitle>
-                  <CardDescription>
-                    Aquí aparecerán las conversaciones de WhatsApp más recientes
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-500">No hay conversaciones recientes</p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="analytics" className="space-y-6">
-              {/* Full Analytics Overview */}
+          <TabsContent value="resumen" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
               <AnalyticsOverview />
-            </TabsContent>
+              <ChatPreview />
+            </div>
+          </TabsContent>
 
-            <TabsContent value="suscripcion">
-              <SubscriptionManagement />
-            </TabsContent>
-          </Tabs>
-        </div>
+          <TabsContent value="tiendas">
+            <StoreManagement 
+              stores={stores} 
+              onStoreUpdate={fetchDashboardData}
+            />
+          </TabsContent>
+
+          <TabsContent value="whatsapp">
+            <WhatsAppManagement stores={stores} />
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <AnalyticsOverview />
+          </TabsContent>
+
+          <TabsContent value="suscripcion">
+            <SubscriptionManagement />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
 }
 
-export default function DashboardPage() {
+export default function Dashboard() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Bot className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Cargando dashboard...</p>
+        </div>
+      </div>
+    }>
       <DashboardContent />
     </Suspense>
   );
