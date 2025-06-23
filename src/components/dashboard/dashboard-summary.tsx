@@ -70,11 +70,11 @@ export function DashboardSummary({ stores }: DashboardSummaryProps) {
       }
 
       // Fallback: Calculate locally from stores data
-      const localSummary: DashboardSummaryData = {
+      setSummary({
         stores: {
           total: stores.length,
           active: stores.filter(s => s.is_active).length,
-          connected: stores.filter(s => s.tiendanube_store_id).length
+          connected: stores.filter(s => s.platform_store_id).length
         },
         whatsapp: {
           totalNumbers: 0, // Would need WhatsApp API
@@ -88,9 +88,7 @@ export function DashboardSummary({ stores }: DashboardSummaryProps) {
         },
         lastSync: stores[0]?.last_sync_at || null,
         systemStatus: 'operational'
-      };
-
-      setSummary(localSummary);
+      });
 
     } catch (err) {
       setError('Error al cargar el resumen del dashboard');

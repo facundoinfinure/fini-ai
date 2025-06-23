@@ -161,20 +161,22 @@ export async function POST() {
         subscription_status TEXT DEFAULT 'active' CHECK (subscription_status IN ('active', 'inactive', 'cancelled'))
       );
 
-      -- Stores table
+      -- Stores table with multi-platform support
       CREATE TABLE IF NOT EXISTS public.stores (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
-        tiendanube_store_id TEXT UNIQUE NOT NULL,
+        platform TEXT NOT NULL DEFAULT 'tiendanube' CHECK (platform IN ('tiendanube', 'shopify', 'woocommerce', 'other')),
+        platform_store_id TEXT NOT NULL,
         name TEXT NOT NULL,
         domain TEXT NOT NULL,
         access_token TEXT NOT NULL,
-        refresh_token TEXT, -- Nullable because Tienda Nube doesn't provide refresh tokens
+        refresh_token TEXT,
         token_expires_at TIMESTAMP WITH TIME ZONE,
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        last_sync_at TIMESTAMP WITH TIME ZONE
+        last_sync_at TIMESTAMP WITH TIME ZONE,
+        UNIQUE(user_id, platform, platform_store_id)
       );
 
       -- WhatsApp configurations table
@@ -335,7 +337,7 @@ export async function POST() {
       -- Indexes for better performance
       CREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);
       CREATE INDEX IF NOT EXISTS idx_stores_user_id ON public.stores(user_id);
-      CREATE INDEX IF NOT EXISTS idx_stores_tiendanube_id ON public.stores(tiendanube_store_id);
+      CREATE INDEX IF NOT EXISTS idx_stores_platform_store_id ON public.stores(platform_store_id);
       CREATE INDEX IF NOT EXISTS idx_whatsapp_configs_user_id ON public.whatsapp_configs(user_id);
       CREATE INDEX IF NOT EXISTS idx_whatsapp_numbers_user_id ON public.whatsapp_numbers(user_id);
       CREATE INDEX IF NOT EXISTS idx_whatsapp_numbers_phone ON public.whatsapp_numbers(phone_number);
@@ -661,6 +663,51 @@ export async function POST() {
       CREATE TRIGGER on_auth_user_created
         AFTER INSERT ON auth.users
         FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+      -- Migration: Add new columns if they don't exist
+      const migrateStores = \`
+        -- Add platform column if it doesn't exist
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'stores' AND column_name = 'platform') THEN
+            ALTER TABLE public.stores ADD COLUMN platform TEXT NOT NULL DEFAULT 'tiendanube' CHECK (platform IN ('tiendanube', 'shopify', 'woocommerce', 'other'));
+          END IF;
+        END $$;
+
+        -- Add platform_store_id column if it doesn't exist
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'stores' AND column_name = 'platform_store_id') THEN
+            ALTER TABLE public.stores ADD COLUMN platform_store_id TEXT;
+            -- Copy data from tiendanube_store_id if it exists
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'stores' AND column_name = 'tiendanube_store_id') THEN
+              UPDATE public.stores SET platform_store_id = tiendanube_store_id WHERE platform_store_id IS NULL;
+              ALTER TABLE public.stores ALTER COLUMN platform_store_id SET NOT NULL;
+            END IF;
+          END IF;
+        END $$;
+
+        -- Drop old column if it exists and new column is populated
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'stores' AND column_name = 'tiendanube_store_id') 
+             AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'stores' AND column_name = 'platform_store_id') THEN
+            ALTER TABLE public.stores DROP COLUMN tiendanube_store_id;
+          END IF;
+        END $$;
+
+        -- Recreate unique constraint with new columns
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'stores_tiendanube_store_id_key') THEN
+            ALTER TABLE public.stores DROP CONSTRAINT stores_tiendanube_store_id_key;
+          END IF;
+          
+          IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'stores_user_platform_store_unique') THEN
+            ALTER TABLE public.stores ADD CONSTRAINT stores_user_platform_store_unique UNIQUE (user_id, platform, platform_store_id);
+          END IF;
+        END $$;
+      \`
     `
 
     // Split the SQL into individual statements and execute them

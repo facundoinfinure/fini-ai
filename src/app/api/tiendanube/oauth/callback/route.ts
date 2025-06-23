@@ -117,18 +117,21 @@ export async function GET(request: NextRequest) {
         storeName: storeInfo.name || 'No name available'
       });
 
-      // Save store to database with the user-provided information
-      const storeResult = await StoreService.createStore({
-        user_id: userId,
-        tiendanube_store_id: storeInfo.id.toString(),
-        name: storeName, // Use user-provided name
-        domain: storeUrl,   // Use user-provided URL
+      // Store the access token and store info
+      const storeData = {
+        user_id: session.user.id,
+        platform: 'tiendanube' as const,
+        platform_store_id: storeInfo.id.toString(),
+        name: storeInfo.name || 'Mi Tienda',
+        domain: storeInfo.url || '',
         access_token: authResponse.access_token,
-        refresh_token: null, // Tienda Nube doesn't provide refresh tokens
-        token_expires_at: new Date(Date.now() + (parseInt(process.env.TIENDANUBE_TOKEN_EXPIRY_HOURS || '24') * 60 * 60 * 1000)).toISOString(),
         is_active: true,
-        last_sync_at: new Date().toISOString()
-      });
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // Save store to database with the user-provided information
+      const storeResult = await StoreService.createStore(storeData);
 
       if (!storeResult.success) {
         throw new Error(`Failed to save store: ${storeResult.error}`);

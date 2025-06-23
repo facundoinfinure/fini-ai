@@ -25,10 +25,10 @@ export async function GET(request: NextRequest) {
     const userId = session.user.id;
     console.log('[INFO] Fetching stats for user:', userId);
 
-    // Get user's stores
+    // Get user's stores - using correct column names
     const { data: stores, error: storesError } = await supabase
       .from('stores')
-      .select('id, store_name, store_id, created_at')
+      .select('id, name, platform_store_id, created_at')
       .eq('user_id', userId)
       .eq('is_active', true);
 
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate basic stats
     const totalStores = stores?.length || 0;
-    const activeStores = stores?.filter(store => store.store_id)?.length || 0;
+    const activeStores = stores?.filter(store => store.platform_store_id)?.length || 0;
     const totalRevenue = 0; // TODO: Calculate from orders
     const totalOrders = 0; // TODO: Calculate from orders
 

@@ -28,7 +28,8 @@ export async function GET() {
         id,
         name,
         domain,
-        tiendanube_store_id,
+        platform,
+        platform_store_id,
         access_token,
         is_active,
         created_at,
@@ -82,9 +83,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar datos requeridos
-    const { name, domain, tiendanube_store_id, access_token } = body;
+    const { name, domain, platform_store_id, access_token, platform = 'tiendanube' } = body;
     
-    if (!name || !domain || !tiendanube_store_id || !access_token) {
+    if (!name || !domain || !platform_store_id || !access_token) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 }
@@ -98,7 +99,8 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         name,
         domain,
-        tiendanube_store_id,
+        platform,
+        platform_store_id,
         access_token,
         is_active: true,
         created_at: new Date().toISOString(),

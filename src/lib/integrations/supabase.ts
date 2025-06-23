@@ -8,12 +8,13 @@ const _supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 // Client with service role for server-side operations
 const _supabaseAdmin = createClient(_supabaseUrl, _supabaseServiceKey);
 
-export interface StoredTiendaNubeStore {
+export interface StoredStore {
   id: string;
   user_id: string;
-  store_id: string;
-  store_name: string;
-  store_url?: string;
+  platform: 'tiendanube' | 'shopify' | 'woocommerce'; // Soporte multi-plataforma
+  platform_store_id: string; // ID en la plataforma externa
+  name: string;
+  domain?: string;
   access_token: string;
   refresh_token?: string;
   token_expires_at?: string;
@@ -26,7 +27,8 @@ export interface StoredTiendaNubeStore {
 
 interface StoreConnection {
   user_id: string;
-  tiendanube_store_id: string;
+  platform_store_id: string; // Cambio de tiendanube_store_id a platform_store_id
+  platform: string; // Nueva columna para identificar la plataforma
   name: string;
   domain?: string;
   access_token: string;
@@ -47,7 +49,8 @@ class SupabaseService {
 
   async connectStore(params: {
     userId: string;
-    tiendaNubeStoreId: string;
+    platformStoreId: string; // Cambio de tiendaNubeStoreId
+    platform: 'tiendanube' | 'shopify' | 'woocommerce';
     storeName: string;
     storeUrl?: string;
     accessToken: string;
@@ -57,13 +60,15 @@ class SupabaseService {
     try {
       console.log('[INFO] Connecting store to database:', {
         userId: params.userId,
-        storeId: params.tiendaNubeStoreId,
+        platform: params.platform,
+        storeId: params.platformStoreId,
         storeName: params.storeName
       });
 
       const storeData = {
         user_id: params.userId,
-        tiendanube_store_id: params.tiendaNubeStoreId,
+        platform: params.platform,
+        platform_store_id: params.platformStoreId, // Usar nombre genérico
         name: params.storeName,
         domain: params.storeUrl || '',
         access_token: params.accessToken,
@@ -75,10 +80,11 @@ class SupabaseService {
 
       // Check if store already exists for this user
       const { data: existingStore, error: checkError } = await _supabaseAdmin
-        .from('tienda_nube_stores')
+        .from('stores') // Usar tabla genérica
         .select('*')
         .eq('user_id', params.userId)
-        .eq('store_id', params.tiendaNubeStoreId)
+        .eq('platform_store_id', params.platformStoreId)
+        .eq('platform', params.platform)
         .single();
 
       if (checkError && checkError.code !== 'PGRST116') {
@@ -92,7 +98,7 @@ class SupabaseService {
         // Update existing store
         console.warn('[SUPABASE] Updating existing store');
         const { data, error } = await _supabaseAdmin
-          .from('tienda_nube_stores')
+          .from('stores')
           .update(storeData)
           .eq('id', existingStore.id)
           .select()
@@ -107,7 +113,7 @@ class SupabaseService {
         // Create new store
         console.warn('[SUPABASE] Creating new store');
         const { data, error } = await _supabaseAdmin
-          .from('tienda_nube_stores')
+          .from('stores')
           .insert(storeData)
           .select()
           .single();
@@ -129,18 +135,25 @@ class SupabaseService {
   }
 
   /**
-   * Get Tienda Nube stores for a user
+   * Get stores for a user (multi-platform support)
    */
-  async getUserTiendaNubeStores(userId: string): Promise<{ success: true; stores: StoredTiendaNubeStore[] } | { success: false; error: string }> {
+  async getUserStores(userId: string, platform?: string): Promise<{ success: true; stores: StoredStore[] } | { success: false; error: string }> {
     try {
       console.warn('[SUPABASE] Getting stores for user:', userId);
 
-      const { data, error } = await _supabaseAdmin
-        .from('tienda_nube_stores')
+      let query = _supabaseAdmin
+        .from('stores')
         .select('*')
         .eq('user_id', userId)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
+
+      // Filter by platform if specified
+      if (platform) {
+        query = query.eq('platform', platform);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.warn('[SUPABASE] Error getting stores:', error);
@@ -157,17 +170,17 @@ class SupabaseService {
   }
 
   /**
-   * Get a specific Tienda Nube store by store ID and user ID
+   * Get a specific store by store ID and user ID
    */
-  async getTiendaNubeStore(userId: string, storeId: string): Promise<{ success: true; store: StoredTiendaNubeStore } | { success: false; error: string }> {
+  async getStore(userId: string, storeId: string): Promise<{ success: true; store: StoredStore } | { success: false; error: string }> {
     try {
       console.warn('[SUPABASE] Getting store:', { userId, storeId });
 
       const { data, error } = await _supabaseAdmin
-        .from('tienda_nube_stores')
+        .from('stores')
         .select('*')
         .eq('user_id', userId)
-        .eq('store_id', storeId)
+        .eq('id', storeId)
         .eq('is_active', true)
         .single();
 
@@ -185,24 +198,23 @@ class SupabaseService {
   }
 
   /**
-   * Deactivate a Tienda Nube store (soft delete)
+   * Deactivate a store (soft delete)
    */
-  async deactivateTiendaNubeStore(userId: string, storeId: string): Promise<{ success: true } | { success: false; error: string }> {
+  async deactivateStore(userId: string, storeId: string): Promise<{ success: true } | { success: false; error: string }> {
     try {
       console.warn('[SUPABASE] Deactivating store:', { userId, storeId });
 
       const { error } = await _supabaseAdmin
-        .from('tienda_nube_stores')
+        .from('stores')
         .update({ is_active: false, updated_at: new Date().toISOString() })
         .eq('user_id', userId)
-        .eq('store_id', storeId);
+        .eq('id', storeId);
 
       if (error) {
         console.warn('[SUPABASE] Error deactivating store:', error);
         return { success: false, error: error.message };
       }
 
-      console.warn('[SUPABASE] Store deactivated successfully');
       return { success: true };
 
     } catch (error) {
@@ -210,4 +222,6 @@ class SupabaseService {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
-} 
+}
+
+export default SupabaseService; 

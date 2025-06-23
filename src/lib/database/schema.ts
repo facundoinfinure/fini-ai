@@ -18,7 +18,8 @@ export interface User {
 export interface Store {
   id: string;
   user_id: string;
-  tiendanube_store_id: string;
+  platform: 'tiendanube' | 'shopify' | 'woocommerce' | 'other';
+  platform_store_id: string;
   name: string;
   domain: string;
   access_token: string;
@@ -142,7 +143,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS stores (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  tiendanube_store_id TEXT UNIQUE NOT NULL,
+  platform TEXT NOT NULL DEFAULT 'tiendanube' CHECK (platform IN ('tiendanube', 'shopify', 'woocommerce', 'other')),
+  platform_store_id TEXT NOT NULL,
   name TEXT NOT NULL,
   domain TEXT NOT NULL,
   access_token TEXT NOT NULL,
@@ -151,7 +153,8 @@ CREATE TABLE IF NOT EXISTS stores (
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  last_sync_at TIMESTAMP WITH TIME ZONE
+  last_sync_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE(user_id, platform, platform_store_id)
 );
 
 -- WhatsApp numbers table (nueva arquitectura N:M)
@@ -253,7 +256,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_stores_user_id ON stores(user_id);
-CREATE INDEX IF NOT EXISTS idx_stores_tiendanube_id ON stores(tiendanube_store_id);
+CREATE INDEX IF NOT EXISTS idx_stores_platform_store_id ON stores(platform_store_id);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_numbers_user_id ON whatsapp_numbers(user_id);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_numbers_phone ON whatsapp_numbers(phone_number);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_store_connections_number_id ON whatsapp_store_connections(whatsapp_number_id);
