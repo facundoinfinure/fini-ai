@@ -406,8 +406,24 @@ export const exchangeCodeForToken = async (code: string): Promise<TiendaNubeAuth
     
     if (!CLIENT_ID || !CLIENT_SECRET) {
       console.error('[ERROR] Tienda Nube Client ID or Secret is not configured');
-      throw new Error('Server configuration error for Tienda Nube integration.');
+      console.error('[DEBUG] CLIENT_ID exists:', !!CLIENT_ID);
+      console.error('[DEBUG] CLIENT_SECRET exists:', !!CLIENT_SECRET);
+      throw new Error('Server configuration error: Tienda Nube credentials are missing. Please configure TIENDANUBE_CLIENT_ID and TIENDANUBE_CLIENT_SECRET in your environment variables.');
     }
+
+    const requestBody = {
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      grant_type: 'authorization_code',
+      code,
+    };
+
+    console.log('[DEBUG] Token exchange request body:', {
+      client_id: CLIENT_ID,
+      grant_type: 'authorization_code',
+      code: code ? 'provided' : 'missing',
+      client_secret: CLIENT_SECRET ? 'provided' : 'missing'
+    });
 
     const response = await fetch(`https://www.tiendanube.com/apps/${CLIENT_ID}/authorize/token`, {
       method: 'POST',
@@ -415,21 +431,54 @@ export const exchangeCodeForToken = async (code: string): Promise<TiendaNubeAuth
         'Content-Type': 'application/json',
         'User-Agent': 'FiniAI/1.0 (WhatsApp Analytics for TiendaNube)',
       },
-      body: JSON.stringify({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        grant_type: 'authorization_code',
-        code,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
+    const responseText = await response.text();
+    console.log('[DEBUG] Token exchange response status:', response.status);
+    console.log('[DEBUG] Token exchange response:', responseText);
+
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('[ERROR] Failed to exchange code for token:', errorData);
-      throw new Error(`Failed to get access token from Tienda Nube: ${errorData.error_description || response.statusText}`);
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      
+      try {
+        const errorData = JSON.parse(responseText);
+        console.error('[ERROR] Failed to exchange code for token:', errorData);
+        
+        // Provide more specific error messages based on common issues
+        if (response.status === 401) {
+          errorMessage = 'Invalid credentials. Please check your TIENDANUBE_CLIENT_ID and TIENDANUBE_CLIENT_SECRET.';
+        } else if (response.status === 400) {
+          if (errorData.error === 'invalid_grant') {
+            errorMessage = 'Authorization code is invalid or expired. Please try the connection process again.';
+          } else if (errorData.error === 'invalid_client') {
+            errorMessage = 'Invalid client credentials. Please verify your TIENDANUBE_CLIENT_ID and TIENDANUBE_CLIENT_SECRET.';
+          } else {
+            errorMessage = errorData.error_description || errorData.error || 'Bad request to Tienda Nube API.';
+          }
+        }
+        
+        throw new Error(errorMessage);
+      } catch (parseError) {
+        // If response is not JSON, use the raw response
+        console.error('[ERROR] Failed to parse error response:', parseError);
+        throw new Error(`Failed to get access token from Tienda Nube: ${errorMessage}`);
+      }
     }
 
-    const authData: TiendaNubeAuthResponse = await response.json();
+    let authData: TiendaNubeAuthResponse;
+    try {
+      authData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('[ERROR] Failed to parse success response:', parseError);
+      throw new Error('Invalid response format from Tienda Nube API');
+    }
+
+    if (!authData.access_token || !authData.user_id) {
+      console.error('[ERROR] Invalid response structure:', authData);
+      throw new Error('Invalid response from Tienda Nube: missing access_token or user_id');
+    }
+
     console.log('[INFO] Successfully exchanged code for access token. User ID:', authData.user_id);
     return authData;
 

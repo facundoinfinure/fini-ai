@@ -4,15 +4,37 @@ import { useAuth } from "@/hooks/useAuth";
 import { Bot, LogOut, User, Settings, BarChart3, MessageSquare, CheckCircle, AlertCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense, useCallback } from "react";
-
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StoreStatusCard } from "@/components/dashboard/store-status-card";
 import { StoreManagement } from '@/components/dashboard/store-management';
 import { WhatsAppManagement } from '@/components/dashboard/whatsapp-management';
 import { SubscriptionManagement } from '@/components/dashboard/subscription-management';
 import { AnalyticsOverview } from '@/components/dashboard/analytics-overview';
+import { ChatPreview } from '@/components/dashboard/chat-preview';
 import { Store } from "@/types/db";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertCircle, CheckCircle, Settings, X } from "lucide-react";
+
+// Error message mappings for better UX
+const ERROR_MESSAGES = {
+  oauth_failed: 'Error en la autenticación OAuth',
+  token_exchange_failed: 'Error al intercambiar el código de autorización',
+  missing_parameters: 'Faltan parámetros requeridos',
+  invalid_state: 'Estado de seguridad inválido',
+  session_mismatch: 'La sesión no coincide',
+  internal_error: 'Error interno del servidor'
+};
+
+const ERROR_SOLUTIONS = {
+  oauth_failed: 'Hubo un problema durante la autorización. Intenta conectar la tienda nuevamente.',
+  token_exchange_failed: 'No se pudo completar la conexión con Tienda Nube. Esto puede deberse a:\n• Credenciales de aplicación incorrectas\n• URL de redirección mal configurada\n• Problemas de red temporales',
+  missing_parameters: 'Faltan parámetros necesarios en la respuesta de Tienda Nube. Intenta el proceso nuevamente.',
+  invalid_state: 'El estado de seguridad no es válido. Por favor, intenta conectar la tienda nuevamente.',
+  session_mismatch: 'Tu sesión no coincide con la solicitud. Cierra sesión y vuelve a intentar.',
+  internal_error: 'Error interno. Si el problema persiste, contacta soporte.'
+};
 
 // Componente separado para manejar los parámetros de búsqueda
 function DashboardContent() {
@@ -25,6 +47,11 @@ function DashboardContent() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showIncompleteSetupBanner, setShowIncompleteSetupBanner] = useState(false);
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+    solution?: string;
+  } | null>(null);
 
   // Handle OAuth callback results
   useEffect(() => {
@@ -103,6 +130,38 @@ function DashboardContent() {
     }
   };
 
+  useEffect(() => {
+    const error = searchParams.get('error');
+    const message = searchParams.get('message');
+    const success = searchParams.get('success');
+    const storeName = searchParams.get('store_name');
+
+    if (error) {
+      const errorType = message || error;
+      const errorMessage = ERROR_MESSAGES[errorType as keyof typeof ERROR_MESSAGES] || `Error: ${errorType}`;
+      const solution = ERROR_SOLUTIONS[errorType as keyof typeof ERROR_SOLUTIONS];
+      
+      console.error('[DASHBOARD] Error received:', { error, message, errorType });
+      
+      setNotification({
+        type: 'error',
+        message: errorMessage,
+        solution
+      });
+    } else if (success === 'store_connected' && storeName) {
+      setNotification({
+        type: 'success',
+        message: `¡Tienda "${decodeURIComponent(storeName)}" conectada exitosamente!`
+      });
+    }
+  }, [searchParams]);
+
+  const dismissNotification = () => {
+    setNotification(null);
+    // Clear URL parameters
+    window.history.replaceState({}, '', '/dashboard');
+  };
+
   // Show loading while checking auth
   if (loading) {
     return (
@@ -158,43 +217,56 @@ function DashboardContent() {
         </div>
       </header>
 
-      {/* Navigation Tabs */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8">
-            <button
-              onClick={() => setActiveSection('overview')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeSection === 'overview'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+      {/* Notifications */}
+      {notification && (
+        <Alert className={`${notification.type === 'error' ? 'border-destructive' : 'border-green-500'}`}>
+          <div className="flex items-start gap-2">
+            {notification.type === 'error' ? (
+              <AlertCircle className="h-4 w-4 text-destructive mt-0.5" />
+            ) : (
+              <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+            )}
+            <div className="flex-1">
+              <div className="font-medium">
+                {notification.type === 'error' ? 'Error al conectar la tienda' : 'Conexión exitosa'}
+              </div>
+              <AlertDescription className="mt-1">
+                {notification.message}
+                {notification.solution && (
+                  <div className="mt-2 text-sm bg-muted p-3 rounded whitespace-pre-line">
+                    <strong>Solución:</strong> {notification.solution}
+                  </div>
+                )}
+              </AlertDescription>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={dismissNotification}
+              className="h-6 w-6 p-0"
             >
-              Resumen
-            </button>
-            <button
-              onClick={() => setActiveSection('analytics')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeSection === 'analytics'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Analytics
-            </button>
-            <button
-              onClick={() => setActiveSection('subscription')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeSection === 'subscription'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Suscripción
-            </button>
-          </nav>
-        </div>
-      </div>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </Alert>
+      )}
+
+      {/* Configuration reminder */}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Settings className="mr-2 h-5 w-5 text-blue-600" />
+            ¡Completa tu configuración!
+          </CardTitle>
+          <CardDescription>
+            Para aprovechar al máximo Fini AI, conecta tu tienda y configura WhatsApp.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex gap-3">
+          <Button>Completar configuración</Button>
+          <Button variant="outline">Recordar más tarde</Button>
+        </CardContent>
+      </Card>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -262,107 +334,42 @@ function DashboardContent() {
             </div>
           )}
 
-          {activeSection === 'overview' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Columna principal */}
-              <div className="lg:col-span-2">
-                <div className="space-y-8">
-                  {/* Welcome Section */}
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                      ¡Bienvenido a Fini AI!
-                    </h2>
-                    <p className="text-gray-600">
-                      Tu dashboard de analytics inteligente para Tienda Nube
-                    </p>
-                  </div>
+          <Tabs defaultValue="resumen" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="resumen">Resumen</TabsTrigger>
+              <TabsTrigger value="analytics">Analytics</TabsTrigger>
+              <TabsTrigger value="suscripcion">Suscripción</TabsTrigger>
+            </TabsList>
 
-                  {/* Quick Actions */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card 
-                      className="hover:shadow-md transition-shadow cursor-pointer"
-                      onClick={() => setActiveSection('analytics')}
-                    >
-                      <CardHeader>
-                        <CardTitle className="flex items-center">
-                          <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
-                          Analytics
-                        </CardTitle>
-                        <CardDescription>
-                          Ver métricas y reportes de tu tienda
-                        </CardDescription>
-                      </CardHeader>
-                    </Card>
-                    <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                      <CardHeader>
-                        <CardTitle className="flex items-center">
-                          <MessageSquare className="h-5 w-5 mr-2 text-green-600" />
-                          Chat con IA
-                        </CardTitle>
-                        <CardDescription>
-                          Pregunta sobre tu negocio por WhatsApp
-                        </CardDescription>
-                      </CardHeader>
-                    </Card>
-                  </div>
-
-                  {/* Store Management Section */}
-                  <StoreManagement />
-                  {/* WhatsApp Management Section */}
-                  <WhatsAppManagement stores={stores} />
+            <TabsContent value="resumen" className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {/* Analytics Overview */}
+                <div className="md:col-span-2">
+                  <AnalyticsOverview />
                 </div>
-              </div>
 
-              {/* Columna lateral */}
-              <div className="lg:col-span-1">
-                <div className="space-y-8">
+                {/* Quick Actions */}
+                <div className="space-y-6">
                   <StoreStatusCard />
-                  
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center">
-                        <Settings className="h-5 w-5 mr-2 text-purple-600" />
-                        Configuración
-                      </CardTitle>
-                      <CardDescription>
-                        Gestiona tu cuenta y preferencias
-                      </CardDescription>
-                    </CardHeader>
-                  </Card>
+                  <ChatPreview />
                 </div>
               </div>
-            </div>
-          )}
 
-          {activeSection === 'analytics' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  Analytics
-                </h2>
-                <p className="text-gray-600">
-                  Métricas detalladas y reportes de tu tienda
-                </p>
-              </div>
+              {/* Store Management */}
+              <StoreManagement />
+
+              {/* WhatsApp Management */}
+              <WhatsAppManagement />
+            </TabsContent>
+
+            <TabsContent value="analytics">
               <AnalyticsOverview />
-            </div>
-          )}
+            </TabsContent>
 
-          {activeSection === 'subscription' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  Suscripción
-                </h2>
-                <p className="text-gray-600">
-                  Gestiona tu plan y facturación
-                </p>
-              </div>
-              <div className="max-w-2xl">
-                <SubscriptionManagement />
-              </div>
-            </div>
-          )}
+            <TabsContent value="suscripcion">
+              <SubscriptionManagement />
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>

@@ -48,14 +48,18 @@ export async function POST(request: NextRequest) {
 
     console.log('[INFO] Generating OAuth URL for user:', userId, 'store:', storeData.storeName);
 
-    // Generate OAuth URL
+    // Validate environment variables
     const clientId = process.env.TIENDANUBE_CLIENT_ID;
+    const clientSecret = process.env.TIENDANUBE_CLIENT_SECRET;
 
-    if (!clientId) {
-      console.error('[ERROR] TIENDANUBE_CLIENT_ID is not set in environment variables.');
+    if (!clientId || !clientSecret) {
+      console.error('[ERROR] Tienda Nube credentials not configured properly:');
+      console.error('- TIENDANUBE_CLIENT_ID exists:', !!clientId);
+      console.error('- TIENDANUBE_CLIENT_SECRET exists:', !!clientSecret);
+      
       return NextResponse.json({
         success: false,
-        error: 'Server configuration error: Tienda Nube client ID is missing.'
+        error: 'Server configuration error: Tienda Nube credentials are missing. Please configure TIENDANUBE_CLIENT_ID and TIENDANUBE_CLIENT_SECRET in your environment variables.'
       }, { status: 500 });
     }
 
@@ -77,6 +81,7 @@ export async function POST(request: NextRequest) {
     const authUrl = `https://www.tiendanube.com/apps/${clientId}/authorize?state=${encodeURIComponent(state)}`;
 
     console.log('[INFO] OAuth URL generated successfully for store:', storeData.storeName);
+    console.log('[DEBUG] Generated auth URL:', authUrl);
 
     return NextResponse.json({
       success: true,

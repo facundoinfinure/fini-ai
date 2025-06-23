@@ -1,5 +1,143 @@
-import { NextResponse } from 'next/server'
+/**
+ * API para verificar y configurar la base de datos inicial
+ * También valida la configuración de variables de entorno
+ * GET /api/setup-database
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
+
+interface ConfigurationStatus {
+  database: boolean;
+  tiendanube: boolean;
+  whatsapp: boolean;
+  stripe: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    console.log('[SETUP] Checking system configuration');
+    
+    const status: ConfigurationStatus = {
+      database: false,
+      tiendanube: false,
+      whatsapp: false,
+      stripe: false,
+      errors: [],
+      warnings: []
+    };
+
+    // Check database configuration
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.from('profiles').select('id').limit(1);
+      
+      if (error) {
+        status.errors.push(`Database connection failed: ${error.message}`);
+      } else {
+        status.database = true;
+        console.log('[SETUP] Database connection: OK');
+      }
+    } catch (dbError) {
+      status.errors.push(`Database configuration error: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
+    }
+
+    // Check Tienda Nube configuration
+    const tiendanubeClientId = process.env.TIENDANUBE_CLIENT_ID;
+    const tiendanubeClientSecret = process.env.TIENDANUBE_CLIENT_SECRET;
+    const tiendanubeRedirectUri = process.env.TIENDANUBE_REDIRECT_URI;
+
+    if (!tiendanubeClientId) {
+      status.errors.push('TIENDANUBE_CLIENT_ID is not configured');
+    }
+    if (!tiendanubeClientSecret) {
+      status.errors.push('TIENDANUBE_CLIENT_SECRET is not configured');
+    }
+    if (!tiendanubeRedirectUri) {
+      status.warnings.push('TIENDANUBE_REDIRECT_URI is not configured (will use default)');
+    }
+
+    if (tiendanubeClientId && tiendanubeClientSecret) {
+      status.tiendanube = true;
+      console.log('[SETUP] Tienda Nube configuration: OK');
+    }
+
+    // Check WhatsApp/Twilio configuration
+    const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
+    const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+
+    if (!twilioAccountSid) {
+      status.warnings.push('TWILIO_ACCOUNT_SID is not configured (WhatsApp features will be limited)');
+    }
+    if (!twilioAuthToken) {
+      status.warnings.push('TWILIO_AUTH_TOKEN is not configured (WhatsApp features will be limited)');
+    }
+
+    if (twilioAccountSid && twilioAuthToken) {
+      status.whatsapp = true;
+      console.log('[SETUP] WhatsApp/Twilio configuration: OK');
+    }
+
+    // Check Stripe configuration
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    const stripePublishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
+
+    if (!stripeSecretKey) {
+      status.warnings.push('STRIPE_SECRET_KEY is not configured (subscription features will be limited)');
+    }
+    if (!stripePublishableKey) {
+      status.warnings.push('STRIPE_PUBLISHABLE_KEY is not configured (subscription features will be limited)');
+    }
+
+    if (stripeSecretKey && stripePublishableKey) {
+      status.stripe = true;
+      console.log('[SETUP] Stripe configuration: OK');
+    }
+
+    // Overall system status
+    const hasConfigurationErrors = status.errors.length > 0;
+    const isMinimallyConfigured = status.database && status.tiendanube;
+
+    console.log('[SETUP] Configuration check completed:', {
+      database: status.database,
+      tiendanube: status.tiendanube,
+      whatsapp: status.whatsapp,
+      stripe: status.stripe,
+      errors: status.errors.length,
+      warnings: status.warnings.length
+    });
+
+    return NextResponse.json({
+      success: !hasConfigurationErrors,
+      configured: isMinimallyConfigured,
+      status,
+      message: hasConfigurationErrors
+        ? 'Configuration errors found'
+        : isMinimallyConfigured
+        ? 'System is properly configured'
+        : 'Minimal configuration missing'
+    });
+
+  } catch (error) {
+    console.error('[SETUP] Configuration check failed:', error);
+    return NextResponse.json({
+      success: false,
+      configured: false,
+      status: {
+        database: false,
+        tiendanube: false,
+        whatsapp: false,
+        stripe: false,
+        errors: [error instanceof Error ? error.message : 'Unknown configuration error'],
+        warnings: []
+      },
+      message: 'Configuration check failed'
+    }, { status: 500 });
+  }
+}
 
 export async function POST() {
   try {
