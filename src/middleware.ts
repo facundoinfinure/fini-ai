@@ -1,17 +1,83 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
-export function middleware(_request: NextRequest) {
-  // Add security headers
+export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
   
-  // Security headers
+  // Add security headers
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   
-  return response;
+  const { pathname } = request.nextUrl;
+  
+  // Skip auth check for auth routes, API routes, static files, and public pages
+  if (
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname === '/favicon.ico' ||
+    pathname === '/' ||
+    pathname.startsWith('/terms') ||
+    pathname.startsWith('/privacy')
+  ) {
+    return response;
+  }
+
+  try {
+    const supabase = createClient();
+    const { data: { session }, error } = await supabase.auth.getSession();
+
+    // If no session exists and trying to access protected route
+    if (!session || error) {
+      console.log('[INFO] No valid session found, redirecting to signin');
+      const redirectUrl = new URL('/auth/signin', request.url);
+      redirectUrl.searchParams.set('redirectedFrom', pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // Check if user profile exists in public.users for protected routes
+    if (pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding')) {
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('id, onboarding_completed')
+        .eq('id', session.user.id)
+        .single();
+
+      // If user profile doesn't exist, redirect to signin
+      if (!userProfile || profileError) {
+        console.log('[INFO] User profile not found, redirecting to signin');
+        const redirectUrl = new URL('/auth/signin', request.url);
+        redirectUrl.searchParams.set('message', 'Perfil de usuario no encontrado. Inicia sesión nuevamente.');
+        return NextResponse.redirect(redirectUrl);
+      }
+
+      // Handle onboarding redirects
+      if (pathname.startsWith('/dashboard')) {
+        // Check if user has stores
+        const { data: stores } = await supabase
+          .from('stores')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .limit(1);
+
+        // If user hasn't completed onboarding or has no stores, redirect to onboarding
+        // But allow them to access dashboard to see the incomplete setup banner
+        console.log('[INFO] User accessing dashboard with profile:', {
+          onboarding_completed: userProfile.onboarding_completed,
+          has_stores: stores && stores.length > 0
+        });
+      }
+    }
+
+    return response;
+  } catch (error) {
+    console.error('[ERROR] Middleware error:', error);
+    // On error, allow the request to proceed
+    return response;
+  }
 }
 
 export const config = {

@@ -3,10 +3,10 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Bot, LogOut, User, Settings, BarChart3, MessageSquare, CheckCircle, AlertCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { StoreStatusCard } from "@/components/dashboard/store-status-card";
 import { StoreManagement } from '@/components/dashboard/store-management';
 import { WhatsAppManagement } from '@/components/dashboard/whatsapp-management';
@@ -24,6 +24,8 @@ function DashboardContent() {
   const [stores, setStores] = useState<Store[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [showIncompleteSetupBanner, setShowIncompleteSetupBanner] = useState(false);
 
   // Handle OAuth callback results
   useEffect(() => {
@@ -43,28 +45,53 @@ function DashboardContent() {
     }
   }, [searchParams, router]);
 
+  const checkIncompleteSetup = useCallback(() => {
+    // Show banner if user has no stores connected
+    if (stores.length === 0) {
+      setShowIncompleteSetupBanner(true);
+    } else {
+      setShowIncompleteSetupBanner(false);
+    }
+  }, [stores]);
+
+  const fetchUserData = useCallback(async () => {
+    try {
+      // Fetch user profile and stores in parallel
+      const [, storesResponse] = await Promise.all([
+        fetch('/api/user/complete-onboarding', { method: 'GET' }),
+        fetch('/api/stores')
+      ]);
+
+      // Handle stores
+      if (storesResponse.ok) {
+        const storesData = await storesResponse.json();
+        if (storesData.success) {
+          setStores(storesData.stores || []);
+        } else {
+          setError(storesData.error || 'Failed to fetch stores');
+        }
+      }
+
+      // Check if setup is incomplete
+      checkIncompleteSetup();
+    } catch (err) {
+      setError('An error occurred while fetching user data.');
+    }
+  }, [checkIncompleteSetup]);
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!loading && !user) {
       router.push("/auth/signin");
     } else if (user) {
-      fetchStores();
+      fetchUserData();
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, fetchUserData]);
 
-  const fetchStores = async () => {
-    try {
-      const response = await fetch('/api/stores');
-      const data = await response.json();
-      if (data.success) {
-        setStores(data.stores || []);
-      } else {
-        setError(data.error || 'Failed to fetch stores');
-      }
-    } catch (err) {
-      setError('An error occurred while fetching stores.');
-    }
-  };
+  // Re-check incomplete setup when stores change
+  useEffect(() => {
+    checkIncompleteSetup();
+  }, [checkIncompleteSetup]);
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -201,6 +228,38 @@ function DashboardContent() {
               >
                 ×
               </Button>
+            </div>
+          )}
+
+          {/* Incomplete Setup Banner */}
+          {showIncompleteSetupBanner && (
+            <div className="mb-6 p-6 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start">
+                <AlertCircle className="h-6 w-6 text-blue-600 mr-3 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-blue-900 mb-2">
+                    ¡Completa tu configuración!
+                  </h3>
+                  <p className="text-blue-800 mb-4">
+                    Para aprovechar al máximo Fini AI, conecta tu tienda y configura WhatsApp.
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <Button 
+                      onClick={() => router.push('/onboarding')}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Completar configuración
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => setShowIncompleteSetupBanner(false)}
+                      className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                    >
+                      Recordar más tarde
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

@@ -49,61 +49,65 @@ export default function OnboardingPage() {
         checks: {}
       };
       
-      // Check if user has already completed onboarding
-      console.log('[INFO] Checking onboarding completion status...');
-      const onboardingResponse = await fetch("/api/user/complete-onboarding");
+      // Check user's onboarding status and stores in parallel
+      const [onboardingResponse, storesResponse] = await Promise.all([
+        fetch("/api/user/complete-onboarding", { method: 'GET' }),
+        fetch("/api/stores")
+      ]);
+      
       console.log('[INFO] Onboarding response status:', onboardingResponse.status);
+      console.log('[INFO] Stores response status:', storesResponse.status);
       
       debugData.checks.onboarding = {
         status: onboardingResponse.status,
         ok: onboardingResponse.ok
       };
       
-      if (onboardingResponse.ok) {
-        const onboardingData = await onboardingResponse.json();
-        console.log('[INFO] Onboarding data:', onboardingData);
-        debugData.checks.onboarding.data = onboardingData;
-        
-        if (onboardingData.success && onboardingData.data.completed) {
-          console.log('[INFO] User has already completed onboarding, redirecting to dashboard');
-          debugData.redirectReason = 'onboarding_completed';
-          setDebugInfo(debugData);
-          router.push("/dashboard");
-          return;
-        }
-      } else {
-        console.log('[INFO] Onboarding check failed, status:', onboardingResponse.status);
-      }
-
-      // Check if user already has stores connected
-      console.log('[INFO] Checking if user has stores...');
-      const storesResponse = await fetch("/api/stores");
-      console.log('[INFO] Stores response status:', storesResponse.status);
-      
       debugData.checks.stores = {
         status: storesResponse.status,
         ok: storesResponse.ok
       };
       
+      let hasCompletedOnboarding = false;
+      let hasStores = false;
+      
+      // Parse onboarding response
+      if (onboardingResponse.ok) {
+        const onboardingData = await onboardingResponse.json();
+        console.log('[INFO] Onboarding data:', onboardingData);
+        debugData.checks.onboarding.data = onboardingData;
+        
+        if (onboardingData.success) {
+          hasCompletedOnboarding = onboardingData.data?.completed || false;
+        }
+      }
+
+      // Parse stores response
       if (storesResponse.ok) {
         const storesData = await storesResponse.json();
         console.log('[INFO] Stores data:', storesData);
         debugData.checks.stores.data = storesData;
         
-        if (storesData.success && storesData.data && storesData.data.length > 0) {
-          console.log('[INFO] User already has stores connected, redirecting to dashboard');
-          debugData.redirectReason = 'stores_exist';
-          setDebugInfo(debugData);
-          router.push("/dashboard");
-          return;
+        if (storesData.success && storesData.stores && storesData.stores.length > 0) {
+          hasStores = true;
         }
-      } else {
-        console.log('[INFO] Stores check failed, status:', storesResponse.status);
       }
       
-      console.log('[INFO] User needs to complete onboarding');
-      debugData.redirectReason = 'none';
+      // Redirect logic:
+      // - If user has completed onboarding AND has stores -> dashboard
+      // - Otherwise -> stay on onboarding
+      if (hasCompletedOnboarding && hasStores) {
+        console.log('[INFO] User has completed onboarding and has stores, redirecting to dashboard');
+        debugData.redirectReason = 'onboarding_completed_with_stores';
+        setDebugInfo(debugData);
+        router.push("/dashboard");
+        return;
+      }
+      
+      console.log('[INFO] User needs to complete onboarding setup');
+      debugData.redirectReason = 'onboarding_needed';
       setDebugInfo(debugData);
+      
     } catch (error) {
       console.error('[ERROR] Error checking onboarding status:', error);
       setDebugInfo({

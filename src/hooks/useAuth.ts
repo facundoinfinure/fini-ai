@@ -18,6 +18,34 @@ export function useAuth() {
           console.error('[ERROR] Failed to get session:', error)
         }
         setUser(session?.user ?? null)
+        
+        // For existing sessions, just ensure profile exists without creating
+        if (session?.user) {
+          console.log('[INFO] Existing session found for user:', session.user.email)
+          // The auth callback handles profile creation, so we just verify here
+          try {
+            const response = await fetch('/api/user/ensure-profile', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            })
+            
+            if (!response.ok) {
+              console.error('[ERROR] Failed to verify user profile:', response.statusText)
+            } else {
+              const result = await response.json()
+              if (result.success) {
+                console.log('[INFO] User profile verified:', result.created ? 'created' : 'exists')
+              } else {
+                console.error('[ERROR] Failed to verify user profile:', result.error)
+              }
+            }
+          } catch (error) {
+            console.error('[ERROR] Exception verifying user profile:', error)
+          }
+        }
+        
         setLoading(false)
       } catch (error) {
         console.error('[ERROR] Session error:', error)
@@ -33,6 +61,33 @@ export function useAuth() {
         console.log('[INFO] Auth state changed:', event, session?.user?.email)
         setUser(session?.user ?? null)
         setLoading(false)
+
+        // Profile creation is handled in auth callback for OAuth flows
+        // For email/magic link flows, we still need to handle it here
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('[INFO] User signed in, verifying profile exists')
+          try {
+            const response = await fetch('/api/user/ensure-profile', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            })
+            
+            if (!response.ok) {
+              console.error('[ERROR] Failed to ensure user profile:', response.statusText)
+            } else {
+              const result = await response.json()
+              if (result.success) {
+                console.log('[INFO] User profile ensured:', result.created ? 'created' : 'exists')
+              } else {
+                console.error('[ERROR] Failed to ensure user profile:', result.error)
+              }
+            }
+          } catch (error) {
+            console.error('[ERROR] Exception ensuring user profile:', error)
+          }
+        }
 
         // Only redirect on sign out, let individual pages handle sign in redirects
         if (event === 'SIGNED_OUT') {

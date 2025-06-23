@@ -1,9 +1,9 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, Mail, Bot, Store, CheckCircle, ArrowRight } from "lucide-react";
+import { Loader2, Mail, Bot, Store, CheckCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -22,12 +22,41 @@ function SignInContent() {
   
   const { user, loading, signInWithEmail, signInWithGoogle } = useAuth();
 
+  const checkUserStatus = useCallback(async () => {
+    try {
+      const response = await fetch('/api/user/complete-onboarding', { method: 'GET' });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const { completed } = data.data;
+          
+          // If user has completed onboarding, redirect to intended page or dashboard
+          if (completed) {
+            router.push(redirectedFrom || "/dashboard");
+          } else {
+            // User needs to complete onboarding
+            router.push("/onboarding");
+          }
+          return;
+        }
+      }
+      
+      // Fallback: redirect to intended page or dashboard
+      router.push(redirectedFrom || "/dashboard");
+    } catch (error) {
+      console.error('[ERROR] Failed to check user status:', error);
+      // Fallback: redirect to intended page or dashboard
+      router.push(redirectedFrom || "/dashboard");
+    }
+  }, [router, redirectedFrom]);
+
   // Redirect if user is already signed in
   useEffect(() => {
     if (user && !loading) {
-      router.push(redirectedFrom || "/dashboard");
+      // Check if user should go to dashboard or onboarding
+      checkUserStatus();
     }
-  }, [user, loading, router, redirectedFrom]);
+  }, [user, loading, checkUserStatus]);
 
   // Show loading while checking auth state
   if (loading) {
@@ -81,7 +110,7 @@ function SignInContent() {
 
   const handleTiendaNubeSignIn = () => {
     // TODO: Implementar la lógica de conexión de Tienda Nube
-    alert("La conexión con Tienda Nube se implementará próximamente.");
+    console.log('[INFO] Tienda Nube connection will be implemented soon');
   };
 
   return (
