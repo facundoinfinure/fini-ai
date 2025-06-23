@@ -1,59 +1,30 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Store, Plus, Edit, Trash2, ExternalLink, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
+import { Store as StoreIcon, Plus, Edit, Trash2, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Store as DBStore } from '@/types/db';
+import { Store } from '@/types/db';
 
-interface StoreData {
-  id: string;
-  tiendanube_store_id: string;
-  store_name: string;
-  store_url: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  last_sync_at?: string;
+interface StoreManagementProps {
+  stores: Store[];
+  onStoreUpdate: () => Promise<void>;
 }
 
-export function StoreManagement() {
-  const [stores, setStores] = useState<StoreData[]>([]);
-  const [loading, setLoading] = useState(true);
+export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps) {
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingStore, setEditingStore] = useState<StoreData | null>(null);
+  const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [formData, setFormData] = useState({
     storeName: '',
     storeUrl: ''
   });
-
-  useEffect(() => {
-    fetchStores();
-  }, []);
-
-  const fetchStores = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/stores');
-      const data = await response.json();
-
-      if (data.success) {
-        setStores(data.stores || []);
-      } else {
-        setError(data.error || 'Failed to fetch stores');
-      }
-    } catch (err) {
-      setError('Failed to fetch stores');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAddStore = async () => {
     try {
@@ -68,6 +39,7 @@ export function StoreManagement() {
     if (!editingStore) return;
 
     try {
+      setLoading(true);
       const response = await fetch(`/api/stores/${editingStore.id}`, {
         method: 'PUT',
         headers: {
@@ -82,15 +54,18 @@ export function StoreManagement() {
       const data = await response.json();
 
       if (data.success) {
-        await fetchStores();
+        await onStoreUpdate();
         setIsDialogOpen(false);
         setEditingStore(null);
         setFormData({ storeName: '', storeUrl: '' });
+        setError(null);
       } else {
         setError(data.error || 'Failed to update store');
       }
     } catch (err) {
       setError('Failed to update store');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -100,6 +75,7 @@ export function StoreManagement() {
     }
 
     try {
+      setLoading(true);
       const response = await fetch(`/api/stores/${storeId}`, {
         method: 'DELETE'
       });
@@ -107,16 +83,19 @@ export function StoreManagement() {
       const data = await response.json();
 
       if (data.success) {
-        await fetchStores();
+        await onStoreUpdate();
+        setError(null);
       } else {
         setError(data.error || 'Failed to delete store');
       }
     } catch (err) {
       setError('Failed to delete store');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const openEditDialog = (store: StoreData) => {
+  const openEditDialog = (store: Store) => {
     setEditingStore(store);
     setFormData({
       storeName: store.store_name,
@@ -146,7 +125,7 @@ export function StoreManagement() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center">
-                <Store className="mr-2 h-5 w-5" />
+                <StoreIcon className="mr-2 h-5 w-5" />
                 Gestión de Tiendas
               </CardTitle>
               <CardDescription>
@@ -169,7 +148,7 @@ export function StoreManagement() {
 
           {stores.length === 0 ? (
             <div className="text-center py-8">
-              <Store className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <StoreIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 No tienes tiendas conectadas
               </h3>
@@ -190,7 +169,7 @@ export function StoreManagement() {
                 >
                   <div className="flex items-center space-x-4">
                     <div className="p-2 bg-blue-100 rounded-lg">
-                      <Store className="h-5 w-5 text-blue-600" />
+                      <StoreIcon className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
                       <h3 className="font-medium text-gray-900">{store.store_name}</h3>
@@ -199,35 +178,40 @@ export function StoreManagement() {
                         <Badge variant={store.is_active ? "default" : "secondary"}>
                           {store.is_active ? "Activa" : "Inactiva"}
                         </Badge>
-                        {store.last_sync_at && (
-                          <span className="text-xs text-gray-500">
-                            Última sincronización: {format(new Date(store.last_sync_at), "d MMM yyyy, HH:mm", { locale: es })}
-                          </span>
-                        )}
+                        <span className="text-xs text-gray-500">
+                          Conectada el {format(new Date(store.created_at), 'dd/MM/yyyy', { locale: es })}
+                        </span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <a
-                      href={store.store_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                    <button
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => openEditDialog(store)}
-                      className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                      disabled={loading}
                     >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button
+                      <Edit className="h-4 w-4 mr-1" />
+                      Editar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(store.store_url, '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      Visitar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => handleDeleteStore(store.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                      disabled={loading}
+                      className="text-red-600 hover:text-red-700"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Eliminar
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -242,7 +226,7 @@ export function StoreManagement() {
           <DialogHeader>
             <DialogTitle>Editar Tienda</DialogTitle>
             <DialogDescription>
-              Modifica la información de tu tienda
+              Modifica la información de tu tienda conectada
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -253,7 +237,7 @@ export function StoreManagement() {
               <Input
                 value={formData.storeName}
                 onChange={(e) => setFormData({ ...formData, storeName: e.target.value })}
-                placeholder="Nombre de la tienda"
+                placeholder="Mi Tienda"
               />
             </div>
             <div>
@@ -263,15 +247,15 @@ export function StoreManagement() {
               <Input
                 value={formData.storeUrl}
                 onChange={(e) => setFormData({ ...formData, storeUrl: e.target.value })}
-                placeholder="https://mitienda.tiendanube.com"
+                placeholder="https://mitienda.mitiendanube.com"
               />
             </div>
             <div className="flex justify-end space-x-2">
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleEditStore}>
-                Guardar Cambios
+              <Button onClick={handleEditStore} disabled={loading}>
+                {loading ? 'Guardando...' : 'Guardar'}
               </Button>
             </div>
           </div>

@@ -343,7 +343,7 @@ function DashboardContent() {
 
             <TabsContent value="resumen" className="space-y-6">
               {/* Store Management */}
-              <StoreManagement />
+              <StoreManagement stores={stores} onStoreUpdate={fetchUserData} />
 
               {/* WhatsApp Management */}
               <WhatsAppManagement stores={stores} />
