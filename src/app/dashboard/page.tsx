@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
-import { Bot, LogOut, User, Settings, BarChart3, MessageSquare, CheckCircle, AlertCircle } from "lucide-react";
+import { Bot, LogOut, User, Settings, BarChart3, MessageSquare, CheckCircle, AlertCircle, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense, useCallback } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,7 +15,6 @@ import { AnalyticsOverview } from '@/components/dashboard/analytics-overview';
 import { ChatPreview } from '@/components/dashboard/chat-preview';
 import { Store } from "@/types/db";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, CheckCircle, Settings, X } from "lucide-react";
 
 // Error message mappings for better UX
 const ERROR_MESSAGES = {
@@ -359,7 +358,7 @@ function DashboardContent() {
               <StoreManagement />
 
               {/* WhatsApp Management */}
-              <WhatsAppManagement />
+              <WhatsAppManagement stores={stores} />
             </TabsContent>
 
             <TabsContent value="analytics">
