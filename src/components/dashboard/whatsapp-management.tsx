@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Zap,
 } from 'lucide-react';
+import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Store } from '@/types/db';
 
 interface WhatsAppConfig {
@@ -53,6 +54,8 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   const [formNumber, setFormNumber] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  
+  const { showConfirmation, ConfirmationDialog } = useConfirmationDialog();
 
   useEffect(() => {
     fetchConfigs();
@@ -171,29 +174,33 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
     }
   };
 
-  const handleDeleteConfig = async (configId: string) => {
-    // eslint-disable-next-line no-alert
-    if (!confirm('¿Estás seguro de que quieres eliminar esta configuración de WhatsApp?')) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/whatsapp/numbers/${configId}`, {
-        method: 'DELETE'
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        await fetchConfigs();
-      } else {
-        setError(data.error || 'Failed to delete configuration');
+  const handleDeleteConfig = async (configId: string, configName: string) => {
+    showConfirmation({
+      title: 'Eliminar Configuración de WhatsApp',
+      description: `¿Estás seguro de que quieres eliminar la configuración "${configName}"? Se eliminarán todos los números asociados y no podrás recibir mensajes de WhatsApp hasta que configures nuevamente.`,
+      confirmText: 'Eliminar Configuración',
+      cancelText: 'Cancelar',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          const response = await fetch(`/api/whatsapp/numbers/${configId}`, {
+            method: 'DELETE'
+          });
+          
+          const data = await response.json();
+          if (data.success) {
+            await fetchConfigs();
+          } else {
+            setError(data.error || 'Error al eliminar la configuración');
+          }
+        } catch (err) {
+          setError('Error al eliminar la configuración');
+        } finally {
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      setError('Failed to delete configuration');
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const getStatusColor = (isActive: boolean, isConfigured: boolean) => {
@@ -427,7 +434,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDeleteConfig(config.id)}
+                        onClick={() => handleDeleteConfig(config.id, config.store_name || 'Configuración de WhatsApp')}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -583,6 +590,9 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Confirmation Dialog */}
+      {ConfirmationDialog}
     </div>
   );
 } 

@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Store as StoreIcon, Plus, Edit, Trash2, ExternalLink, RefreshCw, AlertCircle, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Store } from '@/types/db';
 
 interface StoreManagementProps {
@@ -25,6 +26,8 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
     storeName: '',
     storeUrl: ''
   });
+  
+  const { showConfirmation, ConfirmationDialog } = useConfirmationDialog();
 
   const handleAddStore = async () => {
     try {
@@ -69,31 +72,35 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
     }
   };
 
-  const handleDeleteStore = async (storeId: string) => {
-    // eslint-disable-next-line no-alert
-    if (!confirm('¿Estás seguro de que quieres eliminar esta tienda? Esta acción no se puede deshacer.')) {
-      return;
-    }
+  const handleDeleteStore = async (storeId: string, storeName: string) => {
+    showConfirmation({
+      title: 'Eliminar Tienda',
+      description: `¿Estás seguro de que quieres eliminar "${storeName}"? Esta acción no se puede deshacer y se eliminarán todos los datos asociados incluyendo configuraciones de WhatsApp.`,
+      confirmText: 'Eliminar Tienda',
+      cancelText: 'Cancelar',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          const response = await fetch(`/api/stores/${storeId}`, {
+            method: 'DELETE'
+          });
 
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/stores/${storeId}`, {
-        method: 'DELETE'
-      });
+          const data = await response.json();
 
-      const data = await response.json();
-
-      if (data.success) {
-        await onStoreUpdate();
-        setError(null);
-      } else {
-        setError(data.error || 'Failed to delete store');
+          if (data.success) {
+            await onStoreUpdate();
+            setError(null);
+          } else {
+            setError(data.error || 'Error al eliminar la tienda');
+          }
+        } catch (err) {
+          setError('Error al eliminar la tienda');
+        } finally {
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      setError('Failed to delete store');
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const handleSyncStore = async (storeId: string) => {
@@ -296,7 +303,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDeleteStore(store.id)}
+                        onClick={() => handleDeleteStore(store.id, store.store_name || 'Tienda sin nombre')}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -385,6 +392,9 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Confirmation Dialog */}
+      {ConfirmationDialog}
     </div>
   );
 } 
