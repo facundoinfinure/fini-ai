@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 
 // PUT - Update WhatsApp configuration
 export async function PUT(
@@ -37,7 +48,7 @@ export async function PUT(
     }
 
     // Update WhatsApp configuration
-    const { data: config, error: configError } = await supabase
+    const { data: config, error: configError } = await supabaseAdmin
       .from('whatsapp_configs')
       .update({
         phone_numbers,
@@ -102,7 +113,7 @@ export async function DELETE(
     }
 
     // Get the current config
-    const { data: currentConfig, error: fetchError } = await supabase
+    const { data: currentConfig, error: fetchError } = await supabaseAdmin
         .from('whatsapp_configs')
         .select('phone_numbers')
         .eq('id', configId)
@@ -117,7 +128,7 @@ export async function DELETE(
     const updatedNumbers = currentConfig.phone_numbers.filter(num => !numbersToDelete.includes(num));
 
     // Update the numbers list, even if it becomes empty
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
         .from('whatsapp_configs')
         .update({ phone_numbers: updatedNumbers })
         .eq('id', configId);
@@ -169,7 +180,7 @@ export async function GET(
     console.log('[INFO] Fetching WhatsApp config:', configId);
 
     // Get WhatsApp configuration
-    const { data: config, error: configError } = await supabase
+    const { data: config, error: configError } = await supabaseAdmin
       .from('whatsapp_configs')
       .select('*')
       .eq('id', configId)

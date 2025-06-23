@@ -28,8 +28,9 @@ export async function GET(request: NextRequest) {
     // Get user's stores
     const { data: stores, error: storesError } = await supabase
       .from('stores')
-      .select('id, name, tiendanube_store_id, created_at')
-      .eq('user_id', userId);
+      .select('id, store_name, store_id, created_at')
+      .eq('user_id', userId)
+      .eq('is_active', true);
 
     if (storesError) {
       console.error('[ERROR] Failed to fetch stores:', storesError);
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate basic stats
     const totalStores = stores?.length || 0;
-    const activeStores = stores?.filter(store => store.tiendanube_store_id)?.length || 0;
+    const activeStores = stores?.filter(store => store.store_id)?.length || 0;
     const totalRevenue = 0; // TODO: Calculate from orders
     const totalOrders = 0; // TODO: Calculate from orders
 

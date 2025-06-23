@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 
 // GET - Get WhatsApp configuration for the current user
 export async function GET(_request: NextRequest) {
@@ -23,7 +34,7 @@ export async function GET(_request: NextRequest) {
     console.log('[INFO] Fetching WhatsApp numbers for user:', userId);
 
     // Get user's WhatsApp configurations
-    const { data: configs, error: configsError } = await supabase
+    const { data: configs, error: configsError } = await supabaseAdmin
       .from('whatsapp_configs')
       .select('*')
       .eq('user_id', userId)
@@ -95,7 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for an existing configuration for this user and store
-    const { data: existingConfig, error: fetchError } = await supabase
+    const { data: existingConfig, error: fetchError } = await supabaseAdmin
         .from('whatsapp_configs')
         .select('*')
         .eq('user_id', userId)
@@ -115,7 +126,7 @@ export async function POST(request: NextRequest) {
         
         const updatedNumbers = [...existingConfig.phone_numbers, phoneNumber];
         
-        const { data: updatedConfig, error: updateError } = await supabase
+        const { data: updatedConfig, error: updateError } = await supabaseAdmin
             .from('whatsapp_configs')
             .update({ phone_numbers: updatedNumbers })
             .eq('id', existingConfig.id)
@@ -132,7 +143,7 @@ export async function POST(request: NextRequest) {
 
     } else {
         // No config exists, create a new one
-        const { data: newConfig, error: createError } = await supabase
+        const { data: newConfig, error: createError } = await supabaseAdmin
             .from('whatsapp_configs')
             .insert({
                 user_id: userId,
