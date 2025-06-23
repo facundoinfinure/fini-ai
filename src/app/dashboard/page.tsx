@@ -336,24 +336,12 @@ function DashboardContent() {
           <Tabs defaultValue="resumen" className="space-y-4">
             <TabsList>
               <TabsTrigger value="resumen">Resumen</TabsTrigger>
+              <TabsTrigger value="chat">Chat</TabsTrigger>
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
               <TabsTrigger value="suscripcion">Suscripción</TabsTrigger>
             </TabsList>
 
             <TabsContent value="resumen" className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {/* Analytics Overview */}
-                <div className="md:col-span-2">
-                  <AnalyticsOverview />
-                </div>
-
-                {/* Quick Actions */}
-                <div className="space-y-6">
-                  <StoreStatusCard />
-                  <ChatPreview />
-                </div>
-              </div>
-
               {/* Store Management */}
               <StoreManagement />
 
@@ -361,7 +349,29 @@ function DashboardContent() {
               <WhatsAppManagement stores={stores} />
             </TabsContent>
 
-            <TabsContent value="analytics">
+            <TabsContent value="chat" className="space-y-6">
+              {/* Chat Preview and Management */}
+              <ChatPreview />
+              
+              {/* Additional chat components can go here */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Conversaciones Recientes</CardTitle>
+                  <CardDescription>
+                    Aquí aparecerán las conversaciones de WhatsApp más recientes
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-500">No hay conversaciones recientes</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="analytics" className="space-y-6">
+              {/* Store Status Overview */}
+              <StoreStatusCard />
+              
+              {/* Full Analytics Overview */}
               <AnalyticsOverview />
             </TabsContent>
 
