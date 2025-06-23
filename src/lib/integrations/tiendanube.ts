@@ -425,7 +425,7 @@ export const exchangeCodeForToken = async (code: string): Promise<TiendaNubeAuth
       client_secret: CLIENT_SECRET ? 'provided' : 'missing'
     });
 
-    const response = await fetch(`https://www.tiendanube.com/apps/${CLIENT_ID}/authorize/token`, {
+    const response = await fetch(`https://www.tiendanube.com/apps/authorize/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
