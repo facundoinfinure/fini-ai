@@ -3,6 +3,7 @@
  * Central system that coordinates all specialized agents
  */
 
+import { createLogger, PerformanceTimer } from '@/lib/logger';
 import { AnalyticsAgent } from './analytics-agent';
 // import { AGENT_CONFIG } from './config';
 import { CustomerServiceAgent } from './customer-service-agent';
@@ -22,6 +23,7 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
   private agents: Map<AgentType, Agent>;
   private systemStartTime: number;
   private requestCount: number = 0;
+  private logger = createLogger('MultiAgentSystem');
 
   constructor() {
     this.systemStartTime = Date.now();
@@ -30,7 +32,7 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
     // Initialize all agents
     this.initializeAgents();
     
-    console.warn('[MULTI-AGENT] System initialized with', this.agents.size, 'agents');
+    this.logger.info('System initialized', { agentCount: this.agents.size });
   }
 
   private initializeAgents(): void {
@@ -41,9 +43,9 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
       this.agents.set('customer_service', new CustomerServiceAgent());
       this.agents.set('marketing', new MarketingAgent());
 
-      console.warn('[MULTI-AGENT] Registered agents:', Array.from(this.agents.keys()));
+      this.logger.info('Agents registered', { agents: Array.from(this.agents.keys()) });
     } catch (error) {
-      console.error('[ERROR] Failed to initialize agents:', error);
+      this.logger.critical('Failed to initialize agents', { error: error instanceof Error ? error.message : error });
       throw new Error('Multi-agent system initialization failed');
     }
   }
@@ -52,10 +54,15 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
    * Main entry point for processing user messages
    */
   async processMessage(context: AgentContext): Promise<AgentResponse> {
-    const _startTime = Date.now();
+    const timer = new PerformanceTimer(this.logger, 'processMessage');
     this.requestCount++;
     
-    console.warn(`[MULTI-AGENT] Processing message ${this.requestCount}: "${context.userMessage}"`);
+    this.logger.info('Processing message', { 
+      requestCount: this.requestCount, 
+      message: context.userMessage,
+      userId: context.userId,
+      storeId: context.storeId 
+    });
 
     try {
       // Use orchestrator to route the message
@@ -84,7 +91,7 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
       }
 
       // Add system metadata
-      const _executionTime = Date.now() - _startTime;
+      const _executionTime = timer.end();
       finalResponse.metadata = {
         ...finalResponse.metadata,
         systemExecutionTime: _executionTime,
@@ -92,7 +99,7 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
         routingDecision: _decision
       };
 
-      console.warn(`[MULTI-AGENT] Response generated in ${_executionTime}ms`);
+      this.logger.info('Response generated', { executionTime: _executionTime });
       return finalResponse;
 
     } catch (error) {
@@ -107,7 +114,7 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
         reasoning: `System error: ${_errorMessage}`,
         metadata: {
           systemError: true,
-          executionTime: Date.now() - _startTime,
+          executionTime: timer.end(),
           requestId: `req_${this.requestCount}_${Date.now()}`
         },
         error: _errorMessage

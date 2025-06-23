@@ -7,13 +7,20 @@ import { useEffect, useState, Suspense, useCallback } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StoreManagement } from '@/components/dashboard/store-management';
-import { WhatsAppManagement } from '@/components/dashboard/whatsapp-management';
-import { SubscriptionManagement } from '@/components/dashboard/subscription-management';
-import { AnalyticsOverview } from '@/components/dashboard/analytics-overview';
-import { ChatPreview } from '@/components/dashboard/chat-preview';
+import { DashboardErrorBoundary } from '@/components/ui/error-boundary';
+import { DashboardSkeleton, AnalyticsSkeleton, StoreManagementSkeleton, WhatsAppConfigSkeleton, ChatSkeleton } from '@/components/ui/skeleton';
+import { createLogger, PerformanceTimer } from '@/lib/logger';
+import { 
+  AnalyticsOverview,
+  StoreManagement, 
+  WhatsAppManagement,
+  SubscriptionManagement,
+  ChatPreview 
+} from '@/lib/lazy-imports';
 import { Store } from "@/types/db";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const logger = createLogger('Dashboard');
 
 // Error message mappings for better UX
 const ERROR_MESSAGES = {
@@ -97,11 +104,12 @@ function DashboardContent() {
   }, [searchParams]);
 
   const fetchDashboardData = useCallback(async () => {
+    const timer = new PerformanceTimer(logger, 'fetchDashboardData');
     setIsRefreshing(true);
     setError(null);
     
     try {
-      console.log('[INFO] Fetching dashboard data');
+      logger.info('Fetching dashboard data', { userId: user?.id });
       
       // Fetch stores and stats in parallel
       const [storesResponse, statsResponse] = await Promise.all([
@@ -115,13 +123,13 @@ function DashboardContent() {
         if (storesData.success) {
           const storesArray = Array.isArray(storesData.data) ? storesData.data : [];
           setStores(storesArray);
-          console.log('[INFO] Stores loaded:', storesArray.length);
+          logger.info('Stores loaded', { count: storesArray.length });
         } else {
-          console.error('[ERROR] Failed to fetch stores:', storesData.error);
+          logger.error('Failed to fetch stores', { error: storesData.error });
           setError('Error al cargar las tiendas: ' + storesData.error);
         }
       } else {
-        console.error('[ERROR] Stores API call failed');
+        logger.error('Stores API call failed', { status: storesResponse.status });
         setError('Error al conectar con el servidor');
       }
 
@@ -140,10 +148,12 @@ function DashboardContent() {
       }
 
     } catch (err) {
-      console.error('[ERROR] Failed to fetch dashboard data:', err);
+      logger.error('Failed to fetch dashboard data', { error: err instanceof Error ? err.message : err });
       setError('Error al cargar los datos del dashboard');
     } finally {
+      const executionTime = timer.end();
       setIsRefreshing(false);
+      logger.info('Dashboard data fetch completed', { executionTime });
     }
   }, []);
 
@@ -179,14 +189,7 @@ function DashboardContent() {
 
   // Show loading while checking auth
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Bot className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Cargando dashboard...</p>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   // Show loading if not authenticated
@@ -380,28 +383,52 @@ function DashboardContent() {
 
           <TabsContent value="resumen" className="space-y-6">
             <div className="grid gap-6 md:grid-cols-2">
-              <AnalyticsOverview />
-              <ChatPreview />
+              <DashboardErrorBoundary>
+                <Suspense fallback={<AnalyticsSkeleton />}>
+                  <AnalyticsOverview />
+                </Suspense>
+              </DashboardErrorBoundary>
+              <DashboardErrorBoundary>
+                <Suspense fallback={<ChatSkeleton />}>
+                  <ChatPreview />
+                </Suspense>
+              </DashboardErrorBoundary>
             </div>
           </TabsContent>
 
           <TabsContent value="tiendas">
-            <StoreManagement 
-              stores={stores} 
-              onStoreUpdate={fetchDashboardData}
-            />
+            <DashboardErrorBoundary>
+              <Suspense fallback={<StoreManagementSkeleton />}>
+                <StoreManagement 
+                  stores={stores} 
+                  onStoreUpdate={fetchDashboardData}
+                />
+              </Suspense>
+            </DashboardErrorBoundary>
           </TabsContent>
 
           <TabsContent value="whatsapp">
-            <WhatsAppManagement stores={stores} />
+            <DashboardErrorBoundary>
+              <Suspense fallback={<WhatsAppConfigSkeleton />}>
+                <WhatsAppManagement stores={stores} />
+              </Suspense>
+            </DashboardErrorBoundary>
           </TabsContent>
 
           <TabsContent value="analytics">
-            <AnalyticsOverview />
+            <DashboardErrorBoundary>
+              <Suspense fallback={<AnalyticsSkeleton />}>
+                <AnalyticsOverview />
+              </Suspense>
+            </DashboardErrorBoundary>
           </TabsContent>
 
           <TabsContent value="suscripcion">
-            <SubscriptionManagement />
+            <DashboardErrorBoundary>
+              <Suspense fallback={<DashboardSkeleton />}>
+                <SubscriptionManagement />
+              </Suspense>
+            </DashboardErrorBoundary>
           </TabsContent>
         </Tabs>
       </main>
