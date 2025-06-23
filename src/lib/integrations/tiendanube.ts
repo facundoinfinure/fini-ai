@@ -394,7 +394,7 @@ export const getTiendaNubeAuthUrl = (state?: string): string => {
     params.append('state', state);
   }
 
-  return `https://www.tiendanube.com/apps/authorize?${params.toString()}`;
+  return `https://www.tiendanube.com/apps/${CLIENT_ID}/authorize/prompt?${params.toString()}`;
 };
 
 /**
@@ -409,7 +409,7 @@ export const exchangeCodeForToken = async (code: string): Promise<TiendaNubeAuth
       throw new Error('Server configuration error for Tienda Nube integration.');
     }
 
-    const response = await fetch('https://www.tiendanube.com/apps/authorize/token', {
+    const response = await fetch(`https://www.tiendanube.com/apps/${CLIENT_ID}/authorize/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
