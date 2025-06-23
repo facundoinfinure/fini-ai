@@ -84,7 +84,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          store_id: string;
+          store_id: string | null;
           phone_numbers: string[];
           webhook_url: string;
           twilio_account_sid: string | null;
@@ -98,7 +98,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          store_id: string;
+          store_id?: string | null;
           phone_numbers: string[];
           webhook_url: string;
           twilio_account_sid?: string | null;
@@ -112,7 +112,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
-          store_id?: string;
+          store_id?: string | null;
           phone_numbers?: string[];
           webhook_url?: string;
           twilio_account_sid?: string | null;
@@ -263,6 +263,73 @@ export interface Database {
           is_enabled?: boolean;
           last_sent_at?: string | null;
           report_data?: unknown | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      whatsapp_numbers: {
+        Row: {
+          id: string;
+          user_id: string;
+          phone_number: string;
+          display_name: string | null;
+          twilio_account_sid: string | null;
+          twilio_auth_token: string | null;
+          webhook_url: string | null;
+          is_active: boolean;
+          is_verified: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          phone_number: string;
+          display_name?: string | null;
+          twilio_account_sid?: string | null;
+          twilio_auth_token?: string | null;
+          webhook_url?: string | null;
+          is_active?: boolean;
+          is_verified?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          phone_number?: string;
+          display_name?: string | null;
+          twilio_account_sid?: string | null;
+          twilio_auth_token?: string | null;
+          webhook_url?: string | null;
+          is_active?: boolean;
+          is_verified?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      whatsapp_store_connections: {
+        Row: {
+          id: string;
+          whatsapp_number_id: string;
+          store_id: string;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          whatsapp_number_id: string;
+          store_id: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          whatsapp_number_id?: string;
+          store_id?: string;
+          is_active?: boolean;
           created_at?: string;
           updated_at?: string;
         };

@@ -193,6 +193,32 @@ export async function POST() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
 
+      -- WhatsApp numbers table (nueva arquitectura N:M)
+      CREATE TABLE IF NOT EXISTS public.whatsapp_numbers (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+        phone_number TEXT NOT NULL,
+        display_name TEXT,
+        twilio_account_sid TEXT,
+        twilio_auth_token TEXT,
+        webhook_url TEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        is_verified BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- WhatsApp store connections table (relación N:M)
+      CREATE TABLE IF NOT EXISTS public.whatsapp_store_connections (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        whatsapp_number_id UUID REFERENCES public.whatsapp_numbers(id) ON DELETE CASCADE,
+        store_id UUID REFERENCES public.stores(id) ON DELETE CASCADE,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        UNIQUE(whatsapp_number_id, store_id)
+      );
+
       -- Conversations table
       CREATE TABLE IF NOT EXISTS public.conversations (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -247,26 +273,102 @@ export async function POST() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
 
+      -- Analytics queries table
+      CREATE TABLE IF NOT EXISTS public.analytics_queries (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        store_id UUID REFERENCES public.stores(id) ON DELETE CASCADE,
+        conversation_id UUID REFERENCES public.conversations(id) ON DELETE CASCADE,
+        query_type TEXT NOT NULL CHECK (query_type IN ('top_products', 'revenue', 'orders', 'customers', 'summary')),
+        query_params JSONB,
+        response_data JSONB,
+        execution_time_ms INTEGER,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Automated reports table
+      CREATE TABLE IF NOT EXISTS public.automated_reports (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        store_id UUID REFERENCES public.stores(id) ON DELETE CASCADE,
+        report_type TEXT NOT NULL CHECK (report_type IN ('daily', 'weekly', 'monthly')),
+        schedule_time TEXT NOT NULL,
+        timezone TEXT DEFAULT 'America/Argentina/Buenos_Aires',
+        is_enabled BOOLEAN DEFAULT TRUE,
+        last_sent_at TIMESTAMP WITH TIME ZONE,
+        report_data JSONB,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Agent conversations table (RAG system)
+      CREATE TABLE IF NOT EXISTS public.agent_conversations (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        conversation_id UUID REFERENCES public.conversations(id) ON DELETE CASCADE,
+        agent_type TEXT NOT NULL,
+        context JSONB,
+        memory JSONB,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Vector documents table (RAG system)
+      CREATE TABLE IF NOT EXISTS public.vector_documents (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        store_id UUID REFERENCES public.stores(id) ON DELETE CASCADE,
+        document_type TEXT NOT NULL,
+        content TEXT NOT NULL,
+        metadata JSONB,
+        vector_id TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Agent actions table (RAG system)
+      CREATE TABLE IF NOT EXISTS public.agent_actions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        conversation_id UUID REFERENCES public.conversations(id) ON DELETE CASCADE,
+        agent_type TEXT NOT NULL,
+        action_type TEXT NOT NULL,
+        action_data JSONB,
+        status TEXT DEFAULT 'pending',
+        result JSONB,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
       -- Indexes for better performance
       CREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);
       CREATE INDEX IF NOT EXISTS idx_stores_user_id ON public.stores(user_id);
       CREATE INDEX IF NOT EXISTS idx_stores_tiendanube_id ON public.stores(tiendanube_store_id);
       CREATE INDEX IF NOT EXISTS idx_whatsapp_configs_user_id ON public.whatsapp_configs(user_id);
+      CREATE INDEX IF NOT EXISTS idx_whatsapp_numbers_user_id ON public.whatsapp_numbers(user_id);
+      CREATE INDEX IF NOT EXISTS idx_whatsapp_numbers_phone ON public.whatsapp_numbers(phone_number);
+      CREATE INDEX IF NOT EXISTS idx_whatsapp_store_connections_number_id ON public.whatsapp_store_connections(whatsapp_number_id);
+      CREATE INDEX IF NOT EXISTS idx_whatsapp_store_connections_store_id ON public.whatsapp_store_connections(store_id);
       CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON public.conversations(user_id);
       CREATE INDEX IF NOT EXISTS idx_conversations_customer_number ON public.conversations(customer_number);
       CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON public.messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_messages_created_at ON public.messages(created_at);
       CREATE INDEX IF NOT EXISTS idx_analytics_cache_store_id ON public.analytics_cache(store_id);
       CREATE INDEX IF NOT EXISTS idx_analytics_cache_expires_at ON public.analytics_cache(expires_at);
+      CREATE INDEX IF NOT EXISTS idx_analytics_queries_store_id ON public.analytics_queries(store_id);
+      CREATE INDEX IF NOT EXISTS idx_analytics_queries_conversation_id ON public.analytics_queries(conversation_id);
+      CREATE INDEX IF NOT EXISTS idx_automated_reports_store_id ON public.automated_reports(store_id);
+      CREATE INDEX IF NOT EXISTS idx_agent_conversations_conversation_id ON public.agent_conversations(conversation_id);
+      CREATE INDEX IF NOT EXISTS idx_vector_documents_store_id ON public.vector_documents(store_id);
+      CREATE INDEX IF NOT EXISTS idx_agent_actions_conversation_id ON public.agent_actions(conversation_id);
 
       -- Row Level Security (RLS) policies
       ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
       ALTER TABLE public.stores ENABLE ROW LEVEL SECURITY;
       ALTER TABLE public.whatsapp_configs ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE public.whatsapp_numbers ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE public.whatsapp_store_connections ENABLE ROW LEVEL SECURITY;
       ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
       ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
       ALTER TABLE public.analytics_cache ENABLE ROW LEVEL SECURITY;
       ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE public.analytics_queries ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE public.automated_reports ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE public.agent_conversations ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE public.vector_documents ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE public.agent_actions ENABLE ROW LEVEL SECURITY;
 
       -- Users can only access their own data
       DROP POLICY IF EXISTS "Users can view own profile" ON public.users;
@@ -298,6 +400,56 @@ export async function POST() {
       CREATE POLICY "Users can insert own whatsapp configs" ON public.whatsapp_configs FOR INSERT WITH CHECK (auth.uid() = user_id);
       CREATE POLICY "Users can update own whatsapp configs" ON public.whatsapp_configs FOR UPDATE USING (auth.uid() = user_id);
       CREATE POLICY "Users can delete own whatsapp configs" ON public.whatsapp_configs FOR DELETE USING (auth.uid() = user_id);
+
+      -- WhatsApp numbers policies
+      DROP POLICY IF EXISTS "Users can view own whatsapp numbers" ON public.whatsapp_numbers;
+      DROP POLICY IF EXISTS "Users can insert own whatsapp numbers" ON public.whatsapp_numbers;
+      DROP POLICY IF EXISTS "Users can update own whatsapp numbers" ON public.whatsapp_numbers;
+      DROP POLICY IF EXISTS "Users can delete own whatsapp numbers" ON public.whatsapp_numbers;
+      
+      CREATE POLICY "Users can view own whatsapp numbers" ON public.whatsapp_numbers FOR SELECT USING (auth.uid() = user_id);
+      CREATE POLICY "Users can insert own whatsapp numbers" ON public.whatsapp_numbers FOR INSERT WITH CHECK (auth.uid() = user_id);
+      CREATE POLICY "Users can update own whatsapp numbers" ON public.whatsapp_numbers FOR UPDATE USING (auth.uid() = user_id);
+      CREATE POLICY "Users can delete own whatsapp numbers" ON public.whatsapp_numbers FOR DELETE USING (auth.uid() = user_id);
+
+      -- WhatsApp store connections policies
+      DROP POLICY IF EXISTS "Users can view own whatsapp store connections" ON public.whatsapp_store_connections;
+      DROP POLICY IF EXISTS "Users can insert own whatsapp store connections" ON public.whatsapp_store_connections;
+      DROP POLICY IF EXISTS "Users can update own whatsapp store connections" ON public.whatsapp_store_connections;
+      DROP POLICY IF EXISTS "Users can delete own whatsapp store connections" ON public.whatsapp_store_connections;
+      
+      CREATE POLICY "Users can view own whatsapp store connections" ON public.whatsapp_store_connections FOR SELECT USING (
+        EXISTS (
+          SELECT 1 FROM public.whatsapp_numbers 
+          WHERE public.whatsapp_numbers.id = public.whatsapp_store_connections.whatsapp_number_id 
+          AND public.whatsapp_numbers.user_id = auth.uid()
+        )
+      );
+      CREATE POLICY "Users can insert own whatsapp store connections" ON public.whatsapp_store_connections FOR INSERT WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.whatsapp_numbers 
+          WHERE public.whatsapp_numbers.id = public.whatsapp_store_connections.whatsapp_number_id 
+          AND public.whatsapp_numbers.user_id = auth.uid()
+        ) AND EXISTS (
+          SELECT 1 FROM public.stores 
+          WHERE public.stores.id = public.whatsapp_store_connections.store_id 
+          AND public.stores.user_id = auth.uid()
+        )
+      );
+      CREATE POLICY "Users can update own whatsapp store connections" ON public.whatsapp_store_connections FOR UPDATE USING (
+        EXISTS (
+          SELECT 1 FROM public.whatsapp_numbers 
+          WHERE public.whatsapp_numbers.id = public.whatsapp_store_connections.whatsapp_number_id 
+          AND public.whatsapp_numbers.user_id = auth.uid()
+        )
+      );
+      CREATE POLICY "Users can delete own whatsapp store connections" ON public.whatsapp_store_connections FOR DELETE USING (
+        EXISTS (
+          SELECT 1 FROM public.whatsapp_numbers 
+          WHERE public.whatsapp_numbers.id = public.whatsapp_store_connections.whatsapp_number_id 
+          AND public.whatsapp_numbers.user_id = auth.uid()
+        )
+      );
 
       -- Conversations policies
       DROP POLICY IF EXISTS "Users can view own conversations" ON public.conversations;
@@ -355,6 +507,117 @@ export async function POST() {
       CREATE POLICY "Users can insert own settings" ON public.user_settings FOR INSERT WITH CHECK (auth.uid() = user_id);
       CREATE POLICY "Users can update own settings" ON public.user_settings FOR UPDATE USING (auth.uid() = user_id);
 
+      -- Analytics queries policies
+      DROP POLICY IF EXISTS "Users can view own analytics queries" ON public.analytics_queries;
+      DROP POLICY IF EXISTS "Users can insert own analytics queries" ON public.analytics_queries;
+      
+      CREATE POLICY "Users can view own analytics queries" ON public.analytics_queries FOR SELECT USING (
+        EXISTS (
+          SELECT 1 FROM public.stores 
+          WHERE public.stores.id = public.analytics_queries.store_id 
+          AND public.stores.user_id = auth.uid()
+        )
+      );
+      CREATE POLICY "Users can insert own analytics queries" ON public.analytics_queries FOR INSERT WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.stores 
+          WHERE public.stores.id = public.analytics_queries.store_id 
+          AND public.stores.user_id = auth.uid()
+        )
+      );
+
+      -- Automated reports policies
+      DROP POLICY IF EXISTS "Users can view own automated reports" ON public.automated_reports;
+      DROP POLICY IF EXISTS "Users can insert own automated reports" ON public.automated_reports;
+      DROP POLICY IF EXISTS "Users can update own automated reports" ON public.automated_reports;
+      
+      CREATE POLICY "Users can view own automated reports" ON public.automated_reports FOR SELECT USING (
+        EXISTS (
+          SELECT 1 FROM public.stores 
+          WHERE public.stores.id = public.automated_reports.store_id 
+          AND public.stores.user_id = auth.uid()
+        )
+      );
+      CREATE POLICY "Users can insert own automated reports" ON public.automated_reports FOR INSERT WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.stores 
+          WHERE public.stores.id = public.automated_reports.store_id 
+          AND public.stores.user_id = auth.uid()
+        )
+      );
+      CREATE POLICY "Users can update own automated reports" ON public.automated_reports FOR UPDATE USING (
+        EXISTS (
+          SELECT 1 FROM public.stores 
+          WHERE public.stores.id = public.automated_reports.store_id 
+          AND public.stores.user_id = auth.uid()
+        )
+      );
+
+      -- Agent conversations policies
+      DROP POLICY IF EXISTS "Users can view own agent conversations" ON public.agent_conversations;
+      DROP POLICY IF EXISTS "Users can insert own agent conversations" ON public.agent_conversations;
+      
+      CREATE POLICY "Users can view own agent conversations" ON public.agent_conversations FOR SELECT USING (
+        EXISTS (
+          SELECT 1 FROM public.conversations 
+          WHERE public.conversations.id = public.agent_conversations.conversation_id 
+          AND public.conversations.user_id = auth.uid()
+        )
+      );
+      CREATE POLICY "Users can insert own agent conversations" ON public.agent_conversations FOR INSERT WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.conversations 
+          WHERE public.conversations.id = public.agent_conversations.conversation_id 
+          AND public.conversations.user_id = auth.uid()
+        )
+      );
+
+      -- Vector documents policies
+      DROP POLICY IF EXISTS "Users can view own vector documents" ON public.vector_documents;
+      DROP POLICY IF EXISTS "Users can insert own vector documents" ON public.vector_documents;
+      
+      CREATE POLICY "Users can view own vector documents" ON public.vector_documents FOR SELECT USING (
+        EXISTS (
+          SELECT 1 FROM public.stores 
+          WHERE public.stores.id = public.vector_documents.store_id 
+          AND public.stores.user_id = auth.uid()
+        )
+      );
+      CREATE POLICY "Users can insert own vector documents" ON public.vector_documents FOR INSERT WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.stores 
+          WHERE public.stores.id = public.vector_documents.store_id 
+          AND public.stores.user_id = auth.uid()
+        )
+      );
+
+      -- Agent actions policies
+      DROP POLICY IF EXISTS "Users can view own agent actions" ON public.agent_actions;
+      DROP POLICY IF EXISTS "Users can insert own agent actions" ON public.agent_actions;
+      DROP POLICY IF EXISTS "Users can update own agent actions" ON public.agent_actions;
+      
+      CREATE POLICY "Users can view own agent actions" ON public.agent_actions FOR SELECT USING (
+        EXISTS (
+          SELECT 1 FROM public.conversations 
+          WHERE public.conversations.id = public.agent_actions.conversation_id 
+          AND public.conversations.user_id = auth.uid()
+        )
+      );
+      CREATE POLICY "Users can insert own agent actions" ON public.agent_actions FOR INSERT WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.conversations 
+          WHERE public.conversations.id = public.agent_actions.conversation_id 
+          AND public.conversations.user_id = auth.uid()
+        )
+      );
+      CREATE POLICY "Users can update own agent actions" ON public.agent_actions FOR UPDATE USING (
+        EXISTS (
+          SELECT 1 FROM public.conversations 
+          WHERE public.conversations.id = public.agent_actions.conversation_id 
+          AND public.conversations.user_id = auth.uid()
+        )
+      );
+
       -- Functions for automatic timestamps
       CREATE OR REPLACE FUNCTION update_updated_at_column()
       RETURNS TRIGGER AS $$
@@ -368,14 +631,20 @@ export async function POST() {
       DROP TRIGGER IF EXISTS update_users_updated_at ON public.users;
       DROP TRIGGER IF EXISTS update_stores_updated_at ON public.stores;
       DROP TRIGGER IF EXISTS update_whatsapp_configs_updated_at ON public.whatsapp_configs;
+      DROP TRIGGER IF EXISTS update_whatsapp_numbers_updated_at ON public.whatsapp_numbers;
+      DROP TRIGGER IF EXISTS update_whatsapp_store_connections_updated_at ON public.whatsapp_store_connections;
       DROP TRIGGER IF EXISTS update_conversations_updated_at ON public.conversations;
       DROP TRIGGER IF EXISTS update_user_settings_updated_at ON public.user_settings;
+      DROP TRIGGER IF EXISTS update_automated_reports_updated_at ON public.automated_reports;
       
       CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
       CREATE TRIGGER update_stores_updated_at BEFORE UPDATE ON public.stores FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
       CREATE TRIGGER update_whatsapp_configs_updated_at BEFORE UPDATE ON public.whatsapp_configs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+      CREATE TRIGGER update_whatsapp_numbers_updated_at BEFORE UPDATE ON public.whatsapp_numbers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+      CREATE TRIGGER update_whatsapp_store_connections_updated_at BEFORE UPDATE ON public.whatsapp_store_connections FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
       CREATE TRIGGER update_conversations_updated_at BEFORE UPDATE ON public.conversations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
       CREATE TRIGGER update_user_settings_updated_at BEFORE UPDATE ON public.user_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+      CREATE TRIGGER update_automated_reports_updated_at BEFORE UPDATE ON public.automated_reports FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
       -- Function to handle new user creation
       CREATE OR REPLACE FUNCTION public.handle_new_user()
