@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
           const _storeRes = await StoreService.getStoresByUserId(userId);
           if (_storeRes.success && _storeRes.stores && _storeRes.stores.length > 0) {
             const _store = _storeRes.stores.find(s => s.id === storeId);
-            if (_store) storeName = _store.store_name;
+            if (_store) storeName = _store.name;
           }
         }
       } else {

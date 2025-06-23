@@ -29,12 +29,12 @@ export async function PUT(
     // Parse request body
     const updates = await request.json();
 
-    // Validate required fields
-    if (!updates.store_name && !updates.store_url && !updates.access_token) {
-      return NextResponse.json({
-        success: false,
-        error: 'No valid fields to update'
-      }, { status: 400 });
+    // Validate that at least one field is being updated
+    if (!updates.name && !updates.domain && !updates.access_token) {
+      return NextResponse.json(
+        { success: false, error: 'At least one field must be updated' },
+        { status: 400 }
+      );
     }
 
     // Update store

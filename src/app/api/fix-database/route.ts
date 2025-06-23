@@ -5,130 +5,90 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/server';
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
+  console.log('[INFO] Starting database column migration...');
+
   try {
-    console.log('[INFO] Checking database schema issues...');
-    
-    // First, let's check if the table exists and what its current schema looks like
-    const { data: columnInfo, error: columnError } = await supabaseAdmin
-      .from('information_schema.columns')
-      .select('column_name, is_nullable, data_type')
-      .eq('table_schema', 'public')
-      .eq('table_name', 'stores')
-      .eq('column_name', 'refresh_token');
+    const supabase = createClient();
 
-    if (columnError) {
-      console.error('[ERROR] Failed to query column information:', columnError);
-      
-      // Try alternative approach using raw SQL
-      try {
-        const { data: sqlResult, error: sqlError } = await supabaseAdmin.rpc('sql', {
-          query: `
-            SELECT column_name, is_nullable, data_type 
-            FROM information_schema.columns 
-            WHERE table_schema = 'public' 
-            AND table_name = 'stores' 
-            AND column_name = 'refresh_token'
-          `
+    // Check if we can connect
+    const { data: connection } = await supabase.from('users').select('count').limit(1);
+    if (!connection) {
+      throw new Error('Cannot connect to database');
+    }
+
+    console.log('[INFO] Database connection successful');
+
+    // Check current column names in stores table
+    const { data: storesData, error: storesError } = await supabase
+      .from('stores')
+      .select('*')
+      .limit(1);
+
+    if (storesError) {
+      console.log('[INFO] Stores table might not exist or has different schema');
+    }
+
+    // Try to rename columns if they exist with old names
+    try {
+      // First, check if old columns exist
+      const { data: storeCheck } = await supabase.rpc('exec_sql', {
+        sql: `
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'stores' 
+          AND column_name IN ('store_name', 'store_url');
+        `
+      });
+
+      if (storeCheck && storeCheck.length > 0) {
+        console.log('[INFO] Found old column names, renaming...');
+        
+        // Rename store_name to name
+        await supabase.rpc('exec_sql', {
+          sql: 'ALTER TABLE stores RENAME COLUMN store_name TO name;'
         });
         
-        if (sqlError) {
-          return NextResponse.json({
-            success: false,
-            error: `Failed to check database schema: ${sqlError.message}`,
-            suggestion: 'Please run this SQL manually in Supabase SQL Editor:\nALTER TABLE stores ALTER COLUMN refresh_token DROP NOT NULL;',
-            details: sqlError
-          }, { status: 500 });
-        }
-        
-        if (!sqlResult || sqlResult.length === 0) {
-          return NextResponse.json({
-            success: true,
-            message: 'refresh_token column does not exist - this is fine for new schemas',
-            changes: []
-          });
-        }
-        
-        const column = sqlResult[0];
-        if (column.is_nullable === 'YES') {
-          return NextResponse.json({
-            success: true,
-            message: 'refresh_token column is already nullable - no fix needed',
-            changes: [],
-            current_schema: column
-          });
-        }
-        
-        // Column exists and is NOT NULL - needs manual fix
-        return NextResponse.json({
-          success: false,
-          requiresManualFix: true,
-          error: 'refresh_token column is NOT NULL and needs to be fixed',
-          current_schema: column,
-          manualFixInstructions: [
-            '1. Go to your Supabase project dashboard',
-            '2. Navigate to SQL Editor',
-            '3. Run this command:',
-            '   ALTER TABLE stores ALTER COLUMN refresh_token DROP NOT NULL;',
-            '4. Then try the Tienda Nube connection again'
-          ],
-          sqlToRun: 'ALTER TABLE stores ALTER COLUMN refresh_token DROP NOT NULL;'
+        // Rename store_url to domain  
+        await supabase.rpc('exec_sql', {
+          sql: 'ALTER TABLE stores RENAME COLUMN store_url TO domain;'
         });
         
-      } catch (err) {
-        return NextResponse.json({
-          success: false,
-          error: `Database check failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
-          suggestion: 'Please run this SQL manually in Supabase SQL Editor:\nALTER TABLE stores ALTER COLUMN refresh_token DROP NOT NULL;'
-        }, { status: 500 });
+        console.log('[INFO] Columns renamed successfully');
+      } else {
+        console.log('[INFO] Columns already have correct names');
       }
+    } catch (renameError) {
+      console.log('[INFO] Column rename not needed or already done:', renameError);
     }
 
-    if (!columnInfo || columnInfo.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: 'refresh_token column does not exist - this is fine for new schemas',
-        changes: []
-      });
+    // Verify final schema
+    const { data: finalCheck, error: finalError } = await supabase
+      .from('stores')
+      .select('name, domain')
+      .limit(1);
+
+    if (finalError) {
+      throw new Error(`Schema verification failed: ${finalError.message}`);
     }
 
-    const column = columnInfo[0];
-    console.log('[INFO] Current refresh_token column info:', column);
+    console.log('[INFO] Database migration completed successfully');
 
-    if (column.is_nullable === 'YES') {
-      return NextResponse.json({
-        success: true,
-        message: 'refresh_token column is already nullable - no fix needed',
-        changes: [],
-        current_schema: column
-      });
-    }
-
-    // If we get here, the column exists and is NOT NULL, so we need to fix it
-    // Return manual instructions since automatic fix might not work
     return NextResponse.json({
-      success: false,
-      requiresManualFix: true,
-      error: 'refresh_token column is NOT NULL and needs to be fixed',
-      current_schema: column,
-      manualFixInstructions: [
-        '1. Go to your Supabase project dashboard',
-        '2. Navigate to SQL Editor', 
-        '3. Run this command:',
-        '   ALTER TABLE stores ALTER COLUMN refresh_token DROP NOT NULL;',
-        '4. Then try the Tienda Nube connection again'
-      ],
-      sqlToRun: 'ALTER TABLE stores ALTER COLUMN refresh_token DROP NOT NULL;'
+      success: true,
+      message: 'Database migration completed',
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('[ERROR] Database check failed:', error);
+    console.error('[ERROR] Database migration failed:', error);
+    
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      details: error,
-      suggestion: 'Please run this SQL manually in Supabase SQL Editor:\nALTER TABLE stores ALTER COLUMN refresh_token DROP NOT NULL;'
+      error: error instanceof Error ? error.message : 'Migration failed',
+      timestamp: new Date().toISOString()
     }, { status: 500 });
   }
 } 

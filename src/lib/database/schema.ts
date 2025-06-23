@@ -19,8 +19,8 @@ export interface Store {
   id: string;
   user_id: string;
   tiendanube_store_id: string;
-  store_name: string;
-  store_url: string;
+  name: string;
+  domain: string;
   access_token: string;
   refresh_token: string | null;
   token_expires_at: string;

@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
 
       return {
         id: store.id,
-        store_name: store.store_name,
+        name: store.name,
         tiendanube_store_id: store.tiendanube_store_id,
         is_active: store.is_active,
         last_sync_at: store.last_sync_at,

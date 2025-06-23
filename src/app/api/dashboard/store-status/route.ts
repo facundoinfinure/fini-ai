@@ -14,38 +14,41 @@ export async function GET() {
   }
 
   try {
-    const { data: store, error } = await supabase
+    const { data: stores, error } = await supabase
       .from('stores')
-      .select(
-        `
+      .select(`
+        id,
+        name,
+        domain,
         tiendanube_store_id,
-        store_name,
-        store_url,
-        last_sync_at
-        `
-      )
+        is_active,
+        last_sync_at,
+        created_at
+      `)
       .eq('user_id', user.id)
-      .single()
+      .eq('is_active', true)
 
-    if (error && error.code !== 'PGRST116') {
-      // PGRST116 means no rows found, which is not an error in this case
-      console.error('[ERROR] Fetching store data:', error)
-      return NextResponse.json({ error: 'Error fetching store data' }, { status: 500 })
+    if (error) {
+      console.error('[ERROR] Failed to fetch stores:', error)
+      return NextResponse.json(
+        { success: false, error: 'Failed to fetch stores' },
+        { status: 500 }
+      )
     }
 
-    if (!store) {
-      return NextResponse.json({ isConnected: false, store: null })
-    }
-    
+    const storeStatus = stores?.map(store => ({
+      id: store.id,
+      name: store.name,
+      url: store.domain,
+      tiendanube_store_id: store.tiendanube_store_id,
+      status: store.is_active ? 'active' : 'inactive',
+      last_sync_at: store.last_sync_at,
+      created_at: store.created_at
+    })) || []
+
     return NextResponse.json({
       isConnected: true,
-      store: {
-        platform: 'Tienda Nube',
-        storeId: store.tiendanube_store_id,
-        name: store.store_name,
-        url: store.store_url,
-        lastSync: store.last_sync_at,
-      },
+      store: storeStatus,
     })
   } catch (error) {
     console.error('[ERROR] API get-store-status:', error)
