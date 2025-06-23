@@ -21,10 +21,34 @@ export async function GET() {
       );
     }
 
-    // Obtener las tiendas del usuario
-    const { data: stores, error: storesError } = await supabase
+    console.log('[INFO] Testing column access for user:', user.id);
+
+    // First, test which columns are available
+    const { data: testData, error: testError } = await supabase
       .from('stores')
-      .select(`
+      .select('*')
+      .limit(1);
+
+    if (testError) {
+      console.error('[ERROR] Cannot access stores table:', testError);
+      return NextResponse.json(
+        { success: false, error: 'Cannot access stores table' },
+        { status: 500 }
+      );
+    }
+
+    const availableColumns = testData?.[0] ? Object.keys(testData[0]) : [];
+    console.log('[INFO] Available columns:', availableColumns);
+
+    // Use the actual column names that exist in the database
+    const hasNewColumns = availableColumns.includes('domain') && availableColumns.includes('name');
+    const hasOldColumns = availableColumns.includes('store_url') && availableColumns.includes('store_name');
+
+    let selectQuery: string;
+    
+    if (hasNewColumns) {
+      // Use new column names
+      selectQuery = `
         id,
         name,
         domain,
@@ -34,7 +58,37 @@ export async function GET() {
         is_active,
         created_at,
         updated_at
-      `)
+      `;
+    } else if (hasOldColumns) {
+      // Use old column names and alias them
+      selectQuery = `
+        id,
+        store_name,
+        store_url,
+        platform,
+        platform_store_id,
+        access_token,
+        is_active,
+        created_at,
+        updated_at
+      `;
+    } else {
+      // Fallback to basic columns
+      selectQuery = `
+        id,
+        access_token,
+        is_active,
+        created_at,
+        updated_at
+      `;
+    }
+
+    console.log('[INFO] Using select query columns:', selectQuery.replace(/\s+/g, ' ').trim());
+
+    // Obtener las tiendas del usuario
+    const { data: rawStores, error: storesError } = await supabase
+      .from('stores')
+      .select(selectQuery)
       .eq('user_id', user.id)
       .eq('is_active', true)
       .order('created_at', { ascending: false });
@@ -42,16 +96,29 @@ export async function GET() {
     if (storesError) {
       console.error('[ERROR] Failed to fetch stores:', storesError.message);
       return NextResponse.json(
-        { success: false, error: 'Failed to fetch stores' },
+        { success: false, error: `Failed to fetch stores: ${storesError.message}` },
         { status: 500 }
       );
     }
 
-    console.log(`[INFO] Found ${stores?.length || 0} stores for user ${user.id}`);
+    // Normalize the data to use consistent field names
+    const stores = rawStores?.map(store => ({
+      id: (store as any).id,
+      name: hasNewColumns ? (store as any).name : ((store as any).store_name || 'Mi Tienda'),
+      domain: hasNewColumns ? (store as any).domain : ((store as any).store_url || ''),
+      platform: (store as any).platform || 'tiendanube',
+      platform_store_id: (store as any).platform_store_id || (store as any).tiendanube_store_id || '',
+      access_token: (store as any).access_token,
+      is_active: (store as any).is_active,
+      created_at: (store as any).created_at,
+      updated_at: (store as any).updated_at
+    })) || [];
+
+    console.log(`[INFO] Found ${stores.length} stores for user ${user.id}`);
 
     return NextResponse.json({
       success: true,
-      data: stores || []
+      data: stores
     });
 
   } catch (error) {
@@ -92,10 +159,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Crear la nueva tienda
-    const { data: newStore, error: createError } = await supabase
+    // Test which columns are available for INSERT
+    const { data: testData } = await supabase
       .from('stores')
-      .insert({
+      .select('*')
+      .limit(1);
+
+    const availableColumns = testData?.[0] ? Object.keys(testData[0]) : [];
+    const hasNewColumns = availableColumns.includes('domain') && availableColumns.includes('name');
+
+    let insertData: any;
+
+    if (hasNewColumns) {
+      // Use new column names
+      insertData = {
         user_id: user.id,
         name,
         domain,
@@ -105,7 +182,26 @@ export async function POST(request: NextRequest) {
         is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      })
+      };
+    } else {
+      // Use old column names
+      insertData = {
+        user_id: user.id,
+        store_name: name,
+        store_url: domain,
+        platform,
+        platform_store_id,
+        access_token,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    }
+
+    // Crear la nueva tienda
+    const { data: newStore, error: createError } = await supabase
+      .from('stores')
+      .insert(insertData)
       .select()
       .single();
 
@@ -119,9 +215,22 @@ export async function POST(request: NextRequest) {
 
     console.log('[INFO] Store created successfully:', newStore.id);
 
+    // Normalize the response
+    const normalizedStore = {
+      id: (newStore as any).id,
+      name: hasNewColumns ? (newStore as any).name : (newStore as any).store_name,
+      domain: hasNewColumns ? (newStore as any).domain : (newStore as any).store_url,
+      platform: (newStore as any).platform,
+      platform_store_id: (newStore as any).platform_store_id,
+      access_token: (newStore as any).access_token,
+      is_active: (newStore as any).is_active,
+      created_at: (newStore as any).created_at,
+      updated_at: (newStore as any).updated_at
+    };
+
     return NextResponse.json({
       success: true,
-      data: newStore
+      data: normalizedStore
     });
 
   } catch (error) {

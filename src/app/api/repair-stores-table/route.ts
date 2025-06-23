@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 export const dynamic = 'force-dynamic';
 
 export async function POST() {
-  console.log('[INFO] Starting stores table repair...');
+  console.log('[INFO] Starting CRITICAL stores table repair and migration...');
 
   try {
     // Create Supabase client with service role key
@@ -20,9 +20,26 @@ export async function POST() {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('[INFO] Testing current stores table...');
+    console.log('[INFO] Testing database connection...');
 
-    // Test if stores table exists and what columns it has
+    // Test basic connection
+    const { data: connectionTest, error: connectionError } = await supabase
+      .from('users')
+      .select('count')
+      .limit(1);
+
+    if (connectionError) {
+      console.error('[ERROR] Database connection failed:', connectionError);
+      return NextResponse.json({
+        success: false,
+        error: 'Database connection failed',
+        details: connectionError.message
+      }, { status: 500 });
+    }
+
+    console.log('[INFO] Database connection successful');
+
+    // Get current stores table structure
     const { data: testData, error: testError } = await supabase
       .from('stores')
       .select('*')
@@ -30,109 +47,153 @@ export async function POST() {
 
     if (testError) {
       console.error('[ERROR] Cannot access stores table:', testError.message);
+      return NextResponse.json({
+        success: false,
+        error: `Cannot access stores table: ${testError.message}`,
+      }, { status: 500 });
+    }
+
+    const currentColumns = testData?.[0] ? Object.keys(testData[0]) : [];
+    console.log('[INFO] Current columns in stores table:', currentColumns);
+
+    // CRITICAL MIGRATION ANALYSIS
+    // The database has: store_url, tiendanube_store_id, store_name
+    // The code expects: domain, platform_store_id, name
+    
+    const needsDomainColumn = !currentColumns.includes('domain');
+    const needsPlatformStoreIdColumn = !currentColumns.includes('platform_store_id');
+    const needsNameColumn = !currentColumns.includes('name');
+    const needsPlatformColumn = !currentColumns.includes('platform');
+
+    const hasStoreUrl = currentColumns.includes('store_url');
+    const hasTiendaNubeStoreId = currentColumns.includes('tiendanube_store_id');
+    const hasStoreName = currentColumns.includes('store_name');
+
+    console.log('[INFO] Migration analysis:', {
+      needsDomainColumn,
+      needsPlatformStoreIdColumn,
+      needsNameColumn,
+      needsPlatformColumn,
+      hasStoreUrl,
+      hasTiendaNubeStoreId,
+      hasStoreName
+    });
+
+    // Check if we need migration  
+    console.log('[DEBUG] Migration needs check:', {
+      needsDomainColumn,
+      needsPlatformStoreIdColumn, 
+      needsNameColumn,
+      needsPlatformColumn
+    });
+
+    if (!needsDomainColumn && !needsPlatformStoreIdColumn && !needsNameColumn && !needsPlatformColumn) {
+      console.log('[INFO] All required columns already exist');
       
-      // If table doesn't exist at all, we need to create it through Supabase dashboard
-      if (testError.message.includes('does not exist')) {
+      // Test access to critical columns
+      const { data: testAccess, error: accessError } = await supabase
+        .from('stores')
+        .select('id, name, domain, platform, platform_store_id')
+        .limit(1);
+
+      if (accessError) {
+        console.error('[ERROR] Cannot access required columns:', accessError);
         return NextResponse.json({
           success: false,
-          error: 'Stores table does not exist',
-          solution: 'Please create the stores table manually in Supabase dashboard with this schema:\n\nCREATE TABLE public.stores (\n  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,\n  platform TEXT NOT NULL DEFAULT \'tiendanube\',\n  platform_store_id TEXT NOT NULL,\n  name TEXT NOT NULL,\n  domain TEXT NOT NULL,\n  access_token TEXT NOT NULL,\n  refresh_token TEXT,\n  token_expires_at TIMESTAMP WITH TIME ZONE,\n  is_active BOOLEAN DEFAULT TRUE,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n  last_sync_at TIMESTAMP WITH TIME ZONE\n);',
-          action_required: 'manual_table_creation'
+          error: 'Cannot access required columns',
+          details: accessError.message
         }, { status: 500 });
       }
-      
+
       return NextResponse.json({
-        success: false,
-        error: `Table access error: ${testError.message}`,
-      }, { status: 500 });
+        success: true,
+        message: 'Stores table is already properly configured',
+        columns: currentColumns,
+        status: 'healthy'
+      });
     }
 
-    console.log('[INFO] Stores table accessible');
-    
-    // Get columns info
-    const columns = testData?.[0] ? Object.keys(testData[0]) : [];
-    console.log('[INFO] Current columns:', columns);
+    // If we need migration, provide detailed manual instructions
+    console.log('[ERROR] CRITICAL: Database schema needs manual migration');
 
-    // Check if name column exists
-    const hasNameColumn = columns.includes('name');
-    const hasPlatformColumn = columns.includes('platform');
-    const hasPlatformStoreIdColumn = columns.includes('platform_store_id');
+    const migrationCommands = [];
 
-    console.log('[INFO] Column check:', {
-      hasNameColumn,
-      hasPlatformColumn,
-      hasPlatformStoreIdColumn
-    });
-
-    // If missing critical columns, provide manual SQL
-    const missingColumns = [];
-    const sqlStatements = [];
-
-    if (!hasNameColumn) {
-      missingColumns.push('name');
-      sqlStatements.push('ALTER TABLE public.stores ADD COLUMN name TEXT;');
+    // Add missing columns
+    if (needsDomainColumn) {
+      migrationCommands.push("ALTER TABLE public.stores ADD COLUMN domain TEXT DEFAULT '';");
+    }
+    if (needsPlatformStoreIdColumn) {
+      migrationCommands.push("ALTER TABLE public.stores ADD COLUMN platform_store_id TEXT;");
+    }
+    if (needsNameColumn) {
+      migrationCommands.push("ALTER TABLE public.stores ADD COLUMN name TEXT DEFAULT '';");
+    }
+    if (needsPlatformColumn) {
+      migrationCommands.push("ALTER TABLE public.stores ADD COLUMN platform TEXT DEFAULT 'tiendanube';");
     }
 
-    if (!hasPlatformColumn) {
-      missingColumns.push('platform');
-      sqlStatements.push('ALTER TABLE public.stores ADD COLUMN platform TEXT NOT NULL DEFAULT \'tiendanube\';');
+    // Migrate data from old columns to new columns
+    if (needsDomainColumn && hasStoreUrl) {
+      migrationCommands.push("UPDATE public.stores SET domain = COALESCE(store_url, '') WHERE domain IS NULL OR domain = '';");
+    }
+    if (needsPlatformStoreIdColumn && hasTiendaNubeStoreId) {
+      migrationCommands.push("UPDATE public.stores SET platform_store_id = COALESCE(tiendanube_store_id, '') WHERE platform_store_id IS NULL OR platform_store_id = '';");
+    }
+    if (needsNameColumn && hasStoreName) {
+      migrationCommands.push("UPDATE public.stores SET name = COALESCE(store_name, 'Mi Tienda') WHERE name IS NULL OR name = '';");
     }
 
-    if (!hasPlatformStoreIdColumn) {
-      missingColumns.push('platform_store_id');
-      sqlStatements.push('ALTER TABLE public.stores ADD COLUMN platform_store_id TEXT;');
+    // Set default values for empty fields
+    if (needsNameColumn) {
+      migrationCommands.push("UPDATE public.stores SET name = 'Mi Tienda' WHERE name IS NULL OR name = '';");
     }
-
-    if (missingColumns.length > 0) {
-      console.log('[INFO] Missing columns detected:', missingColumns);
-      
-      return NextResponse.json({
-        success: false,
-        error: `Missing columns: ${missingColumns.join(', ')}`,
-        missing_columns: missingColumns,
-        solution: 'Execute these SQL statements in Supabase SQL Editor:',
-        sql_statements: sqlStatements,
-        instructions: [
-          '1. Go to your Supabase dashboard',
-          '2. Navigate to SQL Editor',
-          '3. Execute each SQL statement one by one:',
-          ...sqlStatements.map((sql, index) => `   ${index + 1}. ${sql}`),
-          '4. After executing, try connecting a store again'
-        ],
-        action_required: 'manual_sql_execution'
-      }, { status: 200 }); // Use 200 so the response shows properly
+    if (needsDomainColumn) {
+      migrationCommands.push("UPDATE public.stores SET domain = '' WHERE domain IS NULL;");
     }
-
-    // Test name column specifically
-    const { error: nameTestError } = await supabase
-      .from('stores')
-      .select('name')
-      .limit(1);
-
-    if (nameTestError) {
-      console.error('[ERROR] Name column test failed:', nameTestError.message);
-      return NextResponse.json({
-        success: false,
-        error: `Name column error: ${nameTestError.message}`,
-        solution: 'The name column might exist but have issues. Please check the column type and constraints.',
-      }, { status: 500 });
-    }
-
-    console.log('[INFO] All required columns are present and accessible');
 
     return NextResponse.json({
-      success: true,
-      message: 'Stores table is properly configured',
-      columns: columns,
-      status: 'healthy'
-    });
+      success: false,
+      error: 'CRITICAL: Manual database migration required',
+      current_columns: currentColumns,
+      missing_columns: {
+        domain: needsDomainColumn,
+        platform_store_id: needsPlatformStoreIdColumn,
+        name: needsNameColumn,
+        platform: needsPlatformColumn
+      },
+      migration_commands: migrationCommands,
+      urgent_instructions: [
+        '🚨 CRITICAL: Your database schema is out of sync with the application code.',
+        '🚨 This is causing the "column does not exist" errors you\'re seeing.',
+        '',
+        '📋 IMMEDIATE ACTION REQUIRED:',
+        '1. Go to your Supabase dashboard: https://supabase.com/dashboard',
+        '2. Navigate to your project',
+        '3. Go to "SQL Editor" in the left sidebar',
+        '4. Execute each command below ONE BY ONE:',
+        '',
+        '💡 After completing all commands, call this endpoint again to verify the migration.',
+        '',
+        '⚠️  DO NOT skip any commands - execute them in the exact order shown.',
+        '⚠️  Each command should show "Success. No rows returned" or similar.'
+      ],
+      step_by_step_commands: migrationCommands.map((cmd, index) => ({
+        step: index + 1,
+        description: index < 4 ? 'Add missing column' : index < 7 ? 'Migrate existing data' : 'Set default values',
+        sql: cmd,
+        expected_result: 'Success. No rows returned'
+      })),
+      verification_query: 'SELECT id, name, domain, platform, platform_store_id FROM stores LIMIT 1;',
+      action_required: 'manual_sql_execution_critical'
+    }, { status: 200 }); // Use 200 so instructions are clearly visible
 
   } catch (error) {
-    console.error('[ERROR] Stores table repair failed:', error);
+    console.error('[ERROR] Critical migration analysis failed:', error);
     
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Repair failed',
+      error: 'Critical migration analysis failed',
+      details: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
     }, { status: 500 });
   }
