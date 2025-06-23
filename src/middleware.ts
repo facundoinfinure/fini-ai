@@ -46,15 +46,14 @@ export async function middleware(request: NextRequest) {
         .eq('id', session.user.id)
         .single();
 
-      // If user profile doesn't exist, redirect to signin
+      // If user profile doesn't exist, allow the request to proceed
+      // The page components will handle profile creation via ensure-profile endpoint
       if (!userProfile || profileError) {
-        console.log('[INFO] User profile not found, redirecting to signin');
-        const redirectUrl = new URL('/auth/signin', request.url);
-        redirectUrl.searchParams.set('message', 'Perfil de usuario no encontrado. Inicia sesión nuevamente.');
-        return NextResponse.redirect(redirectUrl);
+        console.log('[INFO] User profile not found, but allowing request to proceed for profile creation');
+        return response;
       }
 
-      // Handle onboarding redirects
+      // Handle onboarding redirects for users with profiles
       if (pathname.startsWith('/dashboard')) {
         // Check if user has stores
         const { data: stores } = await supabase
@@ -63,8 +62,7 @@ export async function middleware(request: NextRequest) {
           .eq('user_id', session.user.id)
           .limit(1);
 
-        // If user hasn't completed onboarding or has no stores, redirect to onboarding
-        // But allow them to access dashboard to see the incomplete setup banner
+        // Log user dashboard access info
         console.log('[INFO] User accessing dashboard with profile:', {
           onboarding_completed: userProfile.onboarding_completed,
           has_stores: stores && stores.length > 0

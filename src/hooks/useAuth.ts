@@ -23,33 +23,40 @@ export function useAuth() {
         if (session?.user) {
           console.log('[INFO] Existing session found for user:', session.user.email)
           // The auth callback handles profile creation, so we just verify here
-          try {
-            const response = await fetch('/api/user/ensure-profile', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            })
-            
-            if (!response.ok) {
-              console.error('[ERROR] Failed to verify user profile:', response.statusText)
-            } else {
-              const result = await response.json()
-              if (result.success) {
-                console.log('[INFO] User profile verified:', result.created ? 'created' : 'exists')
-              } else {
-                console.error('[ERROR] Failed to verify user profile:', result.error)
-              }
-            }
-          } catch (error) {
-            console.error('[ERROR] Exception verifying user profile:', error)
-          }
+          await ensureUserProfile()
         }
         
         setLoading(false)
       } catch (error) {
         console.error('[ERROR] Session error:', error)
         setLoading(false)
+      }
+    }
+
+    const ensureUserProfile = async () => {
+      try {
+        const response = await fetch('/api/user/ensure-profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (!response.ok) {
+          console.error('[ERROR] Failed to verify user profile:', response.statusText)
+          // Don't throw error, just log it
+          return
+        }
+        
+        const result = await response.json()
+        if (result.success) {
+          console.log('[INFO] User profile verified:', result.created ? 'created' : 'exists')
+        } else {
+          console.error('[ERROR] Failed to verify user profile:', result.error)
+        }
+      } catch (error) {
+        console.error('[ERROR] Exception verifying user profile:', error)
+        // Don't throw error, just log it
       }
     }
 
@@ -66,27 +73,7 @@ export function useAuth() {
         // For email/magic link flows, we still need to handle it here
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('[INFO] User signed in, verifying profile exists')
-          try {
-            const response = await fetch('/api/user/ensure-profile', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            })
-            
-            if (!response.ok) {
-              console.error('[ERROR] Failed to ensure user profile:', response.statusText)
-            } else {
-              const result = await response.json()
-              if (result.success) {
-                console.log('[INFO] User profile ensured:', result.created ? 'created' : 'exists')
-              } else {
-                console.error('[ERROR] Failed to ensure user profile:', result.error)
-              }
-            }
-          } catch (error) {
-            console.error('[ERROR] Exception ensuring user profile:', error)
-          }
+          await ensureUserProfile()
         }
 
         // Only redirect on sign out, let individual pages handle sign in redirects
