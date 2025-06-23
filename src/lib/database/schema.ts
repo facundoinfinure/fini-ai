@@ -22,7 +22,7 @@ export interface Store {
   store_name: string;
   store_url: string;
   access_token: string;
-  refresh_token: string;
+  refresh_token: string | null;
   token_expires_at: string;
   is_active: boolean;
   created_at: string;
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS stores (
   store_name TEXT NOT NULL,
   store_url TEXT NOT NULL,
   access_token TEXT NOT NULL,
-  refresh_token TEXT NOT NULL,
+  refresh_token TEXT,
   token_expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

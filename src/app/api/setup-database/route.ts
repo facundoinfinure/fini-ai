@@ -169,7 +169,7 @@ export async function POST() {
         store_name TEXT NOT NULL,
         store_url TEXT NOT NULL,
         access_token TEXT NOT NULL,
-        refresh_token TEXT NOT NULL,
+        refresh_token TEXT, -- Nullable because Tienda Nube doesn't provide refresh tokens
         token_expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
