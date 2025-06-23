@@ -131,8 +131,8 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
   const openEditDialog = (store: Store) => {
     setEditingStore(store);
     setFormData({
-      storeName: store.store_name || '',
-      storeUrl: store.store_url || ''
+      storeName: store.name || '',
+      storeUrl: store.domain || ''
     });
     setIsDialogOpen(true);
   };
@@ -238,7 +238,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-3 mb-1">
                           <h3 className="font-semibold text-gray-900 truncate">
-                            {store.store_name || 'Tienda sin nombre'}
+                            {store.name || 'Tienda sin nombre'}
                           </h3>
                           <Badge 
                             variant={storeStatus.color as any}
@@ -248,9 +248,9 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
                           </Badge>
                         </div>
                         
-                        {store.store_url && (
+                        {store.domain && (
                           <p className="text-sm text-gray-600 truncate mb-1">
-                            {store.store_url}
+                            {store.domain}
                           </p>
                         )}
                         
@@ -280,9 +280,9 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
                         </Button>
                       )}
                       
-                      {store.store_url && (
+                      {store.domain && (
                         <a 
-                          href={store.store_url} 
+                          href={store.domain} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-3"
@@ -302,7 +302,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDeleteStore(store.id, store.store_name || 'Tienda sin nombre')}
+                        onClick={() => handleDeleteStore(store.id, store.name || 'Tienda sin nombre')}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
                         <Trash2 className="h-4 w-4" />

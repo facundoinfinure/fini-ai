@@ -40,7 +40,9 @@ class SupabaseService {
   private supabase;
 
   constructor() {
-    this.supabase = createClient();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    this.supabase = createClient(supabaseUrl, supabaseServiceKey);
   }
 
   async connectStore(params: {
@@ -51,7 +53,7 @@ class SupabaseService {
     accessToken: string;
     refreshToken?: string;
     expiresAt?: string;
-  }): Promise<StoreConnection> {
+  }): Promise<{ success: true; store: StoreConnection } | { success: false; error: string }> {
     try {
       console.log('[INFO] Connecting store to database:', {
         userId: params.userId,

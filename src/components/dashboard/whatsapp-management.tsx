@@ -90,7 +90,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
             phone_numbers: whatsappConfig.phone_numbers || [],
             is_active: whatsappConfig.is_active,
             is_configured: whatsappConfig.is_configured,
-            store_name: stores.find(s => s.id === whatsappConfig.store_id)?.store_name,
+            store_name: stores.find(s => s.id === whatsappConfig.store_id)?.name,
             store_id: whatsappConfig.store_id,
             last_activity: whatsappConfig.updated_at,
             message_count: 0 // Would come from conversations API
@@ -414,8 +414,8 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                         </th>
                         {stores.map(store => (
                           <th key={store.id} className="border border-gray-300 p-3 bg-gray-100 text-center font-medium min-w-[150px]">
-                            <div className="truncate" title={store.store_name}>
-                              {store.store_name || 'Tienda sin nombre'}
+                            <div className="truncate" title={store.name}>
+                              {store.name || 'Tienda sin nombre'}
                             </div>
                           </th>
                         ))}
@@ -701,7 +701,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                 >
                   {stores.map((store) => (
                     <option key={store.id} value={store.id}>
-                      {store.store_name}
+                      {store.name}
                     </option>
                   ))}
                 </select>
