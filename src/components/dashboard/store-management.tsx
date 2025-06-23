@@ -70,6 +70,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
   };
 
   const handleDeleteStore = async (storeId: string) => {
+    // eslint-disable-next-line no-alert
     if (!confirm('¿Estás seguro de que quieres eliminar esta tienda? Esta acción no se puede deshacer.')) {
       return;
     }

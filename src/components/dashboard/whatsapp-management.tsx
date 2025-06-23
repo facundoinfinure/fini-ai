@@ -10,17 +10,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Phone,
   Plus,
-  Edit,
   Trash2,
   RefreshCw,
   AlertCircle,
-  Store as StoreIcon,
   CheckCircle,
   XCircle,
   Settings,
   MessageSquare,
   Zap,
-  ArrowRight,
 } from 'lucide-react';
 import { Store } from '@/types/db';
 
@@ -175,6 +172,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   };
 
   const handleDeleteConfig = async (configId: string) => {
+    // eslint-disable-next-line no-alert
     if (!confirm('¿Estás seguro de que quieres eliminar esta configuración de WhatsApp?')) {
       return;
     }
@@ -245,7 +243,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               Necesitas conectar al menos una tienda antes de configurar WhatsApp.
-              Ve a la pestaña "Tiendas" para conectar tu primera tienda.
+              Ve a la pestaña &quot;Tiendas&quot; para conectar tu primera tienda.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -492,7 +490,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
               <div>
                 <h4 className="font-medium text-green-900">Registra tu número</h4>
                 <p className="text-sm text-green-700">
-                  Agrega tu número de WhatsApp Business usando el botón "Agregar Número"
+                  Agrega tu número de WhatsApp Business usando el botón &quot;Agregar Número&quot;
                 </p>
               </div>
             </div>

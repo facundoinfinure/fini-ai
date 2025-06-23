@@ -17,7 +17,6 @@ import {
   Gift,
   TrendingUp,
   BarChart3,
-  MessageSquare,
   Settings,
   AlertCircle,
   RefreshCw

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Phone, Users, Clock, MoreHorizontal, Bot, User, CheckCheck, Check, Send } from 'lucide-react';
+import { MessageSquare, MoreHorizontal, Bot, User, CheckCheck, Check, Send } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 

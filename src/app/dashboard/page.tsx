@@ -1,12 +1,12 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
-import { Bot, LogOut, User, Settings, BarChart3, MessageSquare, CheckCircle, AlertCircle, X, RefreshCw } from "lucide-react";
+import { Bot, LogOut, User, BarChart3, MessageSquare, CheckCircle, AlertCircle, X, RefreshCw } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense, useCallback } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StoreManagement } from '@/components/dashboard/store-management';
 import { WhatsAppManagement } from '@/components/dashboard/whatsapp-management';
 import { SubscriptionManagement } from '@/components/dashboard/subscription-management';
