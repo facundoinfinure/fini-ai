@@ -138,7 +138,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
   };
 
   const getStoreStatus = (store: Store) => {
-    if (!store.store_id) {
+    if (!store.tiendanube_store_id) {
       return { status: 'disconnected', label: 'No Conectada', color: 'secondary', icon: XCircle };
     }
     if (!store.is_active) {
@@ -268,7 +268,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
                     </div>
 
                     <div className="flex items-center space-x-2 ml-4">
-                      {store.store_id && (
+                      {store.tiendanube_store_id && (
                         <Button
                           variant="outline"
                           size="sm"
