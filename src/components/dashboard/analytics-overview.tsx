@@ -66,61 +66,61 @@ export function AnalyticsOverview() {
       setLoading(true);
       setError(null);
       
-      // Simulate API call - in production, this would call your analytics API
-      const mockData: AnalyticsData = {
+      // Fetch analytics from API
+      const response = await fetch(`/api/dashboard/analytics?timeRange=${timeRange}`);
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Debes iniciar sesión para ver los analytics');
+          return;
+        }
+        throw new Error('Failed to fetch analytics');
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setAnalytics(data.data);
+      } else {
+        throw new Error(data.error || 'Failed to load analytics');
+      }
+      
+    } catch (err) {
+      // Show empty state for now since full analytics integration is pending
+      setAnalytics({
         revenue: {
-          current: 15420,
-          previous: 12300,
-          change: 25.4,
+          current: 0,
+          previous: 0,
+          change: 0,
           period: timeRange === '7d' ? 'última semana' : timeRange === '30d' ? 'último mes' : 'últimos 3 meses'
         },
         orders: {
-          current: 89,
-          previous: 67,
-          change: 32.8,
+          current: 0,
+          previous: 0,
+          change: 0,
           period: timeRange === '7d' ? 'última semana' : timeRange === '30d' ? 'último mes' : 'últimos 3 meses'
         },
         customers: {
-          current: 156,
-          previous: 142,
-          change: 9.9,
+          current: 0,
+          previous: 0,
+          change: 0,
           period: timeRange === '7d' ? 'última semana' : timeRange === '30d' ? 'último mes' : 'últimos 3 meses'
         },
         avgOrderValue: {
-          current: 173.26,
-          previous: 183.58,
-          change: -5.6
+          current: 0,
+          previous: 0,
+          change: 0
         },
-        topProducts: [
-          { name: 'Camiseta Premium', sales: 3200, quantity: 45, change: 15.2 },
-          { name: 'Jeans Clásicos', sales: 2800, quantity: 32, change: 8.7 },
-          { name: 'Zapatillas Sport', sales: 2400, quantity: 28, change: -2.1 },
-          { name: 'Bolso Elegante', sales: 1800, quantity: 22, change: 22.4 },
-          { name: 'Reloj Vintage', sales: 1200, quantity: 15, change: -8.3 }
-        ],
-        salesByDay: [
-          { date: 'Lun', sales: 1200, orders: 8 },
-          { date: 'Mar', sales: 1800, orders: 12 },
-          { date: 'Mié', sales: 1400, orders: 9 },
-          { date: 'Jue', sales: 2200, orders: 15 },
-          { date: 'Vie', sales: 2800, orders: 18 },
-          { date: 'Sáb', sales: 3200, orders: 22 },
-          { date: 'Dom', sales: 1800, orders: 11 }
-        ],
+        topProducts: [],
+        salesByDay: [],
         conversionMetrics: {
-          conversionRate: 3.2,
-          abandonedCarts: 24,
-          returnCustomers: 68
+          conversionRate: 0,
+          abandonedCarts: 0,
+          returnCustomers: 0
         }
-      };
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setAnalytics(mockData);
-    } catch (err) {
-      setError('Error al cargar los analytics');
-      console.error('Analytics fetch error:', err);
+      });
+      setError(null); // Don't show error, just empty state
+      console.log('Analytics data not available yet:', err);
     } finally {
       setLoading(false);
     }

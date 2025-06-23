@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, MoreHorizontal, Bot, User, CheckCheck, Check, Send } from 'lucide-react';
+import { MessageSquare, MoreHorizontal, Bot, User, CheckCheck, Check, Send, RefreshCw, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -52,116 +52,50 @@ export function ChatPreview() {
       setLoading(true);
       setError(null);
       
-      // Mock data - in production, this would call your chat API
-      const mockConversations: Conversation[] = [
-        {
-          id: '1',
-          customerName: 'María González',
-          customerPhone: '+549112345678',
-          lastMessage: '¿Cuántas ventas tuvieron esta semana?',
-          lastMessageTime: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-          status: 'active',
-          unreadCount: 1,
-          messages: [
-            {
-              id: '1',
-              content: 'Hola! ¿Cuántas ventas tuvieron esta semana?',
-              timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-              direction: 'inbound',
-              type: 'text',
-              status: 'read'
-            },
-            {
-              id: '2',
-              content: '¡Hola María! Esta semana tuvimos 23 ventas por un total de $45,200. Un aumento del 15% respecto a la semana anterior 📈',
-              timestamp: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
-              direction: 'outbound',
-              type: 'analytics',
-              status: 'read'
-            },
-            {
-              id: '3',
-              content: '¿Cuáles fueron los productos más vendidos?',
-              timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-              direction: 'inbound',
-              type: 'text',
-              status: 'delivered'
-            }
-          ]
-        },
-        {
-          id: '2',
-          customerName: 'Carlos Rodríguez',
-          customerPhone: '+549987654321',
-          lastMessage: 'Muchas gracias por la información!',
-          lastMessageTime: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          status: 'waiting',
-          unreadCount: 0,
-          messages: [
-            {
-              id: '4',
-              content: '¿Cómo van las ventas del mes?',
-              timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-              direction: 'inbound',
-              type: 'text',
-              status: 'read'
-            },
-            {
-              id: '5',
-              content: 'Este mes llevamos $156,000 en ventas con 89 órdenes. El ticket promedio es de $1,753 🎉',
-              timestamp: new Date(Date.now() - 2.5 * 60 * 60 * 1000).toISOString(),
-              direction: 'outbound',
-              type: 'analytics',
-              status: 'read'
-            },
-            {
-              id: '6',
-              content: 'Muchas gracias por la información!',
-              timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-              direction: 'inbound',
-              type: 'text',
-              status: 'read'
-            }
-          ]
-        },
-        {
-          id: '3',
-          customerName: 'Ana López',
-          customerPhone: '+549556677889',
-          lastMessage: '¿Pueden enviarme el reporte diario?',
-          lastMessageTime: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-          status: 'active',
-          unreadCount: 2,
-          messages: [
-            {
-              id: '7',
-              content: '¿Pueden enviarme el reporte diario?',
-              timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-              direction: 'inbound',
-              type: 'text',
-              status: 'sent'
-            }
-          ]
+      // Fetch conversations from API
+      const conversationsResponse = await fetch('/api/conversations');
+      if (!conversationsResponse.ok) {
+        if (conversationsResponse.status === 401) {
+          setError('Debes iniciar sesión para ver las conversaciones');
+          return;
         }
-      ];
-
-      const mockStats: ChatStats = {
-        totalConversations: 156,
-        activeChats: 12,
-        avgResponseTime: 45,
-        satisfactionRate: 94.5,
-        automatedResponses: 89
-      };
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+        throw new Error('Failed to fetch conversations');
+      }
       
-      setConversations(mockConversations);
-      setStats(mockStats);
-      setSelectedConversation(mockConversations[0]);
+      const conversationsData = await conversationsResponse.json();
+      
+      // Fetch chat stats from API
+      const statsResponse = await fetch('/api/conversations/stats');
+      if (!statsResponse.ok) {
+        throw new Error('Failed to fetch chat stats');
+      }
+      
+      const statsData = await statsResponse.json();
+      
+      if (conversationsData.success && statsData.success) {
+        setConversations(conversationsData.data || []);
+        setStats(statsData.data);
+        
+        // Set first conversation as selected if available
+        if (conversationsData.data && conversationsData.data.length > 0) {
+          setSelectedConversation(conversationsData.data[0]);
+        }
+      } else {
+        throw new Error(conversationsData.error || statsData.error || 'Failed to load chat data');
+      }
+      
     } catch (err) {
-      setError('Error al cargar las conversaciones');
-      console.error('Chat fetch error:', err);
+      // Show empty state instead of error for now since conversations feature is not fully implemented
+      setConversations([]);
+      setStats({
+        totalConversations: 0,
+        activeChats: 0,
+        avgResponseTime: 0,
+        satisfactionRate: 0,
+        automatedResponses: 0
+      });
+      setError(null); // Don't show error, just empty state
+      console.log('Chat data not available yet:', err);
     } finally {
       setLoading(false);
     }

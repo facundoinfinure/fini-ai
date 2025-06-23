@@ -30,6 +30,31 @@ export interface Store {
   last_sync_at?: string;
 }
 
+// NUEVA ARQUITECTURA N:M PARA WHATSAPP
+export interface WhatsAppNumber {
+  id: string;
+  user_id: string;
+  phone_number: string;
+  display_name?: string;
+  twilio_account_sid?: string;
+  twilio_auth_token?: string;
+  webhook_url?: string;
+  is_active: boolean;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WhatsAppStoreConnection {
+  id: string;
+  whatsapp_number_id: string;
+  store_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// DEPRECATED - Mantener por compatibilidad pero migrar
 export interface WhatsAppConfig {
   id: string;
   user_id: string;
@@ -118,18 +143,44 @@ CREATE TABLE IF NOT EXISTS stores (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   tiendanube_store_id TEXT UNIQUE NOT NULL,
-  store_name TEXT NOT NULL,
-  store_url TEXT NOT NULL,
+  name TEXT NOT NULL,
+  domain TEXT NOT NULL,
   access_token TEXT NOT NULL,
   refresh_token TEXT,
-  token_expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  token_expires_at TIMESTAMP WITH TIME ZONE,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   last_sync_at TIMESTAMP WITH TIME ZONE
 );
 
--- WhatsApp configurations table
+-- WhatsApp numbers table (nueva arquitectura N:M)
+CREATE TABLE IF NOT EXISTS whatsapp_numbers (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  phone_number TEXT NOT NULL,
+  display_name TEXT,
+  twilio_account_sid TEXT,
+  twilio_auth_token TEXT,
+  webhook_url TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  is_verified BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- WhatsApp store connections table (relación N:M)
+CREATE TABLE IF NOT EXISTS whatsapp_store_connections (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  whatsapp_number_id UUID REFERENCES whatsapp_numbers(id) ON DELETE CASCADE,
+  store_id UUID REFERENCES stores(id) ON DELETE CASCADE,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(whatsapp_number_id, store_id)
+);
+
+-- WhatsApp configurations table (DEPRECATED - mantener por compatibilidad)
 CREATE TABLE IF NOT EXISTS whatsapp_configs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -203,6 +254,10 @@ CREATE TABLE IF NOT EXISTS user_settings (
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_stores_user_id ON stores(user_id);
 CREATE INDEX IF NOT EXISTS idx_stores_tiendanube_id ON stores(tiendanube_store_id);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_numbers_user_id ON whatsapp_numbers(user_id);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_numbers_phone ON whatsapp_numbers(phone_number);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_store_connections_number_id ON whatsapp_store_connections(whatsapp_number_id);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_store_connections_store_id ON whatsapp_store_connections(store_id);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_configs_user_id ON whatsapp_configs(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_customer_number ON conversations(customer_number);
@@ -214,6 +269,8 @@ CREATE INDEX IF NOT EXISTS idx_analytics_cache_expires_at ON analytics_cache(exp
 -- Row Level Security (RLS) policies
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE whatsapp_numbers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE whatsapp_store_connections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE whatsapp_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
@@ -229,6 +286,46 @@ CREATE POLICY "Users can view own stores" ON stores FOR SELECT USING (auth.uid()
 CREATE POLICY "Users can insert own stores" ON stores FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 CREATE POLICY "Users can update own stores" ON stores FOR UPDATE USING (auth.uid()::text = user_id::text);
 CREATE POLICY "Users can delete own stores" ON stores FOR DELETE USING (auth.uid()::text = user_id::text);
+
+-- WhatsApp numbers policies
+CREATE POLICY "Users can view own whatsapp numbers" ON whatsapp_numbers FOR SELECT USING (auth.uid()::text = user_id::text);
+CREATE POLICY "Users can insert own whatsapp numbers" ON whatsapp_numbers FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
+CREATE POLICY "Users can update own whatsapp numbers" ON whatsapp_numbers FOR UPDATE USING (auth.uid()::text = user_id::text);
+CREATE POLICY "Users can delete own whatsapp numbers" ON whatsapp_numbers FOR DELETE USING (auth.uid()::text = user_id::text);
+
+-- WhatsApp store connections policies
+CREATE POLICY "Users can view own whatsapp store connections" ON whatsapp_store_connections FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM whatsapp_numbers 
+    WHERE whatsapp_numbers.id = whatsapp_store_connections.whatsapp_number_id 
+    AND whatsapp_numbers.user_id::text = auth.uid()::text
+  )
+);
+CREATE POLICY "Users can insert own whatsapp store connections" ON whatsapp_store_connections FOR INSERT WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM whatsapp_numbers 
+    WHERE whatsapp_numbers.id = whatsapp_store_connections.whatsapp_number_id 
+    AND whatsapp_numbers.user_id::text = auth.uid()::text
+  ) AND EXISTS (
+    SELECT 1 FROM stores 
+    WHERE stores.id = whatsapp_store_connections.store_id 
+    AND stores.user_id::text = auth.uid()::text
+  )
+);
+CREATE POLICY "Users can update own whatsapp store connections" ON whatsapp_store_connections FOR UPDATE USING (
+  EXISTS (
+    SELECT 1 FROM whatsapp_numbers 
+    WHERE whatsapp_numbers.id = whatsapp_store_connections.whatsapp_number_id 
+    AND whatsapp_numbers.user_id::text = auth.uid()::text
+  )
+);
+CREATE POLICY "Users can delete own whatsapp store connections" ON whatsapp_store_connections FOR DELETE USING (
+  EXISTS (
+    SELECT 1 FROM whatsapp_numbers 
+    WHERE whatsapp_numbers.id = whatsapp_store_connections.whatsapp_number_id 
+    AND whatsapp_numbers.user_id::text = auth.uid()::text
+  )
+);
 
 -- WhatsApp configs policies
 CREATE POLICY "Users can view own whatsapp configs" ON whatsapp_configs FOR SELECT USING (auth.uid()::text = user_id::text);
@@ -290,6 +387,8 @@ $$ language 'plpgsql';
 -- Triggers for automatic updated_at
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_stores_updated_at BEFORE UPDATE ON stores FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_whatsapp_numbers_updated_at BEFORE UPDATE ON whatsapp_numbers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_whatsapp_store_connections_updated_at BEFORE UPDATE ON whatsapp_store_connections FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_whatsapp_configs_updated_at BEFORE UPDATE ON whatsapp_configs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_conversations_updated_at BEFORE UPDATE ON conversations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_user_settings_updated_at BEFORE UPDATE ON user_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

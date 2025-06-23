@@ -17,6 +17,7 @@ import {
   SubscriptionManagement,
   ChatPreview 
 } from '@/lib/lazy-imports';
+import { DashboardSummary } from '@/components/dashboard/dashboard-summary';
 import { Store } from "@/types/db";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -382,18 +383,11 @@ function DashboardContent() {
           </TabsList>
 
           <TabsContent value="resumen" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              <DashboardErrorBoundary>
-                <Suspense fallback={<AnalyticsSkeleton />}>
-                  <AnalyticsOverview />
-                </Suspense>
-              </DashboardErrorBoundary>
-              <DashboardErrorBoundary>
-                <Suspense fallback={<ChatSkeleton />}>
-                  <ChatPreview />
-                </Suspense>
-              </DashboardErrorBoundary>
-            </div>
+            <DashboardErrorBoundary>
+              <Suspense fallback={<DashboardSkeleton />}>
+                <DashboardSummary stores={stores} />
+              </Suspense>
+            </DashboardErrorBoundary>
           </TabsContent>
 
           <TabsContent value="tiendas">

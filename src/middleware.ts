@@ -13,16 +13,8 @@ export async function middleware(request: NextRequest) {
   
   const { pathname } = request.nextUrl;
   
-  // Skip auth check for auth routes, API routes, static files, and public pages
-  if (
-    pathname.startsWith('/auth') ||
-    pathname.startsWith('/api') ||
-    pathname.startsWith('/_next') ||
-    pathname === '/favicon.ico' ||
-    pathname === '/' ||
-    pathname.startsWith('/terms') ||
-    pathname.startsWith('/privacy')
-  ) {
+  // Only check auth for dashboard and onboarding routes
+  if (!pathname.startsWith('/dashboard') && !pathname.startsWith('/onboarding')) {
     return response;
   }
 
@@ -86,7 +78,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - auth (auth pages)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|auth).*)',
   ],
 }; 

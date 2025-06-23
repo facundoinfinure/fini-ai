@@ -72,63 +72,85 @@ export async function PUT(
 }
 
 // DELETE - Delete a store (soft delete by setting is_active to false)
+export const dynamic = 'force-dynamic';
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log('[INFO] Deleting store:', params.id);
-    
+    const storeId = params.id;
+    console.log('[INFO] Deleting store:', storeId);
+
     const supabase = createClient();
     
-    // Get current user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // Obtener el usuario actual
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
-      console.error('[ERROR] No authenticated user found:', sessionError);
-      return NextResponse.json({
-        success: false,
-        error: 'No authenticated user found'
-      }, { status: 401 });
+    if (userError || !user) {
+      console.error('[ERROR] Authentication failed:', userError?.message);
+      return NextResponse.json(
+        { success: false, error: 'User not authenticated' },
+        { status: 401 }
+      );
     }
 
-    const _userId = session.user.id;
+    // Verificar que la tienda pertenece al usuario
+    const { data: store, error: storeError } = await supabase
+      .from('stores')
+      .select('id, user_id, name')
+      .eq('id', storeId)
+      .eq('user_id', user.id)
+      .single();
 
-    // First, delete associated WhatsApp config
-    const whatsappResult = await WhatsAppService.deleteConfigByStoreId(params.id);
-    if (!whatsappResult.success) {
-      // Log the error but don't block store deletion
-      console.error(`[WARNING] Could not delete WhatsApp config for store ${params.id}:`, whatsappResult.error);
+    if (storeError || !store) {
+      console.error('[ERROR] Store not found or unauthorized:', storeError?.message);
+      return NextResponse.json(
+        { success: false, error: 'Store not found or unauthorized' },
+        { status: 404 }
+      );
     }
 
-    // Soft delete store by setting is_active to false
-    const storeResult = await StoreService.updateStore(params.id, {
-      is_active: false,
-      updated_at: new Date().toISOString()
-    });
+    // Primero desconectar todos los números de WhatsApp asociados
+    const { error: disconnectError } = await supabase
+      .from('whatsapp_store_connections')
+      .update({ is_active: false })
+      .eq('store_id', storeId);
 
-    if (!storeResult.success) {
-      console.error('[ERROR] Failed to delete store:', storeResult.error);
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to delete store',
-        details: storeResult.error
-      }, { status: 500 });
+    if (disconnectError) {
+      console.error('[ERROR] Failed to disconnect WhatsApp numbers:', disconnectError.message);
     }
 
-    console.log('[INFO] Store deleted successfully:', params.id);
+    // Realizar soft delete de la tienda
+    const { error: deleteError } = await supabase
+      .from('stores')
+      .update({ 
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', storeId)
+      .eq('user_id', user.id);
+
+    if (deleteError) {
+      console.error('[ERROR] Failed to delete store:', deleteError.message);
+      return NextResponse.json(
+        { success: false, error: 'Failed to delete store' },
+        { status: 500 }
+      );
+    }
+
+    console.log(`[INFO] Store ${store.name} deleted successfully`);
 
     return NextResponse.json({
       success: true,
-      message: 'Store deleted successfully'
+      message: `Store ${store.name} deleted successfully`
     });
 
   } catch (error) {
     console.error('[ERROR] Failed to delete store:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 } 

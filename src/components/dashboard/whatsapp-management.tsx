@@ -77,42 +77,45 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
       setLoading(true);
       setError(null);
       
-      // Mock data - in production, this would call your WhatsApp API
-      const mockConfigs: WhatsAppConfig[] = [
-        {
-          id: '1',
-          phone_numbers: ['+5491123456789'],
-          is_active: true,
-          is_configured: true,
-          store_name: 'Tienda Demo Fini',
-          store_id: 'store-1',
-          last_activity: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-          message_count: 156
-        },
-        {
-          id: '2',
-          phone_numbers: ['+5491987654321'],
-          is_active: false,
-          is_configured: false,
-          store_name: 'Tienda Secundaria',
-          store_id: 'store-2',
-          last_activity: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          message_count: 23
-        }
-      ];
-
-      const mockStats: WhatsAppStats = {
-        totalNumbers: 2,
-        activeNumbers: 1,
-        totalMessages: 179,
-        avgResponseTime: 45
-      };
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Fetch real WhatsApp configurations instead of mock data
+      const response = await fetch('/api/whatsapp/numbers');
+      const data = await response.json();
       
-      setConfigs(mockConfigs);
-      setStats(mockStats);
+      if (data.success) {
+        // Handle the actual data structure from the API
+        const whatsappConfig = data.data?.config;
+        if (whatsappConfig) {
+          const configWithStoreInfo: WhatsAppConfig[] = [{
+            id: whatsappConfig.id,
+            phone_numbers: whatsappConfig.phone_numbers || [],
+            is_active: whatsappConfig.is_active,
+            is_configured: whatsappConfig.is_configured,
+            store_name: stores.find(s => s.id === whatsappConfig.store_id)?.store_name,
+            store_id: whatsappConfig.store_id,
+            last_activity: whatsappConfig.updated_at,
+            message_count: 0 // Would come from conversations API
+          }];
+          setConfigs(configWithStoreInfo);
+        } else {
+          setConfigs([]);
+        }
+
+        // Fetch real stats from dashboard
+        const statsResponse = await fetch('/api/dashboard/analytics');
+        const statsData = await statsResponse.json();
+        
+        if (statsData.success) {
+          const whatsappMetrics = statsData.data.whatsappMetrics;
+          setStats({
+            totalNumbers: whatsappMetrics.totalMessages > 0 ? 1 : 0, // Simplified
+            activeNumbers: whatsappMetrics.activeConversations > 0 ? 1 : 0,
+            totalMessages: whatsappMetrics.totalMessages,
+            avgResponseTime: whatsappMetrics.responseTime
+          });
+        }
+      } else {
+        setError('Error al cargar las configuraciones de WhatsApp: ' + data.error);
+      }
     } catch (err) {
       setError('Error al cargar las configuraciones de WhatsApp');
       console.error('WhatsApp config fetch error:', err);
@@ -218,6 +221,62 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
     return isActive ? CheckCircle : XCircle;
   };
 
+  // NEW: Connection management functions
+  const handleConnectToStore = async (whatsappNumberId: string, storeId: string) => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/whatsapp/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ whatsappNumberId, storeId })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        await fetchConfigs();
+        setError(null);
+      } else {
+        setError(data.error || 'Error al conectar número a tienda');
+      }
+    } catch (err) {
+      setError('Error al conectar número a tienda');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDisconnectFromStore = async (whatsappNumberId: string, storeId: string) => {
+    showConfirmation({
+      title: 'Desconectar WhatsApp de Tienda',
+      description: 'Este número dejará de recibir consultas de esta tienda. ¿Continuar?',
+      confirmText: 'Desconectar',
+      cancelText: 'Cancelar',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          const response = await fetch('/api/whatsapp/disconnect', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ whatsappNumberId, storeId })
+          });
+          
+          const data = await response.json();
+          if (data.success) {
+            await fetchConfigs();
+            setError(null);
+          } else {
+            setError(data.error || 'Error al desconectar número de tienda');
+          }
+        } catch (err) {
+          setError('Error al desconectar número de tienda');
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
+  };
+
   if (loading && configs.length === 0) {
     return (
       <Card>
@@ -308,14 +367,14 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6">
           <div>
             <CardTitle className="flex items-center">
-              <MessageSquare className="mr-2 h-5 w-5" />
-              Configuración de WhatsApp
+              <Phone className="mr-2 h-5 w-5" />
+              Gestión de WhatsApp
             </CardTitle>
             <CardDescription>
-              Administra tus números de WhatsApp Business
+              Configura y administra tus números de WhatsApp Business
             </CardDescription>
           </div>
-          <Button onClick={() => setIsDialogOpen(true)} className="ml-auto">
+          <Button onClick={() => setIsDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Agregar Número
           </Button>
@@ -324,20 +383,100 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         <CardContent>
           {/* Error Alert */}
           {error && (
-            <Alert className="mb-6 border-red-200 bg-red-50">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-red-800">
-                {error}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setError(null)}
-                  className="ml-2 text-red-600 hover:text-red-800"
-                >
-                  ×
-                </Button>
-              </AlertDescription>
-            </Alert>
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
+              <span className="text-red-800 flex-1">{error}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setError(null)}
+                className="text-red-600 hover:text-red-800"
+              >
+                ×
+              </Button>
+            </div>
+          )}
+
+          {/* Connection Matrix */}
+          {stores.length > 0 && configs.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                <MessageSquare className="mr-2 h-5 w-5" />
+                Matriz de Conexiones WhatsApp ↔ Tiendas
+              </h3>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse bg-white rounded border">
+                    <thead>
+                      <tr>
+                        <th className="border border-gray-300 p-3 bg-gray-100 text-left font-medium">
+                          Número WhatsApp
+                        </th>
+                        {stores.map(store => (
+                          <th key={store.id} className="border border-gray-300 p-3 bg-gray-100 text-center font-medium min-w-[150px]">
+                            <div className="truncate" title={store.store_name}>
+                              {store.store_name || 'Tienda sin nombre'}
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {configs.map(config => (
+                        config.phone_numbers.map(phoneNumber => (
+                          <tr key={`${config.id}-${phoneNumber}`} className="hover:bg-gray-50">
+                            <td className="border border-gray-300 p-3 font-medium">
+                              <div className="flex items-center">
+                                <Phone className="h-4 w-4 mr-2 text-green-600" />
+                                {phoneNumber}
+                              </div>
+                            </td>
+                            {stores.map(store => {
+                              const isConnected = config.store_id === store.id;
+                              return (
+                                <td key={store.id} className="border border-gray-300 p-3 text-center">
+                                  <Button
+                                    size="sm"
+                                    variant={isConnected ? "default" : "outline"}
+                                    onClick={() => {
+                                      if (isConnected) {
+                                        handleDisconnectFromStore(config.id, store.id);
+                                      } else {
+                                        handleConnectToStore(config.id, store.id);
+                                      }
+                                    }}
+                                    disabled={loading}
+                                    className={isConnected ? 
+                                      "bg-green-600 hover:bg-green-700 text-white border-green-600" : 
+                                      "border-gray-300 hover:bg-gray-50 text-gray-700"
+                                    }
+                                  >
+                                    {isConnected ? (
+                                      <>
+                                        <CheckCircle className="h-4 w-4 mr-1" />
+                                        Conectado
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Plus className="h-4 w-4 mr-1" />
+                                        Conectar
+                                      </>
+                                    )}
+                                  </Button>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 text-sm text-gray-600">
+                  💡 <strong>Tip:</strong> Puedes conectar un número a múltiples tiendas, y una tienda puede tener múltiples números.
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Configuration List */}

@@ -137,28 +137,41 @@ export function SubscriptionManagement() {
       setLoading(true);
       setError(null);
       
-      // Mock data - in production, this would call your subscription API
-      const mockSubscription: UserSubscription = {
+      // Fetch subscription data from API
+      const response = await fetch('/api/user/subscription');
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Debes iniciar sesión para ver la información de suscripción');
+          return;
+        }
+        throw new Error('Failed to fetch subscription');
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setSubscription(data.data);
+      } else {
+        throw new Error(data.error || 'Failed to load subscription');
+      }
+      
+    } catch (err) {
+      // Set default subscription state for now
+      setSubscription({
         plan: 'basic',
         status: 'active',
-        trialDaysLeft: 14,
         usage: {
-          stores: 1,
+          stores: 0,
           maxStores: 1,
-          messages: 156,
+          messages: 0,
           maxMessages: 500,
-          analytics: 23,
+          analytics: 0,
           maxAnalytics: 100
         }
-      };
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      setSubscription(mockSubscription);
-    } catch (err) {
-      setError('Error al cargar la información de suscripción');
-      console.error('Subscription fetch error:', err);
+      });
+      setError(null); // Don't show error, just default state
+      console.log('Subscription data not available yet:', err);
     } finally {
       setLoading(false);
     }

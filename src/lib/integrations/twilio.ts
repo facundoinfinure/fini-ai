@@ -40,15 +40,14 @@ export class TwilioWhatsAppService {
     if (_isDevelopmentMode) {
       console.warn(`[DEV] Simulating WhatsApp message to ${to}: "${body}"`);
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // In development, simulate sending without actually calling Twilio
+      const _developmentMessageId = `dev_msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      const _mockMessageId = `mock_msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      console.warn(`[DEV] Simulated WhatsApp message sent successfully. Development SID: ${_developmentMessageId}`);
       
-      console.warn(`[DEV] Simulated WhatsApp message sent successfully. Mock SID: ${_mockMessageId}`);
-      return { 
-        success: true, 
-        messageId: _mockMessageId 
+      return {
+        success: true,
+        messageId: _developmentMessageId
       };
     }
 

@@ -281,15 +281,14 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
                       )}
                       
                       {store.store_url && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          asChild
+                        <a 
+                          href={store.store_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-3"
                         >
-                          <a href={store.store_url} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </Button>
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
                       )}
                       
                       <Button

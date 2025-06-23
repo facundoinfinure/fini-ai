@@ -1,44 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { StoreService } from '@/lib/database/client';
+
+export const dynamic = 'force-dynamic';
 
 // GET - Get all stores for the current user
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
-    console.log('[INFO] Fetching user stores');
+    console.log('[INFO] Fetching user stores from database');
     
     const supabase = createClient();
     
-    // Get current user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // Obtener el usuario actual
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
-      console.error('[ERROR] No authenticated user found:', sessionError);
-      return NextResponse.json({
-        success: false,
-        error: 'No authenticated user found'
-      }, { status: 401 });
+    if (userError || !user) {
+      console.error('[ERROR] Authentication failed:', userError?.message);
+      return NextResponse.json(
+        { success: false, error: 'User not authenticated' },
+        { status: 401 }
+      );
     }
 
-    const userId = session.user.id;
-    console.log('[INFO] Fetching stores for user:', userId);
-
-    // Get user's stores
+    // Obtener las tiendas del usuario
     const { data: stores, error: storesError } = await supabase
       .from('stores')
-      .select('*')
-      .eq('user_id', userId)
+      .select(`
+        id,
+        name,
+        domain,
+        tiendanube_store_id,
+        access_token,
+        is_active,
+        created_at,
+        updated_at
+      `)
+      .eq('user_id', user.id)
+      .eq('is_active', true)
       .order('created_at', { ascending: false });
 
     if (storesError) {
-      console.error('[ERROR] Failed to fetch stores:', storesError);
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to fetch stores'
-      }, { status: 500 });
+      console.error('[ERROR] Failed to fetch stores:', storesError.message);
+      return NextResponse.json(
+        { success: false, error: 'Failed to fetch stores' },
+        { status: 500 }
+      );
     }
 
-    console.log('[INFO] Found stores:', stores?.length || 0);
+    console.log(`[INFO] Found ${stores?.length || 0} stores for user ${user.id}`);
 
     return NextResponse.json({
       success: true,
@@ -47,73 +55,78 @@ export async function GET(_request: NextRequest) {
 
   } catch (error) {
     console.error('[ERROR] Failed to fetch stores:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error'
-    }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
 // POST - Create a new store
 export async function POST(request: NextRequest) {
   try {
-    console.log('[INFO] Creating new store');
-    
+    const body = await request.json();
+    console.log('[INFO] Creating new store:', body);
+
     const supabase = createClient();
     
-    // Get current user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // Obtener el usuario actual
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
-      console.error('[ERROR] No authenticated user found:', sessionError);
-      return NextResponse.json({
-        success: false,
-        error: 'No authenticated user found'
-      }, { status: 401 });
+    if (userError || !user) {
+      console.error('[ERROR] Authentication failed:', userError?.message);
+      return NextResponse.json(
+        { success: false, error: 'User not authenticated' },
+        { status: 401 }
+      );
     }
 
-    const userId = session.user.id;
-    const { name, description } = await request.json();
-
-    if (!name) {
-      return NextResponse.json({
-        success: false,
-        error: 'Store name is required'
-      }, { status: 400 });
+    // Validar datos requeridos
+    const { name, domain, tiendanube_store_id, access_token } = body;
+    
+    if (!name || !domain || !tiendanube_store_id || !access_token) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields' },
+        { status: 400 }
+      );
     }
 
-    // Create new store
-    const { data: store, error: storeError } = await supabase
+    // Crear la nueva tienda
+    const { data: newStore, error: createError } = await supabase
       .from('stores')
       .insert({
+        user_id: user.id,
         name,
-        description: description || '',
-        user_id: userId,
-        is_active: true
+        domain,
+        tiendanube_store_id,
+        access_token,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
       .select()
       .single();
 
-    if (storeError) {
-      console.error('[ERROR] Failed to create store:', storeError);
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to create store'
-      }, { status: 500 });
+    if (createError) {
+      console.error('[ERROR] Failed to create store:', createError.message);
+      return NextResponse.json(
+        { success: false, error: 'Failed to create store' },
+        { status: 500 }
+      );
     }
 
-    console.log('[INFO] Store created successfully:', store.id);
+    console.log('[INFO] Store created successfully:', newStore.id);
 
     return NextResponse.json({
       success: true,
-      data: store
+      data: newStore
     });
 
   } catch (error) {
     console.error('[ERROR] Failed to create store:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error'
-    }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 } 

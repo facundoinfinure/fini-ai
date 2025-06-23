@@ -1,13 +1,6 @@
-"use client";
-
 import { Bot, ArrowRight, BarChart3, MessageSquare, Zap } from "lucide-react";
-import { useRouter } from "next/navigation";
-
-import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
-  const router = useRouter();
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
@@ -22,12 +15,18 @@ export default function HomePage() {
             </div>
             
             <div className="flex items-center space-x-4">
-              <Button variant="outline" onClick={() => router.push("/auth/signin")}>
+              <a 
+                href="/auth/signin"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
+              >
                 Iniciar Sesión
-              </Button>
-              <Button onClick={() => router.push("/auth/signin")}>
+              </a>
+              <a 
+                href="/auth/signin"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2"
+              >
                 Comenzar Gratis
-              </Button>
+              </a>
             </div>
           </div>
         </div>
@@ -53,21 +52,19 @@ export default function HomePage() {
               Conecta tu Tienda Nube y comienza a analizar tu negocio de forma inteligente.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                size="lg" 
-                onClick={() => router.push("/auth/signin")}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              <a 
+                href="/auth/signin"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-10 rounded-md px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
               >
                 Comenzar Gratis
                 <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="lg"
-                onClick={() => router.push("/auth/signin")}
+              </a>
+              <a 
+                href="/auth/signin"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-10 rounded-md px-8"
               >
                 Ver Demo
-              </Button>
+              </a>
             </div>
           </div>
         </div>
@@ -141,22 +138,19 @@ export default function HomePage() {
             Únete a cientos de comerciantes que ya están usando Fini AI para analizar sus tiendas
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
-              variant="secondary"
-              onClick={() => router.push("/auth/signin")}
+            <a 
+              href="/auth/signin"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 h-10 rounded-md px-8"
             >
               Comenzar Gratis
               <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline"
-              className="border-white text-white hover:bg-white hover:text-blue-600"
-              onClick={() => router.push("/auth/signin")}
+            </a>
+            <a 
+              href="/auth/signin"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border bg-background shadow-sm h-10 rounded-md px-8 border-white text-white hover:bg-white hover:text-blue-600"
             >
               Ver Planes
-            </Button>
+            </a>
           </div>
         </div>
       </section>
