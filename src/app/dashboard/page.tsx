@@ -342,7 +342,10 @@ function DashboardContent() {
             </TabsList>
 
             <TabsContent value="resumen" className="space-y-6">
-              {/* Store Management */}
+              {/* Store Status Overview - Quick visual confirmation */}
+              <StoreStatusCard />
+              
+              {/* Store Management - Detailed management */}
               <StoreManagement stores={stores} onStoreUpdate={fetchUserData} />
 
               {/* WhatsApp Management */}
@@ -368,9 +371,6 @@ function DashboardContent() {
             </TabsContent>
 
             <TabsContent value="analytics" className="space-y-6">
-              {/* Store Status Overview */}
-              <StoreStatusCard />
-              
               {/* Full Analytics Overview */}
               <AnalyticsOverview />
             </TabsContent>

@@ -162,6 +162,19 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Add Another Store Button - Prominent when stores exist */}
+              <div className="flex justify-between items-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div>
+                  <h4 className="font-medium text-blue-900">¿Tienes más tiendas?</h4>
+                  <p className="text-sm text-blue-700">Conecta múltiples tiendas para gestionar todo desde un solo lugar</p>
+                </div>
+                <Button onClick={handleAddStore} variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar Otra Tienda
+                </Button>
+              </div>
+
+              {/* Existing Stores List */}
               {stores.map((store) => (
                 <div
                   key={store.id}
@@ -203,11 +216,10 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
                       Visitar
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="destructive"
                       size="sm"
                       onClick={() => handleDeleteStore(store.id)}
                       disabled={loading}
-                      className="text-red-600 hover:text-red-700"
                     >
                       <Trash2 className="h-4 w-4 mr-1" />
                       Eliminar
