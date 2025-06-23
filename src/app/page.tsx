@@ -1,34 +1,12 @@
 "use client";
 
-import { useAuth } from "@/hooks/useAuth";
-import { Bot, ArrowRight, CheckCircle, BarChart3, MessageSquare, Zap } from "lucide-react";
+import { Bot, ArrowRight, BarChart3, MessageSquare, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
-  const { user, loading } = useAuth();
   const router = useRouter();
-
-  // Redirect authenticated users to dashboard
-  useEffect(() => {
-    if (!loading && user) {
-      router.push("/dashboard");
-    }
-  }, [user, loading, router]);
-
-  // Show loading while checking auth
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <Bot className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Cargando...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">

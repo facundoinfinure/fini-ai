@@ -24,7 +24,6 @@ function DashboardContent() {
   const [stores, setStores] = useState<Store[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<any>(null);
   const [showIncompleteSetupBanner, setShowIncompleteSetupBanner] = useState(false);
 
   // Handle OAuth callback results
