@@ -49,7 +49,8 @@ export async function GET(_request: NextRequest) {
       console.log('[INFO] Testing Tienda Nube API connection');
       const tiendanubeResponse = await fetch('https://api.tiendanube.com/v1/');
       
-      if (tiendanubeResponse.ok) {
+      // Tienda Nube API returns 401 when no auth token is provided, which is expected and means it's healthy
+      if (tiendanubeResponse.status === 401 || tiendanubeResponse.ok) {
         console.log('[INFO] Tienda Nube API connection successful');
         health.services.tiendanube = 'healthy';
       } else {
