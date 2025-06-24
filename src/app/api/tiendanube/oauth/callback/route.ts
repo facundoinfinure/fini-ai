@@ -125,6 +125,8 @@ export async function GET(request: NextRequest) {
         name: storeInfo.name || 'Mi Tienda',
         domain: storeInfo.url || '',
         access_token: authResponse.access_token,
+        refresh_token: null, // Tienda Nube doesn't use refresh tokens
+        token_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
         is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()

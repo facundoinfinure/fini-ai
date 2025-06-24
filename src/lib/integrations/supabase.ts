@@ -33,7 +33,7 @@ interface StoreConnection {
   domain?: string;
   access_token: string;
   refresh_token?: string | null;
-  token_expires_at?: string;
+  token_expires_at: string; // Required field in schema
   is_active?: boolean;
   last_sync_at?: string;
 }
@@ -73,7 +73,7 @@ class SupabaseService {
         domain: params.storeUrl || '',
         access_token: params.accessToken,
         refresh_token: params.refreshToken || null,
-        token_expires_at: params.expiresAt || null,
+        token_expires_at: params.expiresAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // Default 1 year
         is_active: true,
         last_sync_at: new Date().toISOString()
       };
