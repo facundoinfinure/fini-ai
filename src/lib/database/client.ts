@@ -18,6 +18,14 @@ import type {
 const _supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const _supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
+// Log environment variables status (without exposing sensitive data)
+console.log('[DEBUG] Supabase client configuration:', {
+  urlExists: !!_supabaseUrl,
+  serviceKeyExists: !!_supabaseServiceKey,
+  urlPrefix: _supabaseUrl ? _supabaseUrl.substring(0, 20) + '...' : 'missing',
+  serviceKeyPrefix: _supabaseServiceKey ? _supabaseServiceKey.substring(0, 10) + '...' : 'missing'
+});
+
 // Client for server-side operations (with service role key)
 export const _supabaseAdmin = createClient(_supabaseUrl, _supabaseServiceKey, {
   auth: {
@@ -104,17 +112,41 @@ export class UserService {
 export class StoreService {
   static async createStore(storeData: Partial<Store>): Promise<{ success: boolean; store?: Store; error?: string }> {
     try {
+      console.log('[DEBUG] StoreService.createStore - Input data:', {
+        ...storeData,
+        access_token: storeData.access_token ? '[REDACTED]' : null
+      });
+
       const { data, error } = await _supabaseAdmin
         .from('stores')
         .insert([storeData])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[ERROR] Supabase insert error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
+
+      console.log('[DEBUG] Store created successfully:', {
+        id: data?.id,
+        name: data?.name,
+        platform: data?.platform
+      });
 
       return { success: true, store: data };
     } catch (error) {
-      console.warn('[ERROR] Create store failed:', error);
+      console.error('[ERROR] Create store failed with full details:', {
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined,
+        supabaseError: error
+      });
+      
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 

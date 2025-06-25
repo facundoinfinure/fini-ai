@@ -133,9 +133,32 @@ export async function GET(request: NextRequest) {
       };
 
       // Save store to database with the user-provided information
+      console.log('[DEBUG] Attempting to save store with data:', {
+        userId: storeData.user_id,
+        platform: storeData.platform,
+        platformStoreId: storeData.platform_store_id,
+        name: storeData.name,
+        domain: storeData.domain,
+        hasAccessToken: !!storeData.access_token,
+        tokenExpiresAt: storeData.token_expires_at
+      });
+
       const storeResult = await StoreService.createStore(storeData);
 
+      console.log('[DEBUG] Store creation result:', {
+        success: storeResult.success,
+        error: storeResult.error,
+        hasStore: !!storeResult.store
+      });
+
       if (!storeResult.success) {
+        console.error('[ERROR] Store creation failed with detailed error:', {
+          error: storeResult.error,
+          storeData: {
+            ...storeData,
+            access_token: storeData.access_token ? '[REDACTED]' : null
+          }
+        });
         throw new Error(`Failed to save store: ${storeResult.error}`);
       }
 
