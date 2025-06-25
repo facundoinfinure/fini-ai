@@ -238,13 +238,25 @@ export class TwilioWhatsAppService {
     // Analyze message content to determine best template
     const content = message.body.toLowerCase();
     
-    // Check for welcome-type messages first
+    // Check for welcome-type messages FIRST (more specific)
     if (content.includes('bienvenid') || content.includes('hola') || content.includes('soy fini') || 
         content.includes('asistente') || content.includes('ayudarte') || content.includes('crecer') ||
-        content.includes('negocio') || content.includes('🚀') || content.includes('🤖')) {
+        content.includes('negocio') || content.includes('🚀') || content.includes('🤖') ||
+        content.includes('verificación exitosa') || content.includes('estoy aquí') ||
+        content.includes('🎉')) {
       return await this.sendTemplateByType(message.to, 'welcome', {
         displayName: 'Usuario',
         storeName: 'tu tienda'
+      });
+    }
+    
+    // Check for OTP/verification messages (after welcome to avoid conflicts)
+    if (content.includes('código') || content.includes('🔐') || content.includes('expira') || 
+        content.includes('minutos') || content.includes('no lo compartas') ||
+        /\*\d{5,6}\*/.test(content) || /\d{5,6}/.test(content)) {
+      return await this.sendTemplateByType(message.to, 'otp', {
+        otpCode: content.match(/\*(\d{5,6})\*/)?.[1] || content.match(/(\d{5,6})/)?.[1] || '123456',
+        expiryMinutes: '10'
       });
     }
     
@@ -446,40 +458,12 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
   }
 
   /**
-   * Send OTP verification code using WhatsApp template
-   * Uses Twilio's Content SID for business-initiated messages
+   * Send OTP verification code using smart messaging with template fallback
    */
   async sendOTPCode(phoneNumber: string, otpCode: string): Promise<{ success: boolean; messageSid?: string; error?: string }> {
-    try {
-      console.log('[TWILIO] Sending OTP template to:', phoneNumber);
+    const otpMessage = `🔐 *Código de Verificación Fini AI*
 
-      // Use WhatsApp template for business-initiated messages
-      // This is required to avoid error 63016
-      const twilioMessage = await this.client.messages.create({
-        from: `whatsapp:${this.config.phoneNumber}`,
-        to: `whatsapp:${phoneNumber}`,
-        // Use your custom OTP verification template
-        contentSid: process.env.TWILIO_OTP_CONTENTSID || 'HXc00fd0971da921a1e4ca16cf99903a31',
-        contentVariables: JSON.stringify({
-          1: otpCode, // The OTP code
-          2: '10' // Expiry time in minutes
-        })
-      });
-
-      console.log('[TWILIO] OTP template sent successfully:', twilioMessage.sid);
-
-      return {
-        success: true,
-        messageSid: twilioMessage.sid
-      };
-    } catch (error) {
-      console.error('[ERROR] Twilio OTP template send failed:', error);
-      
-      // Fallback to freeform message (will fail in production but useful for debugging)
-      console.log('[FALLBACK] Attempting freeform message as fallback...');
-      const otpMessage = `🔐 Código de Verificación Fini AI
-
-Tu código de verificación es: ${otpCode}
+Tu código de verificación es: *${otpCode}*
 
 Por favor, ingresa este código en la aplicación para completar la configuración de tu número de WhatsApp.
 
@@ -487,45 +471,34 @@ Este código expira en 10 minutos.
 
 ⚠️ No compartas este código con nadie.`;
 
-      return this.sendMessage({
-        to: phoneNumber,
-        from: this.config.phoneNumber,
-        body: otpMessage
-      });
+    const result = await this.sendSmartMessage(
+      phoneNumber,
+      otpMessage,
+      'response', // Use response type, fallback will handle template selection
+      {
+        otpCode: otpCode,
+        expiryMinutes: '10'
+      }
+    );
+
+    if (result.usedTemplate) {
+      console.log('[TWILIO] OTP sent using template:', result.messageSid);
+    } else {
+      console.log('[TWILIO] OTP sent as freeform message:', result.messageSid);
     }
+
+    return {
+      success: result.success,
+      messageSid: result.messageSid,
+      error: result.error
+    };
   }
 
   /**
-   * Send verification success and welcome message using template
+   * Send verification success and welcome message using smart messaging
    */
   async sendVerificationSuccessMessage(phoneNumber: string, displayName: string, storeName?: string): Promise<{ success: boolean; messageSid?: string; error?: string }> {
-    try {
-      console.log('[TWILIO] Sending welcome template to:', phoneNumber);
-
-      // Use WhatsApp template for welcome message
-      const twilioMessage = await this.client.messages.create({
-        from: `whatsapp:${this.config.phoneNumber}`,
-        to: `whatsapp:${phoneNumber}`,
-        // Use your custom welcome template
-        contentSid: process.env.TWILIO_WLCOME_CONTENTSID || 'HX1b0e60fe233c0cb5eb35e84fcfc330d4',
-        contentVariables: JSON.stringify({
-          1: displayName,
-          2: storeName || 'tu tienda'
-        })
-      });
-
-      console.log('[TWILIO] Welcome template sent successfully:', twilioMessage.sid);
-
-      return {
-        success: true,
-        messageSid: twilioMessage.sid
-      };
-    } catch (error) {
-      console.error('[ERROR] Twilio welcome template send failed:', error);
-      
-      // Fallback to freeform message
-      console.log('[FALLBACK] Attempting freeform welcome message as fallback...');
-      const successMessage = `✅ ¡Verificación Exitosa!
+    const successMessage = `✅ ¡Verificación Exitosa!
 
 ¡Hola ${displayName}! Tu número de WhatsApp ha sido verificado correctamente.
 
@@ -550,12 +523,27 @@ Comandos principales:
 
 Puedes escribirme en cualquier momento.`;
 
-      return this.sendMessage({
-        to: phoneNumber,
-        from: this.config.phoneNumber,
-        body: successMessage
-      });
+    const result = await this.sendSmartMessage(
+      phoneNumber,
+      successMessage,
+      'welcome', // Use welcome type for proper template selection
+      {
+        displayName: displayName,
+        storeName: storeName || 'tu tienda'
+      }
+    );
+
+    if (result.usedTemplate) {
+      console.log('[TWILIO] Welcome message sent using template:', result.messageSid);
+    } else {
+      console.log('[TWILIO] Welcome message sent as freeform message:', result.messageSid);
     }
+
+    return {
+      success: result.success,
+      messageSid: result.messageSid,
+      error: result.error
+    };
   }
 }
 
