@@ -83,13 +83,13 @@ export async function PUT(
   }
 }
 
-// DELETE - Remove specific phone numbers from WhatsApp configuration
+// DELETE - Remove a WhatsApp number completely
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log('[INFO] Deleting number from WhatsApp configuration');
+    console.log('[INFO] Deleting WhatsApp number:', params.id);
     
     const supabase = createClient();
     
@@ -105,48 +105,41 @@ export async function DELETE(
     }
 
     const userId = session.user.id;
-    const configId = params.id;
-    const { phoneNumbers: numbersToDelete } = await request.json();
+    const numberId = params.id;
 
-    if (!numbersToDelete || !Array.isArray(numbersToDelete) || numbersToDelete.length === 0) {
-        return NextResponse.json({ success: false, error: 'Phone numbers to delete are required' }, { status: 400 });
+    // First, deactivate any connections to stores
+    const { error: connectionsError } = await supabase
+      .from('whatsapp_store_connections')
+      .update({ is_active: false })
+      .eq('whatsapp_number_id', numberId);
+
+    if (connectionsError) {
+      console.warn('[WARNING] Failed to deactivate store connections:', connectionsError);
     }
 
-    // Get the current config
-    const { data: currentConfig, error: fetchError } = await supabaseAdmin
-        .from('whatsapp_configs')
-        .select('phone_numbers')
-        .eq('id', configId)
-        .eq('user_id', userId)
-        .single();
+    // Delete the WhatsApp number
+    const { error: deleteError } = await supabase
+      .from('whatsapp_numbers')
+      .delete()
+      .eq('id', numberId)
+      .eq('user_id', userId);
 
-    if (fetchError || !currentConfig) {
-        console.error('[ERROR] Failed to fetch WhatsApp config for deletion:', fetchError);
-        return NextResponse.json({ success: false, error: 'Configuration not found' }, { status: 404 });
+    if (deleteError) {
+      console.error('[ERROR] Failed to delete WhatsApp number:', deleteError);
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to delete WhatsApp number'
+      }, { status: 500 });
     }
 
-    const updatedNumbers = currentConfig.phone_numbers.filter(num => !numbersToDelete.includes(num));
-
-    // Update the numbers list, even if it becomes empty
-    const { error: updateError } = await supabaseAdmin
-        .from('whatsapp_configs')
-        .update({ phone_numbers: updatedNumbers })
-        .eq('id', configId);
-
-    if (updateError) {
-        console.error('[ERROR] Failed to update phone numbers in WhatsApp config:', updateError);
-        return NextResponse.json({ success: false, error: 'Failed to update configuration' }, { status: 500 });
-    }
-
-    if (updatedNumbers.length === 0) {
-        console.log('[INFO] Last phone number removed, config kept for future use');
-    }
-
-    console.log('[INFO] Phone numbers deleted successfully from config');
-    return NextResponse.json({ success: true, message: 'Phone numbers removed successfully' });
+    console.log('[INFO] WhatsApp number deleted successfully');
+    return NextResponse.json({ 
+      success: true, 
+      message: 'WhatsApp number deleted successfully' 
+    });
 
   } catch (error) {
-    console.error('[ERROR] Failed to delete from WhatsApp config:', error);
+    console.error('[ERROR] Failed to delete WhatsApp number:', error);
     return NextResponse.json({
       success: false,
       error: 'Internal server error'
@@ -203,6 +196,67 @@ export async function GET(
 
   } catch (error) {
     console.error('[ERROR] Failed to fetch WhatsApp config:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Internal server error'
+    }, { status: 500 });
+  }
+}
+
+// PATCH - Update specific fields of a WhatsApp number (like status)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    console.log('[INFO] Updating WhatsApp number status:', params.id);
+    
+    const supabase = createClient();
+    
+    // Get current user session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session?.user) {
+      console.error('[ERROR] No authenticated user found:', sessionError);
+      return NextResponse.json({
+        success: false,
+        error: 'No authenticated user found'
+      }, { status: 401 });
+    }
+
+    const userId = session.user.id;
+    const numberId = params.id;
+
+    // Parse request body
+    const updateData = await request.json();
+    console.log('[INFO] Update data:', updateData);
+
+    // Update WhatsApp number
+    const { data: updatedNumber, error: updateError } = await supabase
+      .from('whatsapp_numbers')
+      .update(updateData)
+      .eq('id', numberId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('[ERROR] Failed to update WhatsApp number:', updateError);
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to update WhatsApp number'
+      }, { status: 500 });
+    }
+
+    console.log('[INFO] WhatsApp number updated successfully');
+
+    return NextResponse.json({
+      success: true,
+      data: updatedNumber
+    });
+
+  } catch (error) {
+    console.error('[ERROR] Failed to update WhatsApp number:', error);
     return NextResponse.json({
       success: false,
       error: 'Internal server error'

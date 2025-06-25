@@ -77,48 +77,51 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
       setLoading(true);
       setError(null);
       
-      // Fetch real WhatsApp configurations instead of mock data
+      // Fetch real WhatsApp configurations from the corrected API
       const response = await fetch('/api/whatsapp/numbers');
       const data = await response.json();
       
       if (data.success) {
         // Handle the actual data structure from the API
-        const whatsappConfig = data.data?.config;
-        if (whatsappConfig) {
-          const configWithStoreInfo: WhatsAppConfig[] = [{
-            id: whatsappConfig.id,
-            phone_numbers: whatsappConfig.phone_numbers || [],
-            is_active: whatsappConfig.is_active,
-            is_configured: whatsappConfig.is_configured,
-            store_name: stores.find(s => s.id === whatsappConfig.store_id)?.name,
-            store_id: whatsappConfig.store_id,
-            last_activity: whatsappConfig.updated_at,
-            message_count: 0 // Would come from conversations API
-          }];
-          setConfigs(configWithStoreInfo);
+        const whatsappNumbers = data.data;
+        if (whatsappNumbers && Array.isArray(whatsappNumbers)) {
+          const configsWithStoreInfo: WhatsAppConfig[] = whatsappNumbers.map(number => ({
+            id: number.id,
+            phone_numbers: [number.phone_number],
+            is_active: number.is_active,
+            is_configured: number.is_verified, // Use is_verified as is_configured
+            store_name: number.connected_stores?.[0]?.name,
+            store_id: number.connected_stores?.[0]?.id,
+            last_activity: number.last_message_at || number.created_at,
+            message_count: number.total_conversations || 0
+          }));
+          setConfigs(configsWithStoreInfo);
         } else {
           setConfigs([]);
         }
 
-        // Fetch real stats from dashboard
-        const statsResponse = await fetch('/api/dashboard/analytics');
-        const statsData = await statsResponse.json();
-        
-        if (statsData.success) {
-          const whatsappMetrics = statsData.data.whatsappMetrics;
-          setStats({
-            totalNumbers: whatsappMetrics.totalMessages > 0 ? 1 : 0, // Simplified
-            activeNumbers: whatsappMetrics.activeConversations > 0 ? 1 : 0,
-            totalMessages: whatsappMetrics.totalMessages,
-            avgResponseTime: whatsappMetrics.responseTime
-          });
-        }
+        // Calculate simple stats from the numbers data
+        const totalNumbers = whatsappNumbers?.length || 0;
+        const activeNumbers = whatsappNumbers?.filter(n => n.is_active)?.length || 0;
+        const totalMessages = whatsappNumbers?.reduce((sum, n) => sum + (n.total_conversations || 0), 0) || 0;
+
+        setStats({
+          totalNumbers,
+          activeNumbers,
+          totalMessages,
+          avgResponseTime: 30 // Default value until we have real metrics
+        });
+
       } else {
         setError('Error al cargar las configuraciones de WhatsApp: ' + data.error);
+        setConfigs([]);
+        setStats(null);
       }
     } catch (err) {
       setError('Error al cargar las configuraciones de WhatsApp');
       console.error('WhatsApp config fetch error:', err);
+      setConfigs([]);
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -133,8 +136,8 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          phoneNumber: formNumber,
-          storeId: selectedStoreId
+          phone_number: formNumber,
+          display_name: `WhatsApp ${formNumber}` // Default display name
         })
       });
       const data = await response.json();
