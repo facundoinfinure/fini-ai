@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
-import { Bot, LogOut, User, BarChart3, MessageSquare, CheckCircle, AlertCircle, X, RefreshCw } from "lucide-react";
+import { Bot, LogOut, User, BarChart3, MessageSquare, CheckCircle, AlertCircle, X, RefreshCw, Store, Phone, CreditCard, ChartBar } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense, useCallback } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -295,63 +295,6 @@ function DashboardContent() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Stats */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Tiendas Totales</CardTitle>
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalStores}</div>
-                <p className="text-xs text-muted-foreground">
-                  {stats.connectedStores} conectadas
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Tiendas Activas</CardTitle>
-                <CheckCircle className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.activeStores}</div>
-                <p className="text-xs text-muted-foreground">
-                  de {stats.totalStores} total
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">
-                  Este mes
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Órdenes Totales</CardTitle>
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalOrders}</div>
-                <p className="text-xs text-muted-foreground">
-                  Este mes
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
         {/* Error Alert */}
         {error && (
           <Alert className="mb-6 border-red-200 bg-red-50">
@@ -375,11 +318,26 @@ function DashboardContent() {
         {/* Main Dashboard Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-5 mb-8">
-            <TabsTrigger value="resumen">Resumen</TabsTrigger>
-            <TabsTrigger value="tiendas">Tiendas</TabsTrigger>
-            <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="suscripcion">Suscripción</TabsTrigger>
+            <TabsTrigger value="resumen" className="flex items-center gap-2">
+              <ChartBar className="h-4 w-4" />
+              Resumen
+            </TabsTrigger>
+            <TabsTrigger value="tiendas" className="flex items-center gap-2">
+              <Store className="h-4 w-4" />
+              Tiendas
+            </TabsTrigger>
+            <TabsTrigger value="whatsapp" className="flex items-center gap-2">
+              <Phone className="h-4 w-4" />
+              WhatsApp
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger value="suscripcion" className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              Suscripción
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="resumen" className="space-y-6">

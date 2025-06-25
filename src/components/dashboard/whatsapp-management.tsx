@@ -7,6 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import PhoneInput from 'react-phone-number-input';
+import { isValidPhoneNumber } from 'libphonenumber-js';
+import 'react-phone-number-input/style.css';
 import {
   Phone,
   Plus,
@@ -56,6 +59,8 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   const [formDisplayName, setFormDisplayName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [phoneValue, setPhoneValue] = useState<string>('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   
   const { showConfirmation, ConfirmationDialog } = useConfirmationDialog();
 
@@ -133,7 +138,15 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   };
 
   const handleAddNumber = async () => {
-    if (!formNumber || !formDisplayName || !selectedStoreId) return;
+    if (!phoneValue || !formDisplayName || !selectedStoreId) return;
+    
+    // Validate phone number
+    if (!isValidPhoneNumber(phoneValue)) {
+      setPhoneError('Por favor ingresa un número válido para el país seleccionado');
+      return;
+    }
+    
+    setPhoneError(null);
     setIsAdding(true);
     setError(null);
     try {
@@ -142,16 +155,16 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         headers: { 
           'Content-Type': 'application/json',
         },
-        credentials: 'include', // Importante: incluir cookies en la petición
+        credentials: 'include',
         body: JSON.stringify({ 
-          phone_number: formNumber,
+          phone_number: phoneValue,
           display_name: formDisplayName,
           store_id: selectedStoreId
         })
       });
       const data = await response.json();
       if (data.success) {
-        setFormNumber('');
+        setPhoneValue('');
         setFormDisplayName('');
         setIsDialogOpen(false);
         await fetchConfigs();
@@ -592,7 +605,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                         size="sm"
                         onClick={() => {
                           setEditingConfig(config);
-                          setFormNumber(config.phone_numbers[0]);
+                          setPhoneValue(config.phone_numbers[0]);
                           setFormDisplayName(config.display_name || '');
                           setIsDialogOpen(true);
                         }}
@@ -688,7 +701,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
 
       {/* Add/Edit Number Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
               {editingConfig ? 'Editar Configuración' : 'Agregar Número de WhatsApp'}
@@ -706,28 +719,44 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
               <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2">
                 Número de WhatsApp
               </label>
-              <Input
-                id="phoneNumber"
-                type="tel"
-                value={formNumber}
-                onChange={(e) => setFormNumber(e.target.value)}
-                placeholder="+54911234567890"
-              />
+              <div className="phone-input-container">
+                <PhoneInput
+                  international
+                  countryCallingCodeEditable={false}
+                  defaultCountry="AR"
+                  value={phoneValue}
+                  onChange={(value) => {
+                    setPhoneValue(value || '');
+                    setPhoneError(null);
+                  }}
+                  className="w-full"
+                  style={{
+                    '--PhoneInputCountryFlag-height': '1em',
+                    '--PhoneInputCountryFlag-borderColor': 'transparent',
+                    '--PhoneInput-color--focus': '#2563eb',
+                  }}
+                />
+              </div>
+              {phoneError && (
+                <p className="text-xs text-red-500 mt-1">
+                  {phoneError}
+                </p>
+              )}
               <p className="text-xs text-gray-500 mt-1">
-                Incluye el código de país (ej: +54 para Argentina)
+                Selecciona tu país y completa el número sin el código de área
               </p>
             </div>
             
             <div>
               <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre Descriptivo
+                Nombre
               </label>
               <Input
                 id="displayName"
                 type="text"
                 value={formDisplayName}
                 onChange={(e) => setFormDisplayName(e.target.value)}
-                placeholder="Nombre de la Tienda"
+                placeholder="Juan Perez"
               />
             </div>
             
@@ -758,13 +787,17 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
               onClick={() => {
                 setIsDialogOpen(false);
                 setEditingConfig(null);
-                setFormNumber('');
+                setPhoneValue('');
                 setFormDisplayName('');
+                setPhoneError(null);
               }}
             >
               Cancelar
             </Button>
-            <Button onClick={handleAddNumber} disabled={isAdding || !formNumber || !formDisplayName}>
+            <Button 
+              onClick={handleAddNumber} 
+              disabled={isAdding || !phoneValue || !formDisplayName || !!phoneError}
+            >
               {isAdding ? (
                 <RefreshCw className="h-4 w-4 animate-spin mr-2" />
               ) : null}

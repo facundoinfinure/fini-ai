@@ -12,6 +12,15 @@ import { es } from 'date-fns/locale';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Store } from '@/types/db';
 
+// Logo de Tienda Nube como SVG
+const TiendaNubeLogo = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2L3 7L12 12L21 7L12 2Z" fill="#00A8E8"/>
+    <path d="M3 7V17L12 22L21 17V7" fill="#0089C5" opacity="0.8"/>
+    <path d="M12 12L12 22" stroke="#ffffff" strokeWidth="1"/>
+  </svg>
+);
+
 interface StoreManagementProps {
   stores: Store[];
   onStoreUpdate: () => Promise<void>;
@@ -182,7 +191,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
               Gestión de Tiendas
             </CardTitle>
             <CardDescription>
-              Administra tus tiendas conectadas de Tienda Nube
+              Administra tus tiendas conectadas a Fini AI
             </CardDescription>
           </div>
           <Button onClick={handleAddStore} className="ml-auto">
@@ -227,12 +236,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
                         storeStatus.status === 'needs_sync' ? 'bg-yellow-100' :
                         'bg-gray-100'
                       }`}>
-                        <StatusIcon className={`h-6 w-6 ${
-                          storeStatus.status === 'active' ? 'text-green-600' :
-                          storeStatus.status === 'inactive' ? 'text-red-600' :
-                          storeStatus.status === 'needs_sync' ? 'text-yellow-600' :
-                          'text-gray-600'
-                        }`} />
+                        <TiendaNubeLogo />
                       </div>
                       
                       <div className="flex-1 min-w-0">
@@ -240,12 +244,11 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
                           <h3 className="font-semibold text-gray-900 truncate">
                             {store.name || 'Tienda sin nombre'}
                           </h3>
-                          <Badge 
-                            variant={storeStatus.color as any}
-                            className="text-xs"
-                          >
-                            {storeStatus.label}
-                          </Badge>
+                          {storeStatus.status === 'active' && (
+                            <div className="flex items-center">
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            </div>
+                          )}
                         </div>
                         
                         {store.domain && (
