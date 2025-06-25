@@ -151,9 +151,25 @@ export async function POST(request: NextRequest) {
       });
 
       // 6. Send response back via WhatsApp using smart message (template fallback)
-      const messageType = agentResponse.agentType === 'analytics' ? 'analytics' : 
-                         agentResponse.agentType === 'marketing' ? 'marketing' : 
-                         'response';
+      // Determine message type based on agent response and content analysis
+      let messageType: 'response' | 'analytics' | 'marketing' | 'error' | 'welcome' = 'response';
+      
+      if (agentResponse.agentType === 'analytics') {
+        messageType = 'analytics';
+      } else if (agentResponse.agentType === 'marketing') {
+        messageType = 'marketing';
+      } else if (agentResponse.error) {
+        messageType = 'error';
+      } else {
+        // Analyze response content to detect welcome-type messages
+        const responseContent = (agentResponse.response || '').toLowerCase();
+        if (responseContent.includes('bienvenid') || responseContent.includes('soy fini') || 
+            responseContent.includes('asistente') || responseContent.includes('ayudarte') || 
+            responseContent.includes('crecer') || responseContent.includes('🚀') || 
+            responseContent.includes('🤖') || responseContent.includes('puedo ayudarte')) {
+          messageType = 'welcome';
+        }
+      }
       
       const smartResult = await _twilioService.sendSmartMessage(
         _phoneNumber,
@@ -161,7 +177,8 @@ export async function POST(request: NextRequest) {
         messageType,
         {
           storeName: storeName,
-          errorType: agentResponse.error ? 'temporal' : undefined
+          errorType: agentResponse.error ? 'temporal' : undefined,
+          displayName: 'Usuario'
         }
       );
       

@@ -238,6 +238,16 @@ export class TwilioWhatsAppService {
     // Analyze message content to determine best template
     const content = message.body.toLowerCase();
     
+    // Check for welcome-type messages first
+    if (content.includes('bienvenid') || content.includes('hola') || content.includes('soy fini') || 
+        content.includes('asistente') || content.includes('ayudarte') || content.includes('crecer') ||
+        content.includes('negocio') || content.includes('🚀') || content.includes('🤖')) {
+      return await this.sendTemplateByType(message.to, 'welcome', {
+        displayName: 'Usuario',
+        storeName: 'tu tienda'
+      });
+    }
+    
     if (content.includes('ventas') || content.includes('analytics') || content.includes('$')) {
       return await this.sendTemplateByType(message.to, 'analytics', {
         sales: '$0',
