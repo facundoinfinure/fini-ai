@@ -220,8 +220,8 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
       const twilioMessage = await this.client.messages.create({
         from: `whatsapp:${this.config.phoneNumber}`,
         to: `whatsapp:${phoneNumber}`,
-        // Use Twilio's pre-approved verification template
-        contentSid: 'HX4e1ca8b2409ab8b9de3106aede9b5e1c', // Twilio's verification template
+        // Use your custom OTP verification template
+        contentSid: process.env.TWILIO_OTP_CONTENTSID || 'HXc00fd0971da921a1e4ca16cf99903a31',
         contentVariables: JSON.stringify({
           1: otpCode, // The OTP code
           2: '10' // Expiry time in minutes
@@ -268,8 +268,8 @@ Este código expira en 10 minutos.
       const twilioMessage = await this.client.messages.create({
         from: `whatsapp:${this.config.phoneNumber}`,
         to: `whatsapp:${phoneNumber}`,
-        // Use a generic welcome template (you'll need to create this in Twilio)
-        contentSid: 'HX8c3f2b7e9a4d6f1e5c9b8a7d6f4e2a1b', // Custom welcome template
+        // Use your custom welcome template
+        contentSid: process.env.TWILIO_WLCOME_CONTENTSID || 'HX1b0e60fe233c0cb5eb35e84fcfc330d4',
         contentVariables: JSON.stringify({
           1: displayName,
           2: storeName || 'tu tienda'
