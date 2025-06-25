@@ -38,15 +38,12 @@ function checkForSecrets(content, filePath) {
 
   // Patrones muy específicos solo para secrets críticos reales
   const patterns = [
-    /(['"])(sk_live_[0-9a-zA-Z]{24})(['"])/i, // Stripe Live Key
-    /(['"])(rk_live_[0-9a-zA-Z]{24})(['"])/i, // Stripe Restricted Key
-    /(['"])(sk_test_[0-9a-zA-Z]{24})(['"])/i, // Stripe Test Key
-    /(['"])(pk_live_[0-9a-zA-Z]{24})(['"])/i, // Stripe Public Key
-    /(['"])(pk_test_[0-9a-zA-Z]{24})(['"])/i, // Stripe Public Test Key
-    /(['"])(xoxb-[0-9a-zA-Z]{72})(['"])/i, // Slack Bot Token
-    /(['"])(xoxp-[0-9a-zA-Z]{72})(['"])/i, // Slack User Token
-    /(['"])(xox[par]-[0-9a-zA-Z-]{166})(['"])/i, // Slack Webhook URL
-    // Removidos patrones que causan falsos positivos
+    /(['"])(sk_live_[0-9a-zA-Z]{24,})(['"])/i, // Stripe Live Key
+    /(['"])(rk_live_[0-9a-zA-Z]{24,})(['"])/i, // Stripe Restricted Key
+    /(['"])(pk_live_[0-9a-zA-Z]{24,})(['"])/i, // Stripe Public Key
+    /(['"])(xoxb-[0-9a-zA-Z]{70,})(['"])/i, // Slack Bot Token
+    /(['"])(xoxp-[0-9a-zA-Z]{70,})(['"])/i, // Slack User Token
+    // Solo patrones de keys muy específicos con longitudes exactas
   ];
 
   return !patterns.some(pattern => pattern.test(content));

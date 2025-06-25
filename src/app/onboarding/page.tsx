@@ -19,6 +19,8 @@ export default function OnboardingPage() {
   // Form data
   const [storeUrl, setStoreUrl] = useState("");
   const [storeName, setStoreName] = useState("");
+  const [isStoreNameExtracted, setIsStoreNameExtracted] = useState(false);
+  const [isExtractingInfo, setIsExtractingInfo] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<"free" | "pro" | "enterprise">("free");
 
@@ -101,6 +103,57 @@ export default function OnboardingPage() {
     }
   };
 
+  const extractStoreInfo = async (url: string) => {
+    setIsExtractingInfo(true);
+    setError("");
+
+    try {
+      console.log('[INFO] Extracting store info from URL:', url);
+
+      const response = await fetch('/api/tiendanube/extract-store-info', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ storeUrl: url })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Error al obtener información de la tienda');
+      }
+
+      console.log('[INFO] Store info extracted:', data.data);
+      
+      setStoreName(data.data.storeName);
+      setIsStoreNameExtracted(true);
+      setSuccess(`Información de la tienda obtenida: "${data.data.storeName}"`);
+
+    } catch (error) {
+      console.error('[ERROR] Error extracting store info:', error);
+      setError(error instanceof Error ? error.message : "Error al obtener información de la tienda. Intenta nuevamente.");
+      // Reset extraction state so user can try again
+      setIsStoreNameExtracted(false);
+      setStoreName("");
+    } finally {
+      setIsExtractingInfo(false);
+    }
+  };
+
+  const handleStoreUrlChange = (url: string) => {
+    setStoreUrl(url);
+    setIsStoreNameExtracted(false);
+    setStoreName("");
+    setError("");
+    setSuccess("");
+
+    // Auto-extract info when URL looks complete
+    if (url.includes('tiendanube.com') || url.includes('mitiendanube.com')) {
+      extractStoreInfo(url);
+    }
+  };
+
   const handleStoreConnection = async () => {
     setIsLoading(true);
     setError("");
@@ -108,13 +161,18 @@ export default function OnboardingPage() {
 
     try {
       // Validate store URL format
-      if (!storeUrl.includes('tiendanube.com')) {
+      if (!storeUrl.includes('tiendanube.com') && !storeUrl.includes('mitiendanube.com')) {
         throw new Error('La URL debe ser de Tienda Nube');
       }
 
-      // Validate store name
-      if (!storeName.trim()) {
-        throw new Error('El nombre de la tienda es requerido');
+      // If we don't have store name extracted yet, try to extract it first
+      if (!isStoreNameExtracted || !storeName.trim()) {
+        await extractStoreInfo(storeUrl);
+        
+        // Check again after extraction
+        if (!storeName.trim()) {
+          throw new Error('No se pudo obtener el nombre de la tienda. Por favor ingresa el nombre manualmente.');
+        }
       }
 
       console.log('[INFO] Starting Tienda Nube OAuth flow for:', { storeUrl, storeName });
@@ -408,40 +466,66 @@ export default function OnboardingPage() {
                 <label htmlFor="storeUrl" className="block text-sm font-medium text-gray-700 mb-2">
                   URL de tu tienda
                 </label>
-                <Input
-                  id="storeUrl"
-                  type="url"
-                  placeholder="https://tu-tienda.tiendanube.com"
-                  value={storeUrl}
-                  onChange={(e) => setStoreUrl(e.target.value)}
-                  className="w-full"
-                />
+                <div className="relative">
+                  <Input
+                    id="storeUrl"
+                    type="url"
+                    placeholder="https://tu-tienda.tiendanube.com"
+                    value={storeUrl}
+                    onChange={(e) => handleStoreUrlChange(e.target.value)}
+                    className="w-full"
+                  />
+                  {isExtractingInfo && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    </div>
+                  )}
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Ingresa la URL completa de tu tienda de Tienda Nube
+                  Ingresa la URL completa de tu tienda de Tienda Nube. El nombre se obtendrá automáticamente.
                 </p>
               </div>
 
-              <div>
-                <label htmlFor="storeName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre de tu tienda
-                </label>
-                <Input
-                  id="storeName"
-                  type="text"
-                  placeholder="Mi Tienda Increíble"
-                  value={storeName}
-                  onChange={(e) => setStoreName(e.target.value)}
-                  className="w-full"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Nombre descriptivo para identificar tu tienda
-                </p>
-              </div>
+              {isStoreNameExtracted && storeName && (
+                <div className="bg-green-50 border border-green-200 rounded-md p-4">
+                  <div className="flex items-center">
+                    <div className="text-green-400 mr-3">
+                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-green-800">
+                        Tienda detectada: <span className="font-semibold">{storeName}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {storeUrl && !isStoreNameExtracted && !isExtractingInfo && (
+                <div>
+                  <label htmlFor="storeName" className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre de tu tienda (opcional)
+                  </label>
+                  <Input
+                    id="storeName"
+                    type="text"
+                    placeholder="Mi Tienda Increíble"
+                    value={storeName}
+                    onChange={(e) => setStoreName(e.target.value)}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Si no se detectó automáticamente, puedes ingresar el nombre manualmente
+                  </p>
+                </div>
+              )}
 
               <div className="flex justify-end space-x-3">
                 <Button 
                   onClick={handleStoreConnection}
-                  disabled={isLoading || !storeUrl || !storeName}
+                  disabled={isLoading || !storeUrl || isExtractingInfo}
                   className="min-w-[120px]"
                 >
                   {isLoading ? (
