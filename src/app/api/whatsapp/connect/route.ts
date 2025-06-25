@@ -7,11 +7,15 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { whatsapp_number_id, store_id } = body;
+    const { whatsappNumberId, storeId, whatsapp_number_id, store_id } = body;
     
-    console.log('[INFO] Connecting WhatsApp number to store:', { whatsapp_number_id, store_id });
+    // Soportar tanto camelCase como snake_case
+    const finalWhatsappNumberId = whatsappNumberId || whatsapp_number_id;
+    const finalStoreId = storeId || store_id;
+    
+    console.log('[INFO] Connecting WhatsApp number to store:', { whatsappNumberId: finalWhatsappNumberId, storeId: finalStoreId });
 
-    if (!whatsapp_number_id || !store_id) {
+    if (!finalWhatsappNumberId || !finalStoreId) {
       return NextResponse.json(
         { success: false, error: 'WhatsApp number ID and store ID are required' },
         { status: 400 }
@@ -35,7 +39,7 @@ export async function POST(request: NextRequest) {
     const { data: whatsappNumber, error: numberError } = await supabase
       .from('whatsapp_numbers')
       .select('id, phone_number, display_name')
-      .eq('id', whatsapp_number_id)
+      .eq('id', finalWhatsappNumberId)
       .eq('user_id', user.id)
       .eq('is_active', true)
       .single();
@@ -52,7 +56,7 @@ export async function POST(request: NextRequest) {
     const { data: store, error: storeError } = await supabase
       .from('stores')
       .select('id, name, domain')
-      .eq('id', store_id)
+      .eq('id', finalStoreId)
       .eq('user_id', user.id)
       .eq('is_active', true)
       .single();
@@ -69,8 +73,8 @@ export async function POST(request: NextRequest) {
     const { data: existingConnection } = await supabase
       .from('whatsapp_store_connections')
       .select('id, is_active')
-      .eq('whatsapp_number_id', whatsapp_number_id)
-      .eq('store_id', store_id)
+      .eq('whatsapp_number_id', finalWhatsappNumberId)
+      .eq('store_id', finalStoreId)
       .single();
 
     if (existingConnection) {
@@ -109,8 +113,8 @@ export async function POST(request: NextRequest) {
     const { error: createError } = await supabase
       .from('whatsapp_store_connections')
       .insert({
-        whatsapp_number_id,
-        store_id,
+              whatsapp_number_id: finalWhatsappNumberId,
+      store_id: finalStoreId,
         is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()

@@ -25,6 +25,7 @@ import { Store } from '@/types/db';
 interface WhatsAppConfig {
   id: string;
   phone_numbers: string[];
+  display_name?: string;
   is_active: boolean;
   is_configured: boolean;
   store_name?: string;
@@ -52,6 +53,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<WhatsAppConfig | null>(null);
   const [formNumber, setFormNumber] = useState('');
+  const [formDisplayName, setFormDisplayName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   
@@ -90,6 +92,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
           const configsWithStoreInfo: WhatsAppConfig[] = whatsappNumbers.map(number => ({
             id: number.id,
             phone_numbers: [number.phone_number],
+            display_name: number.display_name,
             is_active: number.is_active,
             is_configured: number.is_verified, // Use is_verified as is_configured
             store_name: number.connected_stores?.[0]?.name,
@@ -130,7 +133,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   };
 
   const handleAddNumber = async () => {
-    if (!formNumber || !selectedStoreId) return;
+    if (!formNumber || !formDisplayName || !selectedStoreId) return;
     setIsAdding(true);
     setError(null);
     try {
@@ -142,12 +145,14 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         credentials: 'include', // Importante: incluir cookies en la petición
         body: JSON.stringify({ 
           phone_number: formNumber,
-          display_name: `WhatsApp ${formNumber}` // Default display name
+          display_name: formDisplayName,
+          store_id: selectedStoreId
         })
       });
       const data = await response.json();
       if (data.success) {
         setFormNumber('');
+        setFormDisplayName('');
         setIsDialogOpen(false);
         await fetchConfigs();
       } else {
@@ -437,12 +442,17 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                     </thead>
                     <tbody>
                       {configs.map(config => (
-                        config.phone_numbers.map(phoneNumber => (
+                        config.phone_numbers.map((phoneNumber, phoneIndex) => (
                           <tr key={`${config.id}-${phoneNumber}`} className="hover:bg-gray-50">
                             <td className="border border-gray-300 p-3 font-medium">
                               <div className="flex items-center">
                                 <Phone className="h-4 w-4 mr-2 text-green-600" />
-                                {phoneNumber}
+                                <div>
+                                  <div className="font-semibold">{config.display_name || phoneNumber}</div>
+                                  {config.display_name && (
+                                    <div className="text-sm text-gray-500">{phoneNumber}</div>
+                                  )}
+                                </div>
                               </div>
                             </td>
                             {stores.map(store => {
@@ -487,7 +497,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                   </table>
                 </div>
                 <div className="mt-3 text-sm text-gray-600">
-                  💡 <strong>Tip:</strong> Puedes conectar un número a múltiples tiendas, y una tienda puede tener múltiples números.
+                  💡 <strong>Tip:</strong> Los números nuevos se conectan automáticamente a la tienda seleccionada. Puedes usar esta matriz para conectar/desconectar números de tiendas adicionales.
                 </div>
               </div>
             </div>
@@ -520,8 +530,13 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-3 mb-1">
                           <h3 className="font-semibold text-gray-900">
-                            {config.phone_numbers[0]}
+                            {config.display_name || config.phone_numbers[0]}
                           </h3>
+                          {config.display_name && (
+                            <span className="text-sm text-gray-500">
+                              ({config.phone_numbers[0]})
+                            </span>
+                          )}
                           <Badge 
                             className={`text-xs ${getStatusColor(config.is_active, config.is_configured)}`}
                           >
@@ -578,6 +593,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                         onClick={() => {
                           setEditingConfig(config);
                           setFormNumber(config.phone_numbers[0]);
+                          setFormDisplayName(config.display_name || '');
                           setIsDialogOpen(true);
                         }}
                       >
@@ -587,7 +603,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDeleteConfig(config.id, config.store_name || 'Configuración de WhatsApp')}
+                        onClick={() => handleDeleteConfig(config.id, config.display_name || config.phone_numbers[0] || 'Configuración de WhatsApp')}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -702,6 +718,19 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
               </p>
             </div>
             
+            <div>
+              <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-2">
+                Nombre Descriptivo
+              </label>
+              <Input
+                id="displayName"
+                type="text"
+                value={formDisplayName}
+                onChange={(e) => setFormDisplayName(e.target.value)}
+                placeholder="Nombre de la Tienda"
+              />
+            </div>
+            
             {!editingConfig && (
               <div>
                 <label htmlFor="storeSelect" className="block text-sm font-medium text-gray-700 mb-2">
@@ -730,11 +759,12 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                 setIsDialogOpen(false);
                 setEditingConfig(null);
                 setFormNumber('');
+                setFormDisplayName('');
               }}
             >
               Cancelar
             </Button>
-            <Button onClick={handleAddNumber} disabled={isAdding || !formNumber}>
+            <Button onClick={handleAddNumber} disabled={isAdding || !formNumber || !formDisplayName}>
               {isAdding ? (
                 <RefreshCw className="h-4 w-4 animate-spin mr-2" />
               ) : null}
