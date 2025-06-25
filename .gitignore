@@ -198,6 +198,8 @@ scratch/
 temp/
 tmp/
 draft/
+cookies.txt
+*.cookies
 wip/
 
 # ========================================
