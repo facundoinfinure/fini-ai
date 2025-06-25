@@ -4,21 +4,23 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 });
 
 const nextConfig = {
-  // Optimizaciones de performance
+  output: 'standalone',
   experimental: {
+    turbo: {
+      loaders: {
+        // Add loaders
+      },
+    },
     optimizeCss: true,
     optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
-      },
+    eslint: {
+      ignoreDuringBuilds: false
+    },
+    typescript: {
+      ignoreBuildErrors: false
     },
   },
 
-  // Configuración de imágenes optimizada
   images: {
     domains: ['api.tiendanube.com', 'cdn.tiendanube.com', 'localhost'],
     formats: ['image/webp', 'image/avif'],
@@ -27,7 +29,6 @@ const nextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
 
-  // Headers de seguridad mejorados
   async headers() {
     return [
       {
@@ -80,7 +81,6 @@ const nextConfig = {
           },
         ],
       },
-      // Headers específicos para API routes
       {
         source: '/api/:path*',
         headers: [
@@ -90,7 +90,6 @@ const nextConfig = {
           },
         ],
       },
-      // Headers para assets estáticos
       {
         source: '/_next/static/:path*',
         headers: [
@@ -136,12 +135,19 @@ const nextConfig = {
           },
         ],
       },
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+        ],
+      },
     ];
   },
 
-  // Configuración de webpack optimizada
   webpack: (config, { dev, isServer }) => {
-    // Alias para imports más limpios
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': require('path').resolve(__dirname, './src'),
@@ -153,7 +159,6 @@ const nextConfig = {
       '@/stores': require('path').resolve(__dirname, './src/stores'),
     };
 
-    // Optimizaciones de producción
     if (!dev && !isServer) {
       config.optimization.splitChunks = {
         chunks: 'all',
@@ -173,31 +178,31 @@ const nextConfig = {
       };
     }
 
-    // Configuración de seguridad para webpack
     config.module.rules.push({
       test: /\.svg$/,
       use: ['@svgr/webpack'],
     });
 
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        os: false,
+      };
+    }
+
     return config;
   },
 
-  // Configuración de compresión
   compress: true,
-
-  // Configuración de powered by header
   poweredByHeader: false,
-
-  // Configuración de trailing slash
   trailingSlash: false,
-
-  // Variables de entorno públicas
   env: {
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET
   },
 
-  // Configuración de redirecciones
   async redirects() {
     return [
       {
@@ -206,6 +211,13 @@ const nextConfig = {
         permanent: true,
       },
     ];
+  },
+
+  swcMinify: true,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn']
+    } : false,
   },
 };
 

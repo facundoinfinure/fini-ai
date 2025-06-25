@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
-import { Bot, LogOut, User, BarChart3, MessageSquare, CheckCircle, AlertCircle, X, RefreshCw, Store, Phone, CreditCard, ChartBar } from "lucide-react";
+import { Bot, LogOut, User, BarChart3, MessageSquare, CheckCircle, AlertCircle, X, RefreshCw, Store as StoreIcon, Phone, CreditCard, BarChart } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense, useCallback } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -18,7 +18,7 @@ import {
   ChatPreview 
 } from '@/lib/lazy-imports';
 import { DashboardSummary } from '@/components/dashboard/dashboard-summary';
-import { Store } from "@/types/db";
+import { Store as StoreType } from "@/types/db";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const logger = createLogger('Dashboard');
@@ -64,7 +64,7 @@ function DashboardContent() {
   const searchParams = useSearchParams();
   
   // State management
-  const [stores, setStores] = useState<Store[]>([]);
+  const [stores, setStores] = useState<StoreType[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -319,11 +319,11 @@ function DashboardContent() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-5 mb-8">
             <TabsTrigger value="resumen" className="flex items-center gap-2">
-              <ChartBar className="h-4 w-4" />
+              <BarChart className="h-4 w-4" />
               Resumen
             </TabsTrigger>
             <TabsTrigger value="tiendas" className="flex items-center gap-2">
-              <Store className="h-4 w-4" />
+              <StoreIcon className="h-4 w-4" />
               Tiendas
             </TabsTrigger>
             <TabsTrigger value="whatsapp" className="flex items-center gap-2">
