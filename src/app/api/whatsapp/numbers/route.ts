@@ -10,16 +10,26 @@ export async function GET() {
     
     const supabase = createClient();
     
-    // Obtener el usuario actual
+    // Obtener el usuario actual - usar getUser() que funciona mejor con cookies
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
     if (userError || !user) {
-      console.error('[ERROR] Authentication failed:', userError?.message);
+      console.error('[ERROR] Authentication failed:', userError?.message || 'No user found');
       return NextResponse.json(
         { success: false, error: 'User not authenticated' },
-        { status: 401 }
+        { 
+          status: 401,
+          headers: {
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Origin': 'http://localhost:3000',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          }
+        }
       );
     }
+
+    console.log('[INFO] User authenticated successfully');
 
     // Obtener los números de WhatsApp del usuario con sus conexiones
     const { data: whatsappNumbers, error: numbersError } = await supabase
@@ -82,11 +92,18 @@ export async function GET() {
       })
     );
 
-    console.log(`[INFO] Found ${formattedNumbers.length} WhatsApp numbers for user ${user.id}`);
+    console.log(`[INFO] Found ${formattedNumbers.length} WhatsApp numbers for user`);
 
     return NextResponse.json({
       success: true,
       data: formattedNumbers
+    }, {
+      headers: {
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Allow-Origin': 'http://localhost:3000',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      }
     });
 
   } catch (error) {
@@ -102,20 +119,34 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log('[INFO] Creating new WhatsApp number:', body);
+    console.log('[INFO] Creating new WhatsApp number');
 
     const supabase = createClient();
     
-    // Obtener el usuario actual
+    // Obtener el usuario actual - verificar la sesión desde las cookies
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
     if (userError || !user) {
-      console.error('[ERROR] Authentication failed:', userError?.message);
+      console.error('[ERROR] Authentication failed:', userError?.message || 'No user found');
+      
       return NextResponse.json(
-        { success: false, error: 'User not authenticated' },
-        { status: 401 }
+        { 
+          success: false, 
+          error: 'User not authenticated. Please refresh the page and try again.'
+        },
+        { 
+          status: 401,
+          headers: {
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Origin': 'http://localhost:3000',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          }
+        }
       );
     }
+
+    console.log('[INFO] User authenticated successfully');
 
     // Validar datos requeridos
     const { phone_number, display_name } = body;
@@ -143,6 +174,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('[INFO] Attempting to create WhatsApp number');
+
     // Crear el nuevo número de WhatsApp
     const { data: newNumber, error: createError } = await supabase
       .from('whatsapp_numbers')
@@ -151,21 +184,36 @@ export async function POST(request: NextRequest) {
         phone_number,
         display_name,
         is_verified: false,
-        is_active: true,
-        created_at: new Date().toISOString()
+        is_active: true
       })
       .select()
       .single();
 
     if (createError) {
       console.error('[ERROR] Failed to create WhatsApp number:', createError.message);
+      console.error('[ERROR] Error code:', createError.code);
+      
+      // Específicamente para errores de RLS
+      if (createError.message.includes('row-level security policy')) {
+        console.error('[ERROR] RLS Policy violation detected');
+        
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Permission denied. There is an authentication issue with the database policies.',
+            technical_details: 'RLS policy violation - user authentication context not properly set'
+          },
+          { status: 403 }
+        );
+      }
+      
       return NextResponse.json(
-        { success: false, error: 'Failed to create WhatsApp number' },
+        { success: false, error: `Failed to create WhatsApp number: ${createError.message}` },
         { status: 500 }
       );
     }
 
-    console.log('[INFO] WhatsApp number created successfully:', newNumber.id);
+    console.log('[INFO] WhatsApp number created successfully');
 
     return NextResponse.json({
       success: true,
@@ -174,6 +222,13 @@ export async function POST(request: NextRequest) {
         connected_stores: [],
         total_conversations: 0,
         last_message_at: null
+      }
+    }, {
+      headers: {
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Allow-Origin': 'http://localhost:3000',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       }
     });
 
@@ -184,4 +239,17 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// OPTIONS handler for CORS preflight requests
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Origin': 'http://localhost:3000',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
 } 

@@ -78,7 +78,9 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
       setError(null);
       
       // Fetch real WhatsApp configurations from the corrected API
-      const response = await fetch('/api/whatsapp/numbers');
+      const response = await fetch('/api/whatsapp/numbers', {
+        credentials: 'include' // Importante: incluir cookies en la petición
+      });
       const data = await response.json();
       
       if (data.success) {
@@ -134,7 +136,10 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
     try {
       const response = await fetch('/api/whatsapp/numbers', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Importante: incluir cookies en la petición
         body: JSON.stringify({ 
           phone_number: formNumber,
           display_name: `WhatsApp ${formNumber}` // Default display name
@@ -147,9 +152,11 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         await fetchConfigs();
       } else {
         setError(data.error || 'Failed to add number');
+        console.error('[ERROR] Failed to add WhatsApp number:', data);
       }
     } catch (err) {
       setError('Failed to add number');
+      console.error('[ERROR] Network error adding WhatsApp number:', err);
     } finally {
       setIsAdding(false);
     }
@@ -164,6 +171,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
       const response = await fetch(`/api/whatsapp/numbers/${configId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ is_active: !config.is_active })
       });
       
@@ -191,7 +199,8 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         try {
           setLoading(true);
           const response = await fetch(`/api/whatsapp/numbers/${configId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            credentials: 'include'
           });
           
           const data = await response.json();
@@ -228,11 +237,12 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   const handleConnectToStore = async (whatsappNumberId: string, storeId: string) => {
     try {
       setLoading(true);
-      const response = await fetch('/api/whatsapp/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ whatsappNumberId, storeId })
-      });
+                const response = await fetch('/api/whatsapp/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ whatsappNumberId, storeId })
+          });
       
       const data = await response.json();
       if (data.success) {
@@ -261,6 +271,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
           const response = await fetch('/api/whatsapp/disconnect', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ whatsappNumberId, storeId })
           });
           
