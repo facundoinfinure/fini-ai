@@ -20,7 +20,7 @@ export async function GET() {
         id,
         name,
         domain,
-        tiendanube_store_id,
+        platform_store_id,
         is_active,
         last_sync_at,
         created_at
@@ -40,7 +40,7 @@ export async function GET() {
       id: store.id,
       name: store.name,
       url: store.domain,
-      tiendanube_store_id: store.tiendanube_store_id,
+      platform_store_id: store.platform_store_id,
       status: store.is_active ? 'active' : 'inactive',
       last_sync_at: store.last_sync_at,
       created_at: store.created_at
