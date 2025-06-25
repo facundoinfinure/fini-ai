@@ -1,6 +1,6 @@
 /**
  * Twilio WhatsApp Integration
- * Real integration with Twilio WhatsApp Business API
+ * Enhanced with proper Message Template support for business-initiated messages
  */
 
 import twilio from 'twilio';
@@ -29,6 +29,56 @@ export interface WhatsAppWebhook {
   Timestamp: string;
 }
 
+// WhatsApp Message Templates Configuration
+export const WHATSAPP_TEMPLATES = {
+  // OTP Verification Template
+  OTP_VERIFICATION: {
+    contentSid: process.env.TWILIO_OTP_CONTENTSID || 'HXc00fd0971da921a1e4ca16cf99903a31',
+    variables: (otpCode: string) => ({
+      1: otpCode,
+      2: '10' // Expiry in minutes
+    })
+  },
+  
+  // Welcome Message Template
+  WELCOME: {
+    contentSid: process.env.TWILIO_WELCOME_CONTENTSID || 'HX375350016ecc645927aca568343a747', 
+    variables: (displayName: string, storeName: string) => ({
+      1: displayName,
+      2: storeName
+    })
+  },
+  
+  // General Analytics Template
+  ANALYTICS: {
+    contentSid: process.env.TWILIO_ANALYTICS_CONTENTSID || 'HX21a8906e743b3fd022adf6683b9ff46c',
+    variables: (sales: string, orders: string, storeName: string) => ({
+      1: sales,
+      2: orders, 
+      3: storeName
+    })
+  },
+  
+  // Marketing Ideas Template
+  MARKETING: {
+    contentSid: process.env.TWILIO_MARKETING_CONTENTSID || 'HXf914f35a15c4341B0c7c7940d7ef7bfc',
+    variables: (storeName: string, idea1: string, idea2: string) => ({
+      1: storeName,
+      2: idea1,
+      3: idea2
+    })
+  },
+  
+  // Error/Support Template (reutilizamos welcome para errores)
+  ERROR_SUPPORT: {
+    contentSid: process.env.TWILIO_ERROR_CONTENTSID || 'HX375350016ecc645927aca568343a747',
+    variables: (errorType: string) => ({
+      1: 'Usuario',
+      2: errorType
+    })
+  }
+};
+
 export class TwilioWhatsAppService {
   private client: twilio.Twilio;
   private config: TwilioConfig;
@@ -39,27 +89,34 @@ export class TwilioWhatsAppService {
   }
 
   /**
-   * Send a WhatsApp message
+   * Send a WhatsApp message - Now with smart template/freeform selection
    */
   async sendMessage(message: WhatsAppMessage): Promise<{ success: boolean; messageSid?: string; error?: string }> {
     try {
-      console.warn('[TWILIO] Sending message to:', message.to);
+      console.warn(`[WHATSAPP] Sending message to ${message.to}`);
 
-      const _twilioMessage = await this.client.messages.create({
+      const twilioMessage = await this.client.messages.create({
         body: message.body,
-        from: `whatsapp:${this.config.phoneNumber}`,
+        from: `whatsapp:${message.from}`,
         to: `whatsapp:${message.to}`,
         ...(message.mediaUrl && { mediaUrl: [message.mediaUrl] })
       });
 
-      console.warn('[TWILIO] Message sent successfully:', _twilioMessage.sid);
+      console.warn(`[WHATSAPP] Message sent successfully: ${twilioMessage.sid}`);
 
       return {
         success: true,
-        messageSid: _twilioMessage.sid
+        messageSid: twilioMessage.sid
       };
     } catch (error) {
-      console.warn('[ERROR] Twilio send message failed:', error);
+      console.error('[ERROR] Twilio send message failed:', error);
+      
+      // If error 63016 (freeform outside window), attempt template fallback
+      if (error instanceof Error && error.message.includes('63016')) {
+        console.warn('[WHATSAPP] Freeform failed (63016), attempting template fallback...');
+        return await this.sendWithTemplateFallback(message);
+      }
+      
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -68,10 +125,155 @@ export class TwilioWhatsAppService {
   }
 
   /**
+   * Smart message sending with automatic template fallback
+   */
+  async sendSmartMessage(
+    phoneNumber: string, 
+    messageContent: string, 
+    messageType: 'response' | 'analytics' | 'marketing' | 'error' | 'welcome' = 'response',
+    templateData?: Record<string, string>
+  ): Promise<{ success: boolean; messageSid?: string; error?: string; usedTemplate?: boolean }> {
+    
+    // First try freeform message (works within 24h window)
+    try {
+      const result = await this.sendMessage({
+        to: phoneNumber,
+        from: this.config.phoneNumber,
+        body: messageContent
+      });
+      
+      if (result.success) {
+        return { ...result, usedTemplate: false };
+      }
+    } catch (error) {
+      console.warn('[WHATSAPP] Freeform failed, checking for template fallback...');
+    }
+
+    // If freeform fails, try template based on message type
+    return await this.sendTemplateByType(phoneNumber, messageType, templateData);
+  }
+
+  /**
+   * Send template message by type
+   */
+  private async sendTemplateByType(
+    phoneNumber: string, 
+    messageType: string, 
+    data?: Record<string, string>
+  ): Promise<{ success: boolean; messageSid?: string; error?: string; usedTemplate?: boolean }> {
+    try {
+      let templateConfig;
+      let variables;
+
+      switch (messageType) {
+        case 'analytics':
+          templateConfig = WHATSAPP_TEMPLATES.ANALYTICS;
+          variables = templateConfig.variables(
+            data?.sales || '$0', 
+            data?.orders || '0', 
+            data?.storeName || 'tu tienda'
+          );
+          break;
+
+        case 'marketing':
+          templateConfig = WHATSAPP_TEMPLATES.MARKETING;
+          variables = templateConfig.variables(
+            data?.storeName || 'tu tienda',
+            data?.idea1 || 'Promoción especial',
+            data?.idea2 || 'Descuento por volumen'
+          );
+          break;
+
+        case 'error':
+          templateConfig = WHATSAPP_TEMPLATES.ERROR_SUPPORT;
+          variables = templateConfig.variables(data?.errorType || 'temporal');
+          break;
+
+        case 'welcome':
+          templateConfig = WHATSAPP_TEMPLATES.WELCOME;
+          variables = templateConfig.variables(
+            data?.displayName || 'Usuario',
+            data?.storeName || 'tu tienda'
+          );
+          break;
+
+        default:
+          // No template available for this type
+          return {
+            success: false,
+            error: 'No template available for message type: ' + messageType,
+            usedTemplate: false
+          };
+      }
+
+      const twilioMessage = await this.client.messages.create({
+        from: `whatsapp:${this.config.phoneNumber}`,
+        to: `whatsapp:${phoneNumber}`,
+        contentSid: templateConfig.contentSid,
+        contentVariables: JSON.stringify(variables)
+      });
+
+      console.warn(`[WHATSAPP] Template sent successfully: ${twilioMessage.sid}`);
+      
+      return {
+        success: true,
+        messageSid: twilioMessage.sid,
+        usedTemplate: true
+      };
+
+    } catch (error) {
+      console.error('[ERROR] Template send failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Template send failed',
+        usedTemplate: true
+      };
+    }
+  }
+
+  /**
+   * Fallback when freeform fails with 63016 error
+   */
+  private async sendWithTemplateFallback(message: WhatsAppMessage): Promise<{ success: boolean; messageSid?: string; error?: string }> {
+    // Analyze message content to determine best template
+    const content = message.body.toLowerCase();
+    
+    if (content.includes('ventas') || content.includes('analytics') || content.includes('$')) {
+      return await this.sendTemplateByType(message.to, 'analytics', {
+        sales: '$0',
+        orders: '0',
+        storeName: 'tu tienda'
+      });
+    }
+    
+    if (content.includes('marketing') || content.includes('promoción') || content.includes('campaña')) {
+      return await this.sendTemplateByType(message.to, 'marketing', {
+        storeName: 'tu tienda',
+        idea1: 'Promoción especial',
+        idea2: 'Descuento por volumen'
+      });
+    }
+    
+    if (content.includes('error') || content.includes('problema')) {
+      return await this.sendTemplateByType(message.to, 'error', {
+        errorType: 'temporal'
+      });
+    }
+
+    // Default fallback - try welcome template
+    return await this.sendTemplateByType(message.to, 'welcome', {
+      displayName: 'Usuario',
+      storeName: 'tu tienda'
+    });
+  }
+
+  /**
    * Send welcome message to activate Fini AI
    */
   async sendWelcomeMessage(phoneNumber: string, storeName?: string): Promise<{ success: boolean; error?: string }> {
-    const _welcomeMessage = `¡Hola Soy Fini AI, tu asistente de IA para ${storeName || 'tu tienda'}.
+    const result = await this.sendSmartMessage(
+      phoneNumber,
+      `¡Hola! Soy Fini AI, tu asistente de IA para ${storeName || 'tu tienda'}.
 
 🤖 Puedo ayudarte con:
 • 📊 Analytics y ventas
@@ -81,20 +283,27 @@ export class TwilioWhatsAppService {
 
 Escribe "hola" para comenzar o "ayuda" para ver todas mis funciones.
 
-¡Estoy aquí para ayudarte a hacer crecer tu negocio 🚀`;
+¡Estoy aquí para ayudarte a hacer crecer tu negocio 🚀`,
+      'welcome',
+      {
+        displayName: 'Usuario',
+        storeName: storeName || 'tu tienda'
+      }
+    );
 
-    return this.sendMessage({
-      to: phoneNumber,
-      from: this.config.phoneNumber,
-      body: _welcomeMessage
-    });
+    return {
+      success: result.success,
+      error: result.error
+    };
   }
 
   /**
    * Send analytics response
    */
   async sendAnalyticsResponse(phoneNumber: string, analyticsData: unknown): Promise<{ success: boolean; error?: string }> {
-    let _message = '';
+    let message = '';
+    let templateData = { sales: '$0', orders: '0', storeName: 'tu tienda' };
+    
     if (
       analyticsData &&
       typeof analyticsData === 'object' &&
@@ -109,7 +318,8 @@ Escribe "hola" para comenzar o "ayuda" para ver todas mis funciones.
         newCustomers: number;
         topProduct: string;
       };
-      _message = `📊 *Analytics de tu tienda*
+      
+      message = `📊 *Analytics de tu tienda*
 
 💰 Ventas: $${data.totalSales}
 📦 Pedidos: ${data.totalOrders}
@@ -117,31 +327,49 @@ Escribe "hola" para comenzar o "ayuda" para ver todas mis funciones.
 🔥 Producto top: ${data.topProduct}
 
 ¿Te gustaría ver más detalles o comparar con otros períodos?`;
+
+      templateData = {
+        sales: `$${data.totalSales}`,
+        orders: `${data.totalOrders}`,
+        storeName: 'tu tienda'
+      };
     } else {
-      _message = 'No se pudo obtener analytics de la tienda.';
+      message = 'No se pudo obtener analytics de la tienda.';
     }
-    return this.sendMessage({
-      to: phoneNumber,
-      from: this.config.phoneNumber,
-      body: _message
-    });
+    
+    const result = await this.sendSmartMessage(phoneNumber, message, 'analytics', templateData);
+    
+    return {
+      success: result.success,
+      error: result.error
+    };
   }
 
   /**
    * Send marketing suggestions
    */
   async sendMarketingSuggestions(phoneNumber: string, suggestions: string[]): Promise<{ success: boolean; error?: string }> {
-    const _message = `🎯 *Ideas de Marketing*
+    const message = `🎯 *Ideas de Marketing*
 
 ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n')}
 
 ¿Cuál te interesa implementar? Puedo ayudarte a crear una campaña específica.`;
 
-    return this.sendMessage({
-      to: phoneNumber,
-      from: this.config.phoneNumber,
-      body: _message
-    });
+    const result = await this.sendSmartMessage(
+      phoneNumber, 
+      message, 
+      'marketing',
+      {
+        storeName: 'tu tienda',
+        idea1: suggestions[0] || 'Promoción especial',
+        idea2: suggestions[1] || 'Descuento por volumen'
+      }
+    );
+
+    return {
+      success: result.success,
+      error: result.error
+    };
   }
 
   /**

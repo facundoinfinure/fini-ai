@@ -150,13 +150,26 @@ export async function POST(request: NextRequest) {
         created_at: new Date().toISOString()
       });
 
-      // 6. Send response back via WhatsApp
-      await _twilioService.sendMessage({
-        to: _phoneNumber,
-        from: process.env.TWILIO_PHONE_NUMBER!,
-        body: agentResponse.response || 'Lo siento, no pude procesar tu mensaje en este momento. Por favor intenta nuevamente.'
-      });
-      console.warn('[WEBHOOK] Response sent successfully');
+      // 6. Send response back via WhatsApp using smart message (template fallback)
+      const messageType = agentResponse.agentType === 'analytics' ? 'analytics' : 
+                         agentResponse.agentType === 'marketing' ? 'marketing' : 
+                         'response';
+      
+      const smartResult = await _twilioService.sendSmartMessage(
+        _phoneNumber,
+        agentResponse.response || 'Lo siento, no pude procesar tu mensaje en este momento. Por favor intenta nuevamente.',
+        messageType,
+        {
+          storeName: storeName,
+          errorType: agentResponse.error ? 'temporal' : undefined
+        }
+      );
+      
+      if (smartResult.usedTemplate) {
+        console.warn(`[WEBHOOK] Response sent using template (${messageType}):`, smartResult.messageSid);
+      } else {
+        console.warn('[WEBHOOK] Response sent as freeform message:', smartResult.messageSid);
+      }
     }
 
     const _processingTime = Date.now() - _startTime;

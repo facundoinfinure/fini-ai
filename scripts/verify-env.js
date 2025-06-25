@@ -1,199 +1,228 @@
 #!/usr/bin/env node
 
 /**
- * Script para verificar que todas las variables de entorno necesarias estén configuradas
- * Uso: npm run verify-env
+ * Environment Variables Verification Script
+ * Verifica que todas las variables de entorno requeridas estén configuradas
  */
 
 const fs = require('fs');
 const path = require('path');
 
-// Importar configuración de variables de entorno
-const requiredEnvVars = require('./env-config');
-
-// Colores para la consola
+// Colores para consola
 const colors = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  red: '\x1b[31m',
   green: '\x1b[32m',
+  red: '\x1b[31m',
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
-  magenta: '\x1b[35m',
-  cyan: '\x1b[36m'
+  reset: '\x1b[0m'
 };
 
-function log(message, color = 'reset') {
-  console.log(`${colors[color]}${message}${colors.reset}`);
+const log = {
+  success: (msg) => console.log(`${colors.green}✅ ${msg}${colors.reset}`),
+  error: (msg) => console.log(`${colors.red}❌ ${msg}${colors.reset}`),
+  warning: (msg) => console.log(`${colors.yellow}⚠️  ${msg}${colors.reset}`),
+  info: (msg) => console.log(`${colors.blue}ℹ️  ${msg}${colors.reset}`)
+};
+
+function loadEnvFile() {
+  const envPath = path.join(process.cwd(), '.env.local');
+  
+  if (!fs.existsSync(envPath)) {
+    log.error('No se encontró el archivo .env.local');
+    log.info('Copia env.example a .env.local y configura las variables');
+    process.exit(1);
+  }
+
+  // Cargar variables
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  const envVars = {};
+  
+  envContent.split('\n').forEach(line => {
+    const [key, ...values] = line.split('=');
+    if (key && !key.startsWith('#') && values.length > 0) {
+      envVars[key.trim()] = values.join('=').trim();
+    }
+  });
+
+  return envVars;
 }
 
-function checkEnvFile() {
-  const envFiles = ['.env.local', '.env', '.env.example'];
-  const projectRoot = path.resolve(__dirname, '..');
+function verifyRequiredVars() {
+  log.info('Verificando variables de entorno requeridas...\n');
   
-  for (const envFile of envFiles) {
-    const envPath = path.join(projectRoot, envFile);
-    if (fs.existsSync(envPath)) {
-      log(`✓ Encontrado archivo de variables de entorno: ${envFile}`, 'green');
-      return envPath;
-    }
-  }
-  
-  log('✗ No se encontró ningún archivo de variables de entorno (.env.local, .env, .env.example)', 'red');
-  return null;
-}
+  const env = loadEnvFile();
+  let allValid = true;
+  let warnings = 0;
 
-function checkRequiredVars() {
-  const missing = {};
-  const present = {};
-  let hasErrors = false;
+  // Variables críticas (obligatorias)
+  const criticalVars = {
+    'NEXT_PUBLIC_SUPABASE_URL': 'URL de Supabase',
+    'NEXT_PUBLIC_SUPABASE_ANON_KEY': 'Clave anónima de Supabase',
+    'SUPABASE_SERVICE_ROLE_KEY': 'Clave de servicio de Supabase',
+    'NEXTAUTH_SECRET': 'Secreto de NextAuth',
+    'NEXTAUTH_URL': 'URL de NextAuth'
+  };
 
-  // Patrones para detectar valores de placeholder
-  const placeholderPatterns = [
-    /^your-.*-here$/,
-    /^your_.*_here$/,
-    /^placeholder$/,
-    /^example$/,
-    /^test$/,
-    /^dummy$/,
-    /^fake$/,
-    /^mock$/
-  ];
-
-  function isPlaceholder(value) {
-    if (!value || value.trim() === '') return true;
-    return placeholderPatterns.some(pattern => pattern.test(value.toLowerCase()));
-  }
-
-  // Verificar variables requeridas
-  for (const [category, vars] of Object.entries(requiredEnvVars)) {
-    if (category === 'optional') continue;
-    
-    missing[category] = [];
-    present[category] = [];
-    
-    for (const varName of vars) {
-      const value = process.env[varName];
-      if (value && !isPlaceholder(value)) {
-        present[category].push(varName);
-      } else {
-        missing[category].push(varName);
-        hasErrors = true;
-      }
-    }
-  }
-
-  // Verificar variables opcionales
-  missing.optional = [];
-  present.optional = [];
-  
-  for (const varName of requiredEnvVars.optional) {
-    const value = process.env[varName];
-    if (value && !isPlaceholder(value)) {
-      present.optional.push(varName);
+  console.log('🔑 VARIABLES CRÍTICAS:');
+  Object.entries(criticalVars).forEach(([key, description]) => {
+    if (env[key] && env[key] !== '' && !env[key].includes('your-') && !env[key].includes('here')) {
+      log.success(`${key}: ${description}`);
     } else {
-      missing.optional.push(varName);
+      log.error(`${key}: ${description} - FALTANTE O VACÍA`);
+      allValid = false;
     }
+  });
+
+  // Variables de Tienda Nube
+  console.log('\n🏪 TIENDA NUBE:');
+  const tiendanubeVars = {
+    'TIENDANUBE_CLIENT_ID': 'Client ID de Tienda Nube',
+    'TIENDANUBE_CLIENT_SECRET': 'Client Secret de Tienda Nube'
+  };
+
+  Object.entries(tiendanubeVars).forEach(([key, description]) => {
+    if (env[key] && env[key] !== '' && !env[key].includes('your-')) {
+      log.success(`${key}: ${description}`);
+    } else {
+      log.warning(`${key}: ${description} - No configurado`);
+      warnings++;
+    }
+  });
+
+  // Variables de WhatsApp/Twilio
+  console.log('\n📱 WHATSAPP/TWILIO:');
+  const whatsappVars = {
+    'TWILIO_ACCOUNT_SID': 'Account SID de Twilio',
+    'TWILIO_AUTH_TOKEN': 'Auth Token de Twilio',
+    'TWILIO_PHONE_NUMBER': 'Número de WhatsApp de Twilio'
+  };
+
+  Object.entries(whatsappVars).forEach(([key, description]) => {
+    if (env[key] && env[key] !== '' && !env[key].includes('your-')) {
+      log.success(`${key}: ${description}`);
+    } else {
+      log.warning(`${key}: ${description} - No configurado`);
+      warnings++;
+    }
+  });
+
+  // Variables de WhatsApp Templates (Nuevas)
+  console.log('\n📝 WHATSAPP TEMPLATES:');
+  const templateVars = {
+    'TWILIO_OTP_CONTENTSID': 'Template de verificación OTP',
+    'TWILIO_WELCOME_CONTENTSID': 'Template de bienvenida',
+    'TWILIO_ANALYTICS_CONTENTSID': 'Template de analytics',
+    'TWILIO_MARKETING_CONTENTSID': 'Template de marketing',
+    'TWILIO_ERROR_CONTENTSID': 'Template de errores'
+  };
+
+  let hasTemplates = false;
+  Object.entries(templateVars).forEach(([key, description]) => {
+    if (env[key] && env[key] !== '' && !env[key].includes('HX1234') && env[key].startsWith('HX')) {
+      log.success(`${key}: ${description}`);
+      hasTemplates = true;
+    } else {
+      log.warning(`${key}: ${description} - No configurado o usando ejemplo`);
+      warnings++;
+    }
+  });
+
+  if (!hasTemplates) {
+    log.error('⚠️  IMPORTANTE: Sin templates configurados, se pueden producir errores 63016');
+    log.info('📖 Consulta MANUAL_WHATSAPP_MIGRATION.md para configurar templates');
   }
 
-  return { missing, present, hasErrors };
-}
+  // Variables de Stripe
+  console.log('\n💳 STRIPE:');
+  const stripeVars = {
+    'STRIPE_SECRET_KEY': 'Clave secreta de Stripe',
+    'STRIPE_PUBLISHABLE_KEY': 'Clave pública de Stripe'
+  };
 
-function displayResults(missing, present) {
-  log('\n📋 Resumen de Variables de Entorno:', 'bright');
-  log('=====================================\n');
-
-  // Mostrar variables presentes
-  for (const [category, vars] of Object.entries(present)) {
-    if (vars.length > 0) {
-      const icon = category === 'optional' ? '🔧' : '✅';
-      log(`${icon} ${category.toUpperCase()} (${vars.length} configuradas):`, 'green');
-      vars.forEach(varName => {
-        log(`   ✓ ${varName}`, 'green');
-      });
-      log('');
+  Object.entries(stripeVars).forEach(([key, description]) => {
+    if (env[key] && env[key] !== '' && !env[key].includes('your-')) {
+      log.success(`${key}: ${description}`);
+    } else {
+      log.warning(`${key}: ${description} - No configurado`);
+      warnings++;
     }
-  }
+  });
 
-  // Mostrar variables faltantes
-  let hasRequiredMissing = false;
-  for (const [category, vars] of Object.entries(missing)) {
-    if (vars.length > 0) {
-      const icon = category === 'optional' ? '🔧' : '❌';
-      const color = category === 'optional' ? 'yellow' : 'red';
-      log(`${icon} ${category.toUpperCase()} (${vars.length} faltantes):`, color);
-      vars.forEach(varName => {
-        log(`   ✗ ${varName}`, color);
-      });
-      log('');
-      
-      if (category !== 'optional') {
-        hasRequiredMissing = true;
-      }
+  // Variables de IA (Opcionales)
+  console.log('\n🤖 IA Y RAG (OPCIONAL):');
+  const aiVars = {
+    'OPENAI_API_KEY': 'Clave de OpenAI',
+    'PINECONE_API_KEY': 'Clave de Pinecone',
+    'PINECONE_ENVIRONMENT': 'Entorno de Pinecone',
+    'PINECONE_INDEX_NAME': 'Nombre del índice de Pinecone'
+  };
+
+  Object.entries(aiVars).forEach(([key, description]) => {
+    if (env[key] && env[key] !== '' && !env[key].includes('your-')) {
+      log.success(`${key}: ${description}`);
+    } else {
+      log.info(`${key}: ${description} - Opcional, no configurado`);
     }
-  }
+  });
 
-  return hasRequiredMissing;
-}
-
-function provideInstructions(hasRequiredMissing) {
-  if (hasRequiredMissing) {
-    log('🚨 ACCIÓN REQUERIDA:', 'red');
-    log('Debes configurar las variables de entorno faltantes para que la aplicación funcione correctamente.\n', 'red');
-    
-    log('📝 Instrucciones:', 'cyan');
-    log('1. Copia el archivo .env.example a .env.local:', 'cyan');
-    log('   cp .env.example .env.local\n', 'cyan');
-    
-    log('2. Completa las variables faltantes en .env.local:', 'cyan');
-    log('   - Obtén las credenciales de Supabase desde: https://supabase.com/dashboard', 'cyan');
-    log('   - Obtén las credenciales de Tienda Nube desde: https://www.tiendanube.com/apps/developers', 'cyan');
-    log('   - Obtén las credenciales de Twilio desde: https://console.twilio.com/', 'cyan');
-    log('   - Obtén las credenciales de Stripe desde: https://dashboard.stripe.com/apikeys\n', 'cyan');
-    
-    log('3. Ejecuta este script nuevamente para verificar:', 'cyan');
-    log('   npm run verify-env\n', 'cyan');
-    
-    return false;
+  // Resumen
+  console.log('\n' + '='.repeat(50));
+  if (allValid) {
+    if (warnings === 0) {
+      log.success('🎉 TODAS LAS VARIABLES ESTÁN CONFIGURADAS CORRECTAMENTE');
+    } else {
+      log.warning(`✅ Variables críticas OK, pero ${warnings} advertencias`);
+      log.info('Las advertencias no impiden que la app funcione, pero limitan funcionalidades');
+    }
   } else {
-    log('🎉 ¡Todo configurado correctamente!', 'green');
-    log('Puedes ejecutar la aplicación con: npm run dev', 'green');
-    return true;
+    log.error('❌ FALTAN VARIABLES CRÍTICAS - La app no funcionará correctamente');
+    process.exit(1);
+  }
+
+  // Verificaciones adicionales
+  console.log('\n🔍 VERIFICACIONES ADICIONALES:');
+  
+  // Verificar formato de URLs
+  if (env.NEXT_PUBLIC_SUPABASE_URL && !env.NEXT_PUBLIC_SUPABASE_URL.startsWith('https://')) {
+    log.warning('SUPABASE_URL debería empezar con https://');
+  }
+
+  // Verificar formato de claves
+  if (env.NEXT_PUBLIC_SUPABASE_ANON_KEY && env.NEXT_PUBLIC_SUPABASE_ANON_KEY.length < 100) {
+    log.warning('SUPABASE_ANON_KEY parece muy corta');
+  }
+
+  if (env.SUPABASE_SERVICE_ROLE_KEY && env.SUPABASE_SERVICE_ROLE_KEY.length < 100) {
+    log.warning('SUPABASE_SERVICE_ROLE_KEY parece muy corta');
+  }
+
+  // Verificar templates de WhatsApp
+  if (env.TWILIO_OTP_CONTENTSID && !env.TWILIO_OTP_CONTENTSID.startsWith('HX')) {
+    log.warning('TWILIO_OTP_CONTENTSID debería empezar con "HX"');
+  }
+
+  // Verificar ambiente
+  const nodeEnv = env.NODE_ENV || process.env.NODE_ENV || 'development';
+  log.info(`Ambiente detectado: ${nodeEnv}`);
+
+  if (nodeEnv === 'production') {
+    log.warning('🚨 AMBIENTE DE PRODUCCIÓN - Verifica que todas las URLs sean de producción');
   }
 }
 
 function main() {
-  log('🔍 Verificando configuración de variables de entorno...', 'blue');
+  console.log('🔍 Fini AI - Verificador de Variables de Entorno\n');
   
-  // Verificar archivo de entorno
-  const envPath = checkEnvFile();
-  if (!envPath) {
-    process.exit(1);
-  }
-
-  // Cargar variables de entorno si existe el archivo
-  if (envPath && envPath.endsWith('.env.local')) {
-    require('dotenv').config({ path: envPath });
-  }
-
-  // Verificar variables requeridas
-  const { missing, present, hasErrors } = checkRequiredVars();
-  
-  // Mostrar resultados
-  const hasRequiredMissing = displayResults(missing, present);
-  
-  // Proporcionar instrucciones
-  const isReady = provideInstructions(hasRequiredMissing);
-  
-  // Salir con código de error si faltan variables requeridas
-  if (!isReady) {
+  try {
+    verifyRequiredVars();
+  } catch (error) {
+    log.error(`Error durante verificación: ${error.message}`);
     process.exit(1);
   }
 }
 
-// Ejecutar el script
 if (require.main === module) {
   main();
 }
 
-module.exports = { checkRequiredVars, displayResults }; 
+module.exports = { verifyRequiredVars }; 
