@@ -16,11 +16,18 @@ import {
   Trash2,
   RefreshCw,
   AlertCircle,
-  CheckCircle,
-  XCircle,
   Settings,
   MessageSquare,
   Zap,
+  ChevronRight,
+  Signal,
+  Clock,
+  Users,
+  TrendingUp,
+  Link2,
+  Unlink,
+  Power,
+  PowerOff,
 } from 'lucide-react';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Store } from '@/types/db';
@@ -55,12 +62,12 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<WhatsAppConfig | null>(null);
-  const [formNumber, setFormNumber] = useState('');
   const [formDisplayName, setFormDisplayName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [phoneValue, setPhoneValue] = useState<string>('');
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [hoveredConfig, setHoveredConfig] = useState<string | null>(null);
   
   const { showConfirmation, ConfirmationDialog } = useConfirmationDialog();
 
@@ -86,7 +93,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
       
       // Fetch real WhatsApp configurations from the corrected API
       const response = await fetch('/api/whatsapp/numbers', {
-        credentials: 'include' // Importante: incluir cookies en la petición
+        credentials: 'include'
       });
       const data = await response.json();
       
@@ -99,7 +106,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
             phone_numbers: [number.phone_number],
             display_name: number.display_name,
             is_active: number.is_active,
-            is_configured: number.is_verified, // Use is_verified as is_configured
+            is_configured: number.is_verified,
             store_name: number.connected_stores?.[0]?.name,
             store_id: number.connected_stores?.[0]?.id,
             last_activity: number.last_message_at || number.created_at,
@@ -123,7 +130,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         });
 
       } else {
-        setError('Error al cargar las configuraciones de WhatsApp: ' + data.error);
+        setError(`Error al cargar las configuraciones de WhatsApp: ${data.error}`);
         setConfigs([]);
         setStats(null);
       }
@@ -200,7 +207,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         setError(data.error || 'Failed to toggle status');
       }
     } catch (err) {
-      setError('Failed to toggle status');
+      setError('Error al cambiar el estado');
     } finally {
       setLoading(false);
     }
@@ -208,9 +215,9 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
 
   const handleDeleteConfig = async (configId: string, configName: string) => {
     showConfirmation({
-      title: 'Eliminar Configuración de WhatsApp',
-      description: `¿Estás seguro de que quieres eliminar la configuración "${configName}"? Se eliminarán todos los números asociados y no podrás recibir mensajes de WhatsApp hasta que configures nuevamente.`,
-      confirmText: 'Eliminar Configuración',
+      title: 'Eliminar Configuración',
+      description: `¿Estás seguro de que quieres eliminar "${configName}"? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
       cancelText: 'Cancelar',
       isDestructive: true,
       onConfirm: async () => {
@@ -237,35 +244,36 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   };
 
   const getStatusColor = (isActive: boolean, isConfigured: boolean) => {
-    if (!isConfigured) return 'bg-gray-100 text-gray-800';
-    return isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+    if (isActive && isConfigured) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    if (!isConfigured) return 'bg-amber-100 text-amber-800 border-amber-200';
+    return 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
   const getStatusText = (isActive: boolean, isConfigured: boolean) => {
-    if (!isConfigured) return 'No Configurado';
-    return isActive ? 'Activo' : 'Inactivo';
+    if (isActive && isConfigured) return 'Conectado';
+    if (!isConfigured) return 'Pendiente';
+    return 'Inactivo';
   };
 
   const getStatusIcon = (isActive: boolean, isConfigured: boolean) => {
-    if (!isConfigured) return XCircle;
-    return isActive ? CheckCircle : XCircle;
+    if (isActive && isConfigured) return Signal;
+    if (!isConfigured) return Clock;
+    return PowerOff;
   };
 
-  // NEW: Connection management functions
   const handleConnectToStore = async (whatsappNumberId: string, storeId: string) => {
     try {
       setLoading(true);
-                const response = await fetch('/api/whatsapp/connect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ whatsappNumberId, storeId })
-          });
+      const response = await fetch('/api/whatsapp/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ whatsapp_number_id: whatsappNumberId, store_id: storeId })
+      });
       
       const data = await response.json();
       if (data.success) {
         await fetchConfigs();
-        setError(null);
       } else {
         setError(data.error || 'Error al conectar número a tienda');
       }
@@ -278,8 +286,8 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
 
   const handleDisconnectFromStore = async (whatsappNumberId: string, storeId: string) => {
     showConfirmation({
-      title: 'Desconectar WhatsApp de Tienda',
-      description: 'Este número dejará de recibir consultas de esta tienda. ¿Continuar?',
+      title: 'Desconectar de Tienda',
+      description: '¿Estás seguro de que quieres desconectar este número de la tienda?',
       confirmText: 'Desconectar',
       cancelText: 'Cancelar',
       isDestructive: true,
@@ -287,16 +295,15 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         try {
           setLoading(true);
           const response = await fetch('/api/whatsapp/disconnect', {
-            method: 'DELETE',
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ whatsappNumberId, storeId })
+            body: JSON.stringify({ whatsapp_number_id: whatsappNumberId, store_id: storeId })
           });
           
           const data = await response.json();
           if (data.success) {
             await fetchConfigs();
-            setError(null);
           } else {
             setError(data.error || 'Error al desconectar número de tienda');
           }
@@ -311,16 +318,24 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
 
   if (loading && configs.length === 0) {
     return (
-      <Card>
+      <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-white">
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Phone className="mr-2 h-5 w-5" />
+          <CardTitle className="flex items-center text-slate-900">
+            <Phone className="mr-3 h-5 w-5 text-emerald-600" />
             Gestión de WhatsApp
           </CardTitle>
-          <CardDescription>Configura y administra tus números de WhatsApp</CardDescription>
+          <CardDescription className="text-slate-600">
+            Configura y administra tus números de WhatsApp Business
+          </CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center justify-center p-10">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+        <CardContent className="flex items-center justify-center p-16">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="relative">
+              <RefreshCw className="h-8 w-8 animate-spin text-emerald-600" />
+              <div className="absolute inset-0 h-8 w-8 border-2 border-emerald-200 rounded-full animate-ping"></div>
+            </div>
+            <p className="text-sm text-slate-500 animate-pulse">Cargando configuraciones...</p>
+          </div>
         </CardContent>
       </Card>
     );
@@ -328,18 +343,20 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
 
   if (stores.length === 0) {
     return (
-      <Card>
+      <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-white">
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Phone className="mr-2 h-5 w-5" />
+          <CardTitle className="flex items-center text-slate-900">
+            <Phone className="mr-3 h-5 w-5 text-emerald-600" />
             Gestión de WhatsApp
           </CardTitle>
-          <CardDescription>Configura y administra tus números de WhatsApp</CardDescription>
+          <CardDescription className="text-slate-600">
+            Configura y administra tus números de WhatsApp Business
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
+          <Alert className="border-amber-200 bg-amber-50">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800">
               Necesitas conectar al menos una tienda antes de configurar WhatsApp.
               Ve a la pestaña &quot;Tiendas&quot; para conectar tu primera tienda.
             </AlertDescription>
@@ -351,295 +368,308 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
 
   return (
     <div className="space-y-6">
-      {/* WhatsApp Stats */}
+      {/* Uber-Style Stats Dashboard */}
       {stats && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Phone className="mr-2 h-5 w-5" />
-              WhatsApp Analytics
-            </CardTitle>
-            <CardDescription>
-              Métricas de tus números de WhatsApp Business
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">
-                  {stats.totalNumbers}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-emerald-100 hover:shadow-md transition-all duration-300">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-emerald-700 text-sm font-medium">Números Activos</p>
+                  <p className="text-2xl font-bold text-emerald-900">{stats.activeNumbers}</p>
+                  <p className="text-xs text-emerald-600">de {stats.totalNumbers} registrados</p>
                 </div>
-                <div className="text-sm text-green-700">Números Registrados</div>
-              </div>
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">
-                  {stats.activeNumbers}
+                <div className="p-3 bg-emerald-200 rounded-xl">
+                  <Signal className="h-6 w-6 text-emerald-700" />
                 </div>
-                <div className="text-sm text-blue-700">Números Activos</div>
               </div>
-              <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">
-                  {stats.totalMessages}
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-md transition-all duration-300">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-blue-700 text-sm font-medium">Conversaciones</p>
+                  <p className="text-2xl font-bold text-blue-900">{stats.totalMessages}</p>
+                  <p className="text-xs text-blue-600 flex items-center">
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    Total procesadas
+                  </p>
                 </div>
-                <div className="text-sm text-purple-700">Mensajes Enviados</div>
-              </div>
-              <div className="text-center p-4 bg-orange-50 rounded-lg">
-                <div className="text-2xl font-bold text-orange-600">
-                  {stats.avgResponseTime}s
+                <div className="p-3 bg-blue-200 rounded-xl">
+                  <MessageSquare className="h-6 w-6 text-blue-700" />
                 </div>
-                <div className="text-sm text-orange-700">Tiempo Respuesta</div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-purple-100 hover:shadow-md transition-all duration-300">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-purple-700 text-sm font-medium">Tiempo Respuesta</p>
+                  <p className="text-2xl font-bold text-purple-900">{stats.avgResponseTime}s</p>
+                  <p className="text-xs text-purple-600">Promedio de IA</p>
+                </div>
+                <div className="p-3 bg-purple-200 rounded-xl">
+                  <Zap className="h-6 w-6 text-purple-700" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-orange-50 to-orange-100 hover:shadow-md transition-all duration-300">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-orange-700 text-sm font-medium">Tiendas Conectadas</p>
+                  <p className="text-2xl font-bold text-orange-900">{stores.length}</p>
+                  <p className="text-xs text-orange-600">Integradas activamente</p>
+                </div>
+                <div className="p-3 bg-orange-200 rounded-xl">
+                  <Users className="h-6 w-6 text-orange-700" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
-      {/* WhatsApp Configuration */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6">
-          <div>
-            <CardTitle className="flex items-center">
-              <Phone className="mr-2 h-5 w-5" />
-              Gestión de WhatsApp
-            </CardTitle>
-            <CardDescription>
-              Configura y administra tus números de WhatsApp Business
-            </CardDescription>
+      {/* Main WhatsApp Management */}
+      <Card className="border-0 shadow-sm bg-white">
+        <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center text-slate-900">
+                <Phone className="mr-3 h-5 w-5 text-emerald-600" />
+                Números de WhatsApp
+              </CardTitle>
+              <CardDescription className="text-slate-600 mt-1">
+                Administra los números conectados a tus tiendas
+              </CardDescription>
+            </div>
+            <Button 
+              onClick={() => setIsDialogOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Agregar Número
+            </Button>
           </div>
-          <Button onClick={() => setIsDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Agregar Número
-          </Button>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="p-0">
           {/* Error Alert */}
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center">
-              <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
+            <div className="mx-6 mt-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center animate-in slide-in-from-top-2 duration-300">
+              <AlertCircle className="h-5 w-5 text-red-600 mr-3 flex-shrink-0" />
               <span className="text-red-800 flex-1">{error}</span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setError(null)}
-                className="text-red-600 hover:text-red-800"
+                className="text-red-600 hover:text-red-800 hover:bg-red-100 ml-2"
               >
                 ×
               </Button>
             </div>
           )}
 
-          {/* Connection Matrix */}
-          {stores.length > 0 && configs.length > 0 && (
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold mb-4 flex items-center">
-                <MessageSquare className="mr-2 h-5 w-5" />
-                Matriz de Conexiones WhatsApp ↔ Tiendas
-              </h3>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse bg-white rounded border">
-                    <thead>
-                      <tr>
-                        <th className="border border-gray-300 p-3 bg-gray-100 text-left font-medium">
-                          Número WhatsApp
-                        </th>
-                        {stores.map(store => (
-                          <th key={store.id} className="border border-gray-300 p-3 bg-gray-100 text-center font-medium min-w-[150px]">
-                            <div className="truncate" title={store.name}>
-                              {store.name || 'Tienda sin nombre'}
-                            </div>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {configs.map(config => (
-                        config.phone_numbers.map((phoneNumber, phoneIndex) => (
-                          <tr key={`${config.id}-${phoneNumber}`} className="hover:bg-gray-50">
-                            <td className="border border-gray-300 p-3 font-medium">
-                              <div className="flex items-center">
-                                <Phone className="h-4 w-4 mr-2 text-green-600" />
-                                <div>
-                                  <div className="font-semibold">{config.display_name || phoneNumber}</div>
-                                  {config.display_name && (
-                                    <div className="text-sm text-gray-500">{phoneNumber}</div>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                            {stores.map(store => {
-                              const isConnected = config.store_id === store.id;
-                              return (
-                                <td key={store.id} className="border border-gray-300 p-3 text-center">
-                                  <Button
-                                    size="sm"
-                                    variant={isConnected ? "default" : "outline"}
-                                    onClick={() => {
-                                      if (isConnected) {
-                                        handleDisconnectFromStore(config.id, store.id);
-                                      } else {
-                                        handleConnectToStore(config.id, store.id);
-                                      }
-                                    }}
-                                    disabled={loading}
-                                    className={isConnected ? 
-                                      "bg-green-600 hover:bg-green-700 text-white border-green-600" : 
-                                      "border-gray-300 hover:bg-gray-50 text-gray-700"
-                                    }
-                                  >
-                                    {isConnected ? (
-                                      <>
-                                        <CheckCircle className="h-4 w-4 mr-1" />
-                                        Conectado
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Plus className="h-4 w-4 mr-1" />
-                                        Conectar
-                                      </>
-                                    )}
-                                  </Button>
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-3 text-sm text-gray-600">
-                  💡 <strong>Tip:</strong> Los números nuevos se conectan automáticamente a la tienda seleccionada. Puedes usar esta matriz para conectar/desconectar números de tiendas adicionales.
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Configuration List */}
+          {/* Optimized Configuration List - Elimina redundancia y mejora UX */}
           {configs && configs.length > 0 ? (
-            <div className="space-y-4">
-              {configs.map((config) => {
-                const StatusIcon = getStatusIcon(config.is_active, config.is_configured);
-                
-                return (
-                  <div
-                    key={config.id}
-                    className="flex items-center justify-between p-6 border rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className={`p-3 rounded-lg ${
-                        config.is_active && config.is_configured ? 'bg-green-100' :
-                        !config.is_configured ? 'bg-gray-100' :
-                        'bg-red-100'
-                      }`}>
-                        <StatusIcon className={`h-6 w-6 ${
-                          config.is_active && config.is_configured ? 'text-green-600' :
-                          !config.is_configured ? 'text-gray-600' :
-                          'text-red-600'
-                        }`} />
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-3 mb-1">
-                          <h3 className="font-semibold text-gray-900">
-                            {config.display_name || config.phone_numbers[0]}
-                          </h3>
-                          {config.display_name && (
-                            <span className="text-sm text-gray-500">
-                              ({config.phone_numbers[0]})
-                            </span>
+            <div className="p-6">
+              <div className="space-y-3">
+                {configs.map((config) => {
+                  const StatusIcon = getStatusIcon(config.is_active, config.is_configured);
+                  const isHovered = hoveredConfig === config.id;
+                  
+                  return (
+                    <div
+                      key={config.id}
+                      onMouseEnter={() => setHoveredConfig(config.id)}
+                      onMouseLeave={() => setHoveredConfig(null)}
+                      className={`group relative flex items-center justify-between p-6 border rounded-xl transition-all duration-200 ${
+                        isHovered 
+                          ? 'border-emerald-200 bg-emerald-50 shadow-md transform scale-[1.01]' 
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
+                      }`}
+                    >
+                      {/* Left Section - Main Info */}
+                      <div className="flex items-center space-x-4 flex-1">
+                        {/* Status Indicator */}
+                        <div className={`relative p-3 rounded-xl transition-all duration-200 ${
+                          config.is_active && config.is_configured 
+                            ? 'bg-emerald-100 text-emerald-600' 
+                            : !config.is_configured 
+                            ? 'bg-amber-100 text-amber-600' 
+                            : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          <StatusIcon className="h-6 w-6" />
+                          {config.is_active && config.is_configured && (
+                            <div className="absolute -top-1 -right-1 h-3 w-3 bg-emerald-500 rounded-full animate-pulse"></div>
                           )}
-                          <Badge 
-                            className={`text-xs ${getStatusColor(config.is_active, config.is_configured)}`}
-                          >
-                            {getStatusText(config.is_active, config.is_configured)}
-                          </Badge>
                         </div>
                         
-                        {config.store_name && (
-                          <p className="text-sm text-gray-600 mb-1">
-                            Tienda: {config.store_name}
-                          </p>
+                        {/* Number Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <h3 className="font-semibold text-slate-900 text-lg">
+                              {config.display_name || config.phone_numbers[0]}
+                            </h3>
+                            {config.display_name && (
+                              <span className="text-sm text-slate-500 font-mono bg-slate-100 px-2 py-1 rounded">
+                                {config.phone_numbers[0]}
+                              </span>
+                            )}
+                            <Badge className={`text-xs font-medium ${getStatusColor(config.is_active, config.is_configured)}`}>
+                              {getStatusText(config.is_active, config.is_configured)}
+                            </Badge>
+                          </div>
+                          
+                          {/* Store Connection Info */}
+                          <div className="flex items-center space-x-4 text-sm text-slate-600">
+                            {config.store_name ? (
+                              <div className="flex items-center space-x-2">
+                                <Link2 className="h-4 w-4 text-emerald-500" />
+                                <span className="font-medium">{config.store_name}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center space-x-2">
+                                <Unlink className="h-4 w-4 text-slate-400" />
+                                <span className="text-slate-400">Sin tienda conectada</span>
+                              </div>
+                            )}
+                            
+                            {config.message_count !== undefined && (
+                              <div className="flex items-center space-x-2">
+                                <MessageSquare className="h-4 w-4 text-blue-500" />
+                                <span>{config.message_count} conversaciones</span>
+                              </div>
+                            )}
+                            
+                            {config.last_activity && (
+                              <div className="flex items-center space-x-2">
+                                <Clock className="h-4 w-4 text-slate-400" />
+                                <span>
+                                  {new Date(config.last_activity).toLocaleDateString('es-AR', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Section - Actions */}
+                      <div className={`flex items-center space-x-2 transition-all duration-200 ${
+                        isHovered ? 'opacity-100 translate-x-0' : 'opacity-70 translate-x-1'
+                      }`}>
+                        {/* Store Connection Dropdown */}
+                        {stores.length > 1 && (
+                          <div className="relative">
+                            <select
+                              value={config.store_id || ''}
+                              onChange={(e) => {
+                                const newStoreId = e.target.value;
+                                if (newStoreId && newStoreId !== config.store_id) {
+                                  handleConnectToStore(config.id, newStoreId);
+                                } else if (!newStoreId && config.store_id) {
+                                  handleDisconnectFromStore(config.id, config.store_id);
+                                }
+                              }}
+                              className="appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 hover:border-slate-300 transition-colors"
+                              disabled={loading}
+                            >
+                              <option value="">Sin tienda</option>
+                              {stores.map((store) => (
+                                <option key={store.id} value={store.id}>
+                                  {store.name}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                          </div>
+                        )}
+
+                        {/* Toggle Status */}
+                        {config.is_configured && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleToggleStatus(config.id)}
+                            disabled={loading}
+                            className={`border-2 transition-all duration-200 ${
+                              config.is_active 
+                                ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50' 
+                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {config.is_active ? (
+                              <>
+                                <Power className="h-4 w-4 mr-1" />
+                                Activo
+                              </>
+                            ) : (
+                              <>
+                                <PowerOff className="h-4 w-4 mr-1" />
+                                Inactivo
+                              </>
+                            )}
+                          </Button>
                         )}
                         
-                        <div className="flex items-center space-x-4 text-xs text-gray-500">
-                          {config.message_count && (
-                            <span>
-                              {config.message_count} mensajes enviados
-                            </span>
-                          )}
-                          {config.last_activity && (
-                            <span>
-                              Última actividad: {new Date(config.last_activity).toLocaleString('es-AR')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-2 ml-4">
-                      {config.is_configured && (
+                        {/* Settings */}
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleToggleStatus(config.id)}
-                          disabled={loading}
+                          onClick={() => {
+                            setEditingConfig(config);
+                            setPhoneValue(config.phone_numbers[0]);
+                            setFormDisplayName(config.display_name || '');
+                            setIsDialogOpen(true);
+                          }}
+                          className="border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200"
                         >
-                          {config.is_active ? (
-                            <>
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Desactivar
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Activar
-                            </>
-                          )}
+                          <Settings className="h-4 w-4" />
                         </Button>
-                      )}
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setEditingConfig(config);
-                          setPhoneValue(config.phone_numbers[0]);
-                          setFormDisplayName(config.display_name || '');
-                          setIsDialogOpen(true);
-                        }}
-                      >
-                        <Settings className="h-4 w-4" />
-                      </Button>
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteConfig(config.id, config.display_name || config.phone_numbers[0] || 'Configuración de WhatsApp')}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                        
+                        {/* Delete */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteConfig(config.id, config.display_name || config.phone_numbers[0] || 'Configuración de WhatsApp')}
+                          className="border-red-200 text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-300 transition-all duration-200"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           ) : (
-            /* Empty State */
-            <div className="text-center py-12">
-              <div className="mx-auto w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                <Phone className="h-12 w-12 text-green-400" />
+            /* Enhanced Empty State */
+            <div className="text-center py-16 px-6">
+              <div className="mx-auto w-24 h-24 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
+                <Phone className="h-12 w-12 text-emerald-600" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No tienes números de WhatsApp configurados
+              <h3 className="text-xl font-semibold text-slate-900 mb-3">
+                ¡Configura tu primer número!
               </h3>
-              <p className="text-gray-600 mb-6 max-w-sm mx-auto">
-                Configura tu primer número de WhatsApp Business para comenzar a recibir consultas de analytics automáticamente.
+              <p className="text-slate-600 mb-8 max-w-md mx-auto leading-relaxed">
+                Conecta tu número de WhatsApp Business y comienza a ofrecer analytics automáticos a tus clientes las 24 horas.
               </p>
-              <Button onClick={() => setIsDialogOpen(true)} className="mx-auto">
-                <Plus className="mr-2 h-4 w-4" />
+              <Button 
+                onClick={() => setIsDialogOpen(true)} 
+                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-8 py-3"
+              >
+                <Plus className="mr-2 h-5 w-5" />
                 Configurar WhatsApp
               </Button>
             </div>
@@ -647,79 +677,27 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         </CardContent>
       </Card>
 
-      {/* Quick Setup Guide */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Zap className="mr-2 h-5 w-5 text-yellow-600" />
-            Configuración Rápida
-          </CardTitle>
-          <CardDescription>
-            Pasos para configurar WhatsApp Business con Fini AI
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-start space-x-4 p-4 bg-blue-50 rounded-lg">
-              <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-semibold">
-                1
-              </div>
-              <div>
-                <h4 className="font-medium text-blue-900">Conecta tu tienda</h4>
-                <p className="text-sm text-blue-700">
-                  Asegúrate de tener al menos una tienda de Tienda Nube conectada
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-start space-x-4 p-4 bg-green-50 rounded-lg">
-              <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-semibold">
-                2
-              </div>
-              <div>
-                <h4 className="font-medium text-green-900">Registra tu número</h4>
-                <p className="text-sm text-green-700">
-                  Agrega tu número de WhatsApp Business usando el botón &quot;Agregar Número&quot;
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-start space-x-4 p-4 bg-purple-50 rounded-lg">
-              <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center text-sm font-semibold">
-                3
-              </div>
-              <div>
-                <h4 className="font-medium text-purple-900">¡Listo para chatear!</h4>
-                <p className="text-sm text-purple-700">
-                  Tus clientes ya pueden chatear contigo y obtener analytics en tiempo real
-                </p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Add/Edit Number Dialog */}
+      {/* Redesigned Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="sm:max-w-lg border-0 shadow-2xl">
+          <DialogHeader className="space-y-3">
+            <DialogTitle className="text-xl font-semibold text-slate-900">
               {editingConfig ? 'Editar Configuración' : 'Agregar Número de WhatsApp'}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-slate-600 leading-relaxed">
               {editingConfig 
-                ? 'Actualiza la configuración de tu número de WhatsApp' 
-                : 'Configura un nuevo número de WhatsApp Business'
+                ? 'Actualiza la información de tu número de WhatsApp Business' 
+                : 'Conecta un nuevo número de WhatsApp Business para expandir tu alcance'
               }
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
+          <div className="space-y-6 mt-6">
             <div>
-              <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="phoneNumber" className="block text-sm font-semibold text-slate-700 mb-3">
                 Número de WhatsApp
               </label>
-              <div className="phone-input-container">
+              <div className="phone-input-container border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all duration-200">
                 <PhoneInput
                   international
                   countryCallingCodeEditable={false}
@@ -731,57 +709,62 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                   }}
                   className="w-full"
                   style={{
-                    '--PhoneInputCountryFlag-height': '1em',
+                    '--PhoneInputCountryFlag-height': '1.2em',
                     '--PhoneInputCountryFlag-borderColor': 'transparent',
-                    '--PhoneInput-color--focus': '#2563eb',
+                    '--PhoneInput-color--focus': '#10b981',
                   }}
                 />
               </div>
               {phoneError && (
-                <p className="text-xs text-red-500 mt-1">
+                <p className="text-sm text-red-600 mt-2 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-1" />
                   {phoneError}
                 </p>
               )}
-              <p className="text-xs text-gray-500 mt-1">
-                Selecciona tu país y completa el número sin el código de área
+              <p className="text-xs text-slate-500 mt-2">
+                Selecciona tu país y completa el número sin códigos adicionales
               </p>
             </div>
             
             <div>
-              <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre
+              <label htmlFor="displayName" className="block text-sm font-semibold text-slate-700 mb-3">
+                Nombre para mostrar
               </label>
               <Input
                 id="displayName"
                 type="text"
                 value={formDisplayName}
                 onChange={(e) => setFormDisplayName(e.target.value)}
-                placeholder="Juan Perez"
+                placeholder="Ej: Juan Pérez - Tienda Principal"
+                className="border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 rounded-xl h-12"
               />
             </div>
             
             {!editingConfig && (
               <div>
-                <label htmlFor="storeSelect" className="block text-sm font-medium text-gray-700 mb-2">
-                  Tienda asociada
+                <label htmlFor="storeSelect" className="block text-sm font-semibold text-slate-700 mb-3">
+                  Tienda a conectar
                 </label>
-                <select
-                  id="storeSelect"
-                  value={selectedStoreId || ''}
-                  onChange={(e) => setSelectedStoreId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {stores.map((store) => (
-                    <option key={store.id} value={store.id}>
-                      {store.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    id="storeSelect"
+                    value={selectedStoreId || ''}
+                    onChange={(e) => setSelectedStoreId(e.target.value)}
+                    className="w-full h-12 px-4 pr-10 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white appearance-none"
+                  >
+                    {stores.map((store) => (
+                      <option key={store.id} value={store.id}>
+                        {store.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronRight className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+                </div>
               </div>
             )}
           </div>
           
-          <div className="flex justify-end space-x-2 mt-6">
+          <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-slate-100">
             <Button
               variant="outline"
               onClick={() => {
@@ -791,17 +774,23 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                 setFormDisplayName('');
                 setPhoneError(null);
               }}
+              className="border-slate-200 text-slate-600 hover:bg-slate-50 px-6"
             >
               Cancelar
             </Button>
             <Button 
               onClick={handleAddNumber} 
               disabled={isAdding || !phoneValue || !formDisplayName || !!phoneError}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 shadow-md hover:shadow-lg transition-all duration-200"
             >
               {isAdding ? (
-                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              {editingConfig ? 'Actualizar' : 'Agregar'}
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                  Procesando...
+                </>
+              ) : (
+                editingConfig ? 'Actualizar' : 'Agregar Número'
+              )}
             </Button>
           </div>
         </DialogContent>
