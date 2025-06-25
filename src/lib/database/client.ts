@@ -117,6 +117,56 @@ export class StoreService {
         access_token: storeData.access_token ? '[REDACTED]' : null
       });
 
+      // First, check if store already exists for this user+platform+platform_store_id
+      const { data: existingStore, error: checkError } = await _supabaseAdmin
+        .from('stores')
+        .select('*')
+        .eq('user_id', storeData.user_id)
+        .eq('platform', storeData.platform || 'tiendanube')
+        .eq('platform_store_id', storeData.platform_store_id)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        // PGRST116 = no rows found, which is expected for new stores
+        console.error('[ERROR] Error checking existing store:', checkError);
+        return { 
+          success: false, 
+          error: `Database error while checking existing store: ${checkError.message}` 
+        };
+      }
+
+      if (existingStore) {
+        console.log('[INFO] Store already exists, updating existing store:', existingStore.id);
+        
+        // Update existing store instead of creating new one
+        const { data: updatedStore, error: updateError } = await _supabaseAdmin
+          .from('stores')
+          .update({
+            ...storeData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingStore.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('[ERROR] Failed to update existing store:', updateError);
+          return { 
+            success: false, 
+            error: `Failed to update existing store: ${updateError.message}` 
+          };
+        }
+
+        console.log('[DEBUG] Store updated successfully:', {
+          id: updatedStore?.id,
+          name: updatedStore?.name,
+          platform: updatedStore?.platform
+        });
+
+        return { success: true, store: updatedStore };
+      }
+
+      // Store doesn't exist, create new one
       const { data, error } = await _supabaseAdmin
         .from('stores')
         .insert([storeData])
@@ -130,6 +180,15 @@ export class StoreService {
           hint: error.hint,
           code: error.code
         });
+
+        // Handle specific error cases
+        if (error.code === '23505') { // Unique violation
+          return { 
+            success: false, 
+            error: 'Esta tienda ya está conectada a tu cuenta. Si necesitas reconectarla, primero desconéctala desde el dashboard.' 
+          };
+        }
+
         throw error;
       }
 
