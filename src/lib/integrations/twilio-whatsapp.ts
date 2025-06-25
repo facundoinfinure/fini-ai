@@ -206,6 +206,63 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
       };
     }
   }
+
+  /**
+   * Send OTP verification code to WhatsApp number
+   */
+  async sendOTPCode(phoneNumber: string, otpCode: string): Promise<{ success: boolean; messageSid?: string; error?: string }> {
+    const otpMessage = `🔐 *Código de Verificación Fini AI*
+
+Tu código de verificación es: *${otpCode}*
+
+Por favor, ingresa este código en la aplicación para completar la configuración de tu número de WhatsApp.
+
+Este código expira en 10 minutos.
+
+⚠️ No compartas este código con nadie.`;
+
+    return this.sendMessage({
+      to: phoneNumber,
+      from: this.config.phoneNumber,
+      body: otpMessage
+    });
+  }
+
+  /**
+   * Send verification success and welcome message
+   */
+  async sendVerificationSuccessMessage(phoneNumber: string, displayName: string, storeName?: string): Promise<{ success: boolean; messageSid?: string; error?: string }> {
+    const successMessage = `✅ *¡Verificación Exitosa!*
+
+¡Hola ${displayName}! Tu número de WhatsApp ha sido verificado correctamente.
+
+🎉 *¡Bienvenido a Fini AI!*
+
+Soy tu asistente de IA especializado en ${storeName || 'tu tienda'}. 
+
+🤖 *¿Qué puedo hacer por ti?*
+• 📊 Analytics en tiempo real
+• 🛍️ Información de productos
+• 👥 Atención al cliente 24/7
+• 📈 Ideas de marketing personalizadas
+• 💡 Insights de ventas
+
+*Comandos principales:*
+• Escribe "analytics" para ver tus métricas
+• Escribe "productos" para gestionar inventario
+• Escribe "marketing" para ideas de promoción
+• Escribe "ayuda" para ver todos los comandos
+
+¡Estoy aquí para ayudarte a hacer crecer tu negocio! 🚀
+
+_Puedes escribirme en cualquier momento._`;
+
+    return this.sendMessage({
+      to: phoneNumber,
+      from: this.config.phoneNumber,
+      body: successMessage
+    });
+  }
 }
 
 /**

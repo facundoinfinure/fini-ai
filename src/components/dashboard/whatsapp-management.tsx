@@ -38,6 +38,7 @@ interface WhatsAppConfig {
   display_name?: string;
   is_active: boolean;
   is_configured: boolean;
+  is_verified: boolean;
   store_name?: string;
   store_id?: string;
   last_activity?: string;
@@ -69,6 +70,16 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [hoveredConfig, setHoveredConfig] = useState<string | null>(null);
   
+  // OTP Verification states
+  const [showOTPDialog, setShowOTPDialog] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isSendingOTP, setIsSendingOTP] = useState(false);
+  const [otpExpiresAt, setOtpExpiresAt] = useState<Date | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  
   const { showConfirmation, ConfirmationDialog } = useConfirmationDialog();
 
   useEffect(() => {
@@ -85,6 +96,32 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
       setSelectedStoreId(null);
     }
   }, [stores, selectedStoreId]);
+
+  // Timer for OTP expiration
+  useEffect(() => {
+    if (otpExpiresAt) {
+      const interval = setInterval(() => {
+        const now = new Date();
+        const remaining = Math.max(0, Math.floor((otpExpiresAt.getTime() - now.getTime()) / 1000));
+        setTimeRemaining(remaining);
+        
+        if (remaining === 0) {
+          setOtpExpiresAt(null);
+          setTimeRemaining(null);
+          clearInterval(interval);
+        }
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [otpExpiresAt]);
+
+  // Format time remaining
+  const formatTimeRemaining = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
   const fetchConfigs = async () => {
     try {
@@ -106,7 +143,8 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
             phone_numbers: [number.phone_number],
             display_name: number.display_name,
             is_active: number.is_active,
-            is_configured: number.is_verified,
+            is_configured: number.connected_stores?.length > 0,
+            is_verified: number.is_verified || false,
             store_name: number.connected_stores?.[0]?.name,
             store_id: number.connected_stores?.[0]?.id,
             last_activity: number.last_message_at || number.created_at,
@@ -156,6 +194,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
     setPhoneError(null);
     setIsAdding(true);
     setError(null);
+    
     try {
       const response = await fetch('/api/whatsapp/numbers', {
         method: 'POST',
@@ -170,10 +209,18 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         })
       });
       const data = await response.json();
+      
       if (data.success) {
+        // Close add dialog and show OTP verification
         setPhoneValue('');
         setFormDisplayName('');
         setIsDialogOpen(false);
+        
+        // Start OTP verification flow
+        setPendingVerification(data.data.id);
+        await sendOTP(data.data.id);
+        
+        // Refresh configs to show pending status
         await fetchConfigs();
       } else {
         setError(data.error || 'Failed to add number');
@@ -185,6 +232,88 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
     } finally {
       setIsAdding(false);
     }
+  };
+
+  const sendOTP = async (whatsappNumberId: string) => {
+    setIsSendingOTP(true);
+    setOtpError(null);
+    
+    try {
+      const response = await fetch('/api/whatsapp/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ whatsapp_number_id: whatsappNumberId })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setShowOTPDialog(true);
+        const expiresAt = new Date(Date.now() + data.data.expires_in * 1000);
+        setOtpExpiresAt(expiresAt);
+        setTimeRemaining(data.data.expires_in);
+      } else {
+        setError(data.error || 'Error al enviar código de verificación');
+      }
+    } catch (err) {
+      setError('Error al enviar código de verificación');
+      console.error('[ERROR] Failed to send OTP:', err);
+    } finally {
+      setIsSendingOTP(false);
+    }
+  };
+
+  const verifyOTP = async () => {
+    if (!pendingVerification || !otpCode) return;
+    
+    setIsVerifying(true);
+    setOtpError(null);
+    
+    try {
+      const response = await fetch('/api/whatsapp/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          whatsapp_number_id: pendingVerification,
+          otp_code: otpCode 
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Success! Close dialogs and refresh
+        setShowOTPDialog(false);
+        setPendingVerification(null);
+        setOtpCode('');
+        setOtpExpiresAt(null);
+        setTimeRemaining(null);
+        
+        // Show success message
+        setError(null);
+        await fetchConfigs();
+        
+        // You could add a success toast here
+        console.log('[INFO] Number verified successfully!');
+      } else {
+        setOtpError(data.error || 'Código de verificación incorrecto');
+      }
+    } catch (err) {
+      setOtpError('Error al verificar código');
+      console.error('[ERROR] Failed to verify OTP:', err);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const resendOTP = async () => {
+    if (!pendingVerification) return;
+    
+    setOtpCode('');
+    setOtpError(null);
+    await sendOTP(pendingVerification);
   };
 
   const handleToggleStatus = async (configId: string) => {
@@ -243,23 +372,25 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
     });
   };
 
-  const getStatusColor = (isActive: boolean, isConfigured: boolean) => {
-    if (isActive && isConfigured) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-    if (!isConfigured) return 'bg-amber-100 text-amber-800 border-amber-200';
+  const getStatusColor = (isActive: boolean, isVerified: boolean) => {
+    if (isActive && isVerified) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    if (!isVerified) return 'bg-amber-100 text-amber-800 border-amber-200';
     return 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
-  const getStatusText = (isActive: boolean, isConfigured: boolean) => {
-    if (isActive && isConfigured) return 'Conectado';
-    if (!isConfigured) return 'Pendiente';
+  const getStatusText = (isActive: boolean, isVerified: boolean) => {
+    if (isActive && isVerified) return 'Verificado';
+    if (!isVerified) return 'Pendiente Verificación';
     return 'Inactivo';
   };
 
-  const getStatusIcon = (isActive: boolean, isConfigured: boolean) => {
-    if (isActive && isConfigured) return Signal;
-    if (!isConfigured) return Clock;
+  const getStatusIcon = (isActive: boolean, isVerified: boolean) => {
+    if (isActive && isVerified) return Signal;
+    if (!isVerified) return Clock;
     return PowerOff;
   };
+
+
 
   const handleConnectToStore = async (whatsappNumberId: string, storeId: string) => {
     try {
@@ -522,8 +653,8 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                                 {config.phone_numbers[0]}
                               </span>
                             )}
-                            <Badge className={`text-xs font-medium ${getStatusColor(config.is_active, config.is_configured)}`}>
-                              {getStatusText(config.is_active, config.is_configured)}
+                                                <Badge className={`text-xs font-medium ${getStatusColor(config.is_active, config.is_verified)}`}>
+                      {getStatusText(config.is_active, config.is_verified)}
                             </Badge>
                           </div>
                           
@@ -596,8 +727,34 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                           </div>
                         )}
 
+                        {/* Verify Number */}
+                        {!config.is_verified && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setPendingVerification(config.id);
+                              sendOTP(config.id);
+                            }}
+                            disabled={isSendingOTP || loading}
+                            className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-300 transition-all duration-200"
+                          >
+                            {isSendingOTP && pendingVerification === config.id ? (
+                              <>
+                                <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                                Enviando...
+                              </>
+                            ) : (
+                              <>
+                                <MessageSquare className="h-4 w-4 mr-1" />
+                                Verificar
+                              </>
+                            )}
+                          </Button>
+                        )}
+
                         {/* Toggle Status */}
-                        {config.is_configured && (
+                        {config.is_configured && config.is_verified && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -677,119 +834,234 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         </CardContent>
       </Card>
 
-      {/* Redesigned Add/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-lg border-0 shadow-2xl">
+             {/* Add/Edit WhatsApp Number Dialog */}
+       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+         <DialogContent className="sm:max-w-lg border-0 shadow-2xl">
+           <DialogHeader className="space-y-3">
+             <DialogTitle className="text-xl font-semibold text-slate-900">
+               {editingConfig ? 'Editar Configuración' : 'Agregar Número de WhatsApp'}
+             </DialogTitle>
+             <DialogDescription className="text-slate-600 leading-relaxed">
+               {editingConfig 
+                 ? 'Actualiza la información de tu número de WhatsApp Business' 
+                 : 'Conecta un nuevo número de WhatsApp Business. Recibirás un código de verificación por WhatsApp.'
+               }
+             </DialogDescription>
+           </DialogHeader>
+           
+           <div className="space-y-6 mt-6">
+             <div>
+               <label htmlFor="phoneNumber" className="block text-sm font-semibold text-slate-700 mb-3">
+                 Número de WhatsApp
+               </label>
+               <div className="phone-input-container border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all duration-200">
+                 <PhoneInput
+                   international
+                   countryCallingCodeEditable={false}
+                   defaultCountry="AR"
+                   value={phoneValue}
+                   onChange={(value) => {
+                     setPhoneValue(value || '');
+                     setPhoneError(null);
+                   }}
+                   className="w-full"
+                   style={{
+                     '--PhoneInputCountryFlag-height': '1.2em',
+                     '--PhoneInputCountryFlag-borderColor': 'transparent',
+                     '--PhoneInput-color--focus': '#10b981',
+                   }}
+                 />
+               </div>
+               {phoneError && (
+                 <p className="text-sm text-red-600 mt-2 flex items-center">
+                   <AlertCircle className="h-4 w-4 mr-1" />
+                   {phoneError}
+                 </p>
+               )}
+               <p className="text-xs text-slate-500 mt-2">
+                 Selecciona tu país y completa el número sin códigos adicionales
+               </p>
+             </div>
+
+             <div>
+               <label htmlFor="displayName" className="block text-sm font-semibold text-slate-700 mb-3">
+                 Nombre para mostrar
+               </label>
+               <Input
+                 id="displayName"
+                 type="text"
+                 value={formDisplayName}
+                 onChange={(e) => setFormDisplayName(e.target.value)}
+                 placeholder="Ej: Juan Pérez - Tienda Principal"
+                 className="border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 rounded-xl h-12"
+               />
+             </div>
+
+             {!editingConfig && (
+               <div>
+                 <label htmlFor="storeSelect" className="block text-sm font-semibold text-slate-700 mb-3">
+                   Tienda a conectar
+                 </label>
+                 <div className="relative">
+                   <select
+                     id="storeSelect"
+                     value={selectedStoreId || ''}
+                     onChange={(e) => setSelectedStoreId(e.target.value)}
+                     className="w-full h-12 px-4 pr-10 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white appearance-none"
+                   >
+                     {stores.map((store) => (
+                       <option key={store.id} value={store.id}>
+                         {store.name}
+                       </option>
+                     ))}
+                   </select>
+                   <ChevronRight className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+                 </div>
+               </div>
+             )}
+           </div>
+           
+           <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-slate-100">
+             <Button 
+               variant="outline"
+               onClick={() => {
+                 setIsDialogOpen(false);
+                 setEditingConfig(null);
+                 setPhoneValue('');
+                 setFormDisplayName('');
+                 setPhoneError(null);
+               }}
+               className="border-slate-200 text-slate-600 hover:bg-slate-50 px-6"
+             >
+               Cancelar
+             </Button>
+             <Button 
+               onClick={handleAddNumber} 
+               disabled={isAdding || !phoneValue || !formDisplayName || !!phoneError}
+               className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 shadow-md hover:shadow-lg transition-all duration-200"
+             >
+               {isAdding ? (
+                 <>
+                   <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                   Agregando...
+                 </>
+               ) : (
+                 editingConfig ? 'Actualizar' : 'Agregar Número'
+               )}
+             </Button>
+           </div>
+         </DialogContent>
+       </Dialog>
+
+       {/* OTP Verification Dialog */}
+       <Dialog open={showOTPDialog} onOpenChange={(open) => {
+        if (!open && !isVerifying) {
+          setShowOTPDialog(false);
+          setOtpCode('');
+          setOtpError(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md border-0 shadow-2xl">
           <DialogHeader className="space-y-3">
-            <DialogTitle className="text-xl font-semibold text-slate-900">
-              {editingConfig ? 'Editar Configuración' : 'Agregar Número de WhatsApp'}
+            <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center">
+              <MessageSquare className="mr-3 h-6 w-6 text-emerald-600" />
+              Verificar Número de WhatsApp
             </DialogTitle>
             <DialogDescription className="text-slate-600 leading-relaxed">
-              {editingConfig 
-                ? 'Actualiza la información de tu número de WhatsApp Business' 
-                : 'Conecta un nuevo número de WhatsApp Business para expandir tu alcance'
-              }
+              Hemos enviado un código de 6 dígitos a tu WhatsApp. Ingresa el código para completar la verificación.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-6 mt-6">
-            <div>
-              <label htmlFor="phoneNumber" className="block text-sm font-semibold text-slate-700 mb-3">
-                Número de WhatsApp
-              </label>
-              <div className="phone-input-container border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all duration-200">
-                <PhoneInput
-                  international
-                  countryCallingCodeEditable={false}
-                  defaultCountry="AR"
-                  value={phoneValue}
-                  onChange={(value) => {
-                    setPhoneValue(value || '');
-                    setPhoneError(null);
-                  }}
-                  className="w-full"
-                  style={{
-                    '--PhoneInputCountryFlag-height': '1.2em',
-                    '--PhoneInputCountryFlag-borderColor': 'transparent',
-                    '--PhoneInput-color--focus': '#10b981',
-                  }}
-                />
+            <div className="text-center">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-2xl flex items-center justify-center mb-4">
+                <MessageSquare className="h-8 w-8 text-emerald-600" />
               </div>
-              {phoneError && (
-                <p className="text-sm text-red-600 mt-2 flex items-center">
-                  <AlertCircle className="h-4 w-4 mr-1" />
-                  {phoneError}
+              
+              {timeRemaining !== null && timeRemaining > 0 ? (
+                <p className="text-sm text-slate-600">
+                  El código expira en: <span className="font-mono text-emerald-600 font-semibold">
+                    {formatTimeRemaining(timeRemaining)}
+                  </span>
+                </p>
+              ) : (
+                <p className="text-sm text-red-600 font-medium">
+                  El código ha expirado. Solicita uno nuevo.
                 </p>
               )}
-              <p className="text-xs text-slate-500 mt-2">
-                Selecciona tu país y completa el número sin códigos adicionales
-              </p>
             </div>
-            
+
             <div>
-              <label htmlFor="displayName" className="block text-sm font-semibold text-slate-700 mb-3">
-                Nombre para mostrar
+              <label htmlFor="otpCode" className="block text-sm font-semibold text-slate-700 mb-3">
+                Código de Verificación
               </label>
               <Input
-                id="displayName"
+                id="otpCode"
                 type="text"
-                value={formDisplayName}
-                onChange={(e) => setFormDisplayName(e.target.value)}
-                placeholder="Ej: Juan Pérez - Tienda Principal"
-                className="border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 rounded-xl h-12"
+                value={otpCode}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  setOtpCode(value);
+                  setOtpError(null);
+                }}
+                placeholder="123456"
+                className="text-center text-2xl font-mono border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 rounded-xl h-14 tracking-widest"
+                maxLength={6}
+                disabled={isVerifying || timeRemaining === 0}
               />
+              {otpError && (
+                <p className="text-sm text-red-600 mt-2 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {otpError}
+                </p>
+              )}
             </div>
-            
-            {!editingConfig && (
-              <div>
-                <label htmlFor="storeSelect" className="block text-sm font-semibold text-slate-700 mb-3">
-                  Tienda a conectar
-                </label>
-                <div className="relative">
-                  <select
-                    id="storeSelect"
-                    value={selectedStoreId || ''}
-                    onChange={(e) => setSelectedStoreId(e.target.value)}
-                    className="w-full h-12 px-4 pr-10 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white appearance-none"
-                  >
-                    {stores.map((store) => (
-                      <option key={store.id} value={store.id}>
-                        {store.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronRight className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
-                </div>
-              </div>
-            )}
+
+            <div className="text-center space-y-2">
+              <Button
+                variant="ghost"
+                onClick={resendOTP}
+                disabled={isSendingOTP || timeRemaining === null || timeRemaining > 0}
+                className="text-emerald-600 hover:bg-emerald-50"
+              >
+                {isSendingOTP ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                    Enviando...
+                  </>
+                ) : (
+                  'Reenviar Código'
+                )}
+              </Button>
+            </div>
           </div>
           
           <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-slate-100">
             <Button
               variant="outline"
               onClick={() => {
-                setIsDialogOpen(false);
-                setEditingConfig(null);
-                setPhoneValue('');
-                setFormDisplayName('');
-                setPhoneError(null);
+                setShowOTPDialog(false);
+                setOtpCode('');
+                setOtpError(null);
+                setPendingVerification(null);
               }}
+              disabled={isVerifying}
               className="border-slate-200 text-slate-600 hover:bg-slate-50 px-6"
             >
               Cancelar
             </Button>
             <Button 
-              onClick={handleAddNumber} 
-              disabled={isAdding || !phoneValue || !formDisplayName || !!phoneError}
+              onClick={verifyOTP}
+              disabled={isVerifying || otpCode.length !== 6 || timeRemaining === 0}
               className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 shadow-md hover:shadow-lg transition-all duration-200"
             >
-              {isAdding ? (
+              {isVerifying ? (
                 <>
                   <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                  Procesando...
+                  Verificando...
                 </>
               ) : (
-                editingConfig ? 'Actualizar' : 'Agregar Número'
+                'Verificar Código'
               )}
             </Button>
           </div>
