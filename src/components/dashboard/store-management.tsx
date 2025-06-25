@@ -12,12 +12,17 @@ import { es } from 'date-fns/locale';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Store } from '@/types/db';
 
-// Logo de Tienda Nube como SVG
+// Logo de Tienda Nube como SVG oficial
 const TiendaNubeLogo = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 2L3 7L12 12L21 7L12 2Z" fill="#00A8E8"/>
-    <path d="M3 7V17L12 22L21 17V7" fill="#0089C5" opacity="0.8"/>
-    <path d="M12 12L12 22" stroke="#ffffff" strokeWidth="1"/>
+  <svg 
+    fill="currentColor" 
+    xmlns="http://www.w3.org/2000/svg" 
+    width="20" 
+    height="20" 
+    viewBox="0 0 16 16"
+    className="text-blue-600"
+  >
+    <path d="M10.25 2.24a5.8 5.8 0 0 0-4 1.63 4.48 4.48 0 1 0 0 8.26 5.76 5.76 0 1 0 4-9.89m0 10.24A4.49 4.49 0 0 1 5.76 8H4.48a5.74 5.74 0 0 0 .89 3.07 3.3 3.3 0 0 1-.88.13 3.2 3.2 0 0 1 0-6.4A3.2 3.2 0 0 1 7.69 8H9a4.42 4.42 0 0 0-1.63-3.43 4.48 4.48 0 1 1 2.88 7.91"></path>
   </svg>
 );
 
