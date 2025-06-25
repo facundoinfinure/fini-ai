@@ -13,8 +13,11 @@ export async function middleware(request: NextRequest) {
   
   const { pathname } = request.nextUrl;
   
-  // Only check auth for dashboard and onboarding routes
-  if (!pathname.startsWith('/dashboard') && !pathname.startsWith('/onboarding')) {
+  // Skip auth for API routes and public endpoints
+  if (pathname.startsWith('/api/') || 
+      pathname.startsWith('/auth/') ||
+      pathname.startsWith('/public/') ||
+      (!pathname.startsWith('/dashboard') && !pathname.startsWith('/onboarding'))) {
     return response;
   }
 

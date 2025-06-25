@@ -1,19 +1,40 @@
 {
-  "version": 2,
+  "framework": "nextjs",
   "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm ci",
   "functions": {
-    "src/app/api/**/*": {
-      "maxDuration": 30
+    "src/app/api/**/*.ts": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
     {
-      "source": "/api/webhooks/tiendanube",
-      "destination": "/api/webhooks/tiendanube"
+      "source": "/api/whatsapp/:path*",
+      "destination": "/api/whatsapp/:path*"
     },
     {
-      "source": "/api/whatsapp/webhook",
-      "destination": "/api/whatsapp/webhook"
+      "source": "/webhook/whatsapp",
+      "destination": "/api/public/whatsapp-webhook"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/whatsapp/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-Requested-With, Content-Type, Authorization"
+        }
+      ]
     }
   ]
 } 

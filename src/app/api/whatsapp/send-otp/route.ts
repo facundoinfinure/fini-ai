@@ -69,7 +69,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send OTP via Twilio
+    // Send OTP via WhatsApp using templates (required for business-initiated messages)
+    console.log('[INFO] Using WhatsApp templates for OTP delivery');
     const twilioService = createTwilioWhatsAppService();
     const sendResult = await twilioService.sendOTPCode(whatsappNumber.phone_number, otpCode);
 

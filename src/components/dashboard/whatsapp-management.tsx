@@ -395,12 +395,12 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   const handleConnectToStore = async (whatsappNumberId: string, storeId: string) => {
     try {
       setLoading(true);
-      const response = await fetch('/api/whatsapp/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+                const response = await fetch('/api/whatsapp/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
         body: JSON.stringify({ whatsapp_number_id: whatsappNumberId, store_id: storeId })
-      });
+          });
       
       const data = await response.json();
       if (data.success) {
@@ -512,8 +512,8 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                 </div>
                 <div className="p-3 bg-emerald-200 rounded-xl">
                   <Signal className="h-6 w-6 text-emerald-700" />
-                </div>
               </div>
+                </div>
             </CardContent>
           </Card>
 
@@ -527,7 +527,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                     <TrendingUp className="h-3 w-3 mr-1" />
                     Total procesadas
                   </p>
-                </div>
+              </div>
                 <div className="p-3 bg-blue-200 rounded-xl">
                   <MessageSquare className="h-6 w-6 text-blue-700" />
                 </div>
@@ -545,10 +545,10 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                 </div>
                 <div className="p-3 bg-purple-200 rounded-xl">
                   <Zap className="h-6 w-6 text-purple-700" />
-                </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardContent>
+        </Card>
 
           <Card className="border-0 shadow-sm bg-gradient-to-br from-orange-50 to-orange-100 hover:shadow-md transition-all duration-300">
             <CardContent className="p-6">
@@ -571,22 +571,22 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
       <Card className="border-0 shadow-sm bg-white">
         <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
           <div className="flex items-center justify-between">
-            <div>
+          <div>
               <CardTitle className="flex items-center text-slate-900">
                 <Phone className="mr-3 h-5 w-5 text-emerald-600" />
                 Números de WhatsApp
-              </CardTitle>
+            </CardTitle>
               <CardDescription className="text-slate-600 mt-1">
                 Administra los números conectados a tus tiendas
-              </CardDescription>
-            </div>
+            </CardDescription>
+          </div>
             <Button 
               onClick={() => setIsDialogOpen(true)}
               className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Agregar Número
-            </Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Agregar Número
+          </Button>
           </div>
         </CardHeader>
 
@@ -611,13 +611,13 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
           {configs && configs.length > 0 ? (
             <div className="p-6">
               <div className="space-y-3">
-                {configs.map((config) => {
-                  const StatusIcon = getStatusIcon(config.is_active, config.is_configured);
+              {configs.map((config) => {
+                const StatusIcon = getStatusIcon(config.is_active, config.is_configured);
                   const isHovered = hoveredConfig === config.id;
-                  
-                  return (
-                    <div
-                      key={config.id}
+                
+                return (
+                  <div
+                    key={config.id}
                       onMouseEnter={() => setHoveredConfig(config.id)}
                       onMouseLeave={() => setHoveredConfig(null)}
                       className={`group relative flex items-center justify-between p-6 border rounded-xl transition-all duration-200 ${
@@ -640,24 +640,24 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                           {config.is_active && config.is_configured && (
                             <div className="absolute -top-1 -right-1 h-3 w-3 bg-emerald-500 rounded-full animate-pulse"></div>
                           )}
-                        </div>
-                        
+                      </div>
+                      
                         {/* Number Info */}
-                        <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-3 mb-2">
                             <h3 className="font-semibold text-slate-900 text-lg">
-                              {config.display_name || config.phone_numbers[0]}
-                            </h3>
-                            {config.display_name && (
+                            {config.display_name || config.phone_numbers[0]}
+                          </h3>
+                          {config.display_name && (
                               <span className="text-sm text-slate-500 font-mono bg-slate-100 px-2 py-1 rounded">
                                 {config.phone_numbers[0]}
-                              </span>
-                            )}
+                            </span>
+                          )}
                                                 <Badge className={`text-xs font-medium ${getStatusColor(config.is_active, config.is_verified)}`}>
                       {getStatusText(config.is_active, config.is_verified)}
-                            </Badge>
-                          </div>
-                          
+                          </Badge>
+                        </div>
+                        
                           {/* Store Connection Info */}
                           <div className="flex items-center space-x-4 text-sm text-slate-600">
                             {config.store_name ? (
@@ -679,22 +679,22 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                               </div>
                             )}
                             
-                            {config.last_activity && (
+                          {config.last_activity && (
                               <div className="flex items-center space-x-2">
                                 <Clock className="h-4 w-4 text-slate-400" />
-                                <span>
+                            <span>
                                   {new Date(config.last_activity).toLocaleDateString('es-AR', {
                                     day: 'numeric',
                                     month: 'short',
                                     hour: '2-digit',
                                     minute: '2-digit'
                                   })}
-                                </span>
+                            </span>
                               </div>
-                            )}
-                          </div>
+                          )}
                         </div>
                       </div>
+                    </div>
 
                       {/* Right Section - Actions */}
                       <div className={`flex items-center space-x-2 transition-all duration-200 ${
@@ -755,59 +755,59 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
 
                         {/* Toggle Status */}
                         {config.is_configured && config.is_verified && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleToggleStatus(config.id)}
-                            disabled={loading}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleStatus(config.id)}
+                          disabled={loading}
                             className={`border-2 transition-all duration-200 ${
                               config.is_active 
                                 ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50' 
                                 : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                             }`}
-                          >
-                            {config.is_active ? (
-                              <>
+                        >
+                          {config.is_active ? (
+                            <>
                                 <Power className="h-4 w-4 mr-1" />
                                 Activo
-                              </>
-                            ) : (
-                              <>
+                            </>
+                          ) : (
+                            <>
                                 <PowerOff className="h-4 w-4 mr-1" />
                                 Inactivo
-                              </>
-                            )}
-                          </Button>
-                        )}
-                        
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      
                         {/* Settings */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setEditingConfig(config);
-                            setPhoneValue(config.phone_numbers[0]);
-                            setFormDisplayName(config.display_name || '');
-                            setIsDialogOpen(true);
-                          }}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingConfig(config);
+                          setPhoneValue(config.phone_numbers[0]);
+                          setFormDisplayName(config.display_name || '');
+                          setIsDialogOpen(true);
+                        }}
                           className="border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200"
-                        >
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                        
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                      
                         {/* Delete */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteConfig(config.id, config.display_name || config.phone_numbers[0] || 'Configuración de WhatsApp')}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteConfig(config.id, config.display_name || config.phone_numbers[0] || 'Configuración de WhatsApp')}
                           className="border-red-200 text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-300 transition-all duration-200"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
               </div>
             </div>
           ) : (
@@ -835,114 +835,114 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
       </Card>
 
              {/* Add/Edit WhatsApp Number Dialog */}
-       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
          <DialogContent className="sm:max-w-lg border-0 shadow-2xl">
            <DialogHeader className="space-y-3">
              <DialogTitle className="text-xl font-semibold text-slate-900">
-               {editingConfig ? 'Editar Configuración' : 'Agregar Número de WhatsApp'}
-             </DialogTitle>
+              {editingConfig ? 'Editar Configuración' : 'Agregar Número de WhatsApp'}
+            </DialogTitle>
              <DialogDescription className="text-slate-600 leading-relaxed">
-               {editingConfig 
+              {editingConfig 
                  ? 'Actualiza la información de tu número de WhatsApp Business' 
                  : 'Conecta un nuevo número de WhatsApp Business. Recibirás un código de verificación por WhatsApp.'
-               }
-             </DialogDescription>
-           </DialogHeader>
-           
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
            <div className="space-y-6 mt-6">
-             <div>
+            <div>
                <label htmlFor="phoneNumber" className="block text-sm font-semibold text-slate-700 mb-3">
-                 Número de WhatsApp
-               </label>
+                Número de WhatsApp
+              </label>
                <div className="phone-input-container border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all duration-200">
-                 <PhoneInput
-                   international
-                   countryCallingCodeEditable={false}
-                   defaultCountry="AR"
-                   value={phoneValue}
-                   onChange={(value) => {
-                     setPhoneValue(value || '');
-                     setPhoneError(null);
-                   }}
-                   className="w-full"
-                   style={{
+                <PhoneInput
+                  international
+                  countryCallingCodeEditable={false}
+                  defaultCountry="AR"
+                  value={phoneValue}
+                  onChange={(value) => {
+                    setPhoneValue(value || '');
+                    setPhoneError(null);
+                  }}
+                  className="w-full"
+                  style={{
                      '--PhoneInputCountryFlag-height': '1.2em',
-                     '--PhoneInputCountryFlag-borderColor': 'transparent',
+                    '--PhoneInputCountryFlag-borderColor': 'transparent',
                      '--PhoneInput-color--focus': '#10b981',
-                   }}
-                 />
-               </div>
-               {phoneError && (
+                  }}
+                />
+              </div>
+              {phoneError && (
                  <p className="text-sm text-red-600 mt-2 flex items-center">
                    <AlertCircle className="h-4 w-4 mr-1" />
-                   {phoneError}
-                 </p>
-               )}
+                  {phoneError}
+                </p>
+              )}
                <p className="text-xs text-slate-500 mt-2">
                  Selecciona tu país y completa el número sin códigos adicionales
-               </p>
-             </div>
-
-             <div>
+              </p>
+            </div>
+            
+            <div>
                <label htmlFor="displayName" className="block text-sm font-semibold text-slate-700 mb-3">
                  Nombre para mostrar
-               </label>
-               <Input
-                 id="displayName"
-                 type="text"
-                 value={formDisplayName}
-                 onChange={(e) => setFormDisplayName(e.target.value)}
+              </label>
+              <Input
+                id="displayName"
+                type="text"
+                value={formDisplayName}
+                onChange={(e) => setFormDisplayName(e.target.value)}
                  placeholder="Ej: Juan Pérez - Tienda Principal"
                  className="border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 rounded-xl h-12"
-               />
-             </div>
-
-             {!editingConfig && (
-               <div>
+              />
+            </div>
+            
+            {!editingConfig && (
+              <div>
                  <label htmlFor="storeSelect" className="block text-sm font-semibold text-slate-700 mb-3">
                    Tienda a conectar
-                 </label>
+                </label>
                  <div className="relative">
-                   <select
-                     id="storeSelect"
-                     value={selectedStoreId || ''}
-                     onChange={(e) => setSelectedStoreId(e.target.value)}
+                <select
+                  id="storeSelect"
+                  value={selectedStoreId || ''}
+                  onChange={(e) => setSelectedStoreId(e.target.value)}
                      className="w-full h-12 px-4 pr-10 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white appearance-none"
-                   >
-                     {stores.map((store) => (
-                       <option key={store.id} value={store.id}>
-                         {store.name}
-                       </option>
-                     ))}
-                   </select>
+                >
+                  {stores.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.name}
+                    </option>
+                  ))}
+                </select>
                    <ChevronRight className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
                  </div>
-               </div>
-             )}
-           </div>
-           
+              </div>
+            )}
+          </div>
+          
            <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-slate-100">
-             <Button 
-               variant="outline"
-               onClick={() => {
-                 setIsDialogOpen(false);
-                 setEditingConfig(null);
-                 setPhoneValue('');
-                 setFormDisplayName('');
-                 setPhoneError(null);
-               }}
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDialogOpen(false);
+                setEditingConfig(null);
+                setPhoneValue('');
+                setFormDisplayName('');
+                setPhoneError(null);
+              }}
                className="border-slate-200 text-slate-600 hover:bg-slate-50 px-6"
-             >
-               Cancelar
-             </Button>
-             <Button 
-               onClick={handleAddNumber} 
-               disabled={isAdding || !phoneValue || !formDisplayName || !!phoneError}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleAddNumber} 
+              disabled={isAdding || !phoneValue || !formDisplayName || !!phoneError}
                className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 shadow-md hover:shadow-lg transition-all duration-200"
-             >
-               {isAdding ? (
+            >
+              {isAdding ? (
                  <>
-                   <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
                    Agregando...
                  </>
                ) : (

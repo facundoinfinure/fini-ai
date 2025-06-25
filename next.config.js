@@ -19,14 +19,21 @@ const nextConfig = {
     typescript: {
       ignoreBuildErrors: false
     },
+    serverComponentsExternalPackages: ['@supabase/supabase-js'],
   },
 
   images: {
-    domains: ['api.tiendanube.com', 'cdn.tiendanube.com', 'localhost'],
+    domains: ['api.tiendanube.com', 'cdn.tiendanube.com', 'localhost', 'tiendanube.com', 'www.tiendanube.com'],
     formats: ['image/webp', 'image/avif'],
     minimumCacheTTL: 60,
     dangerouslyAllowSVG: false,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.tiendanube.com',
+      },
+    ],
   },
 
   async headers() {
@@ -144,6 +151,32 @@ const nextConfig = {
           },
         ],
       },
+      {
+        source: '/api/whatsapp/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex',
+          },
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+        ],
+      },
+      {
+        source: '/api/webhooks/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag', 
+            value: 'noindex',
+          },
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+        ],
+      },
     ];
   },
 
@@ -189,6 +222,8 @@ const nextConfig = {
         fs: false,
         path: false,
         os: false,
+        net: false,
+        tls: false,
       };
     }
 
@@ -200,7 +235,8 @@ const nextConfig = {
   trailingSlash: false,
   env: {
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
 
   async redirects() {
@@ -219,6 +255,23 @@ const nextConfig = {
       exclude: ['error', 'warn']
     } : false,
   },
+
+  generateStaticParams: false,
+
+  async rewrites() {
+    return [
+      {
+        source: '/api/whatsapp/:path*',
+        destination: '/api/whatsapp/:path*',
+      },
+      {
+        source: '/api/webhooks/:path*', 
+        destination: '/api/webhooks/:path*',
+      },
+    ];
+  },
+
+  reactStrictMode: true,
 };
 
 module.exports = withBundleAnalyzer(nextConfig); 

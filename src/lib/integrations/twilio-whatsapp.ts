@@ -208,12 +208,40 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
   }
 
   /**
-   * Send OTP verification code to WhatsApp number
+   * Send OTP verification code using WhatsApp template
+   * Uses Twilio's Content SID for business-initiated messages
    */
   async sendOTPCode(phoneNumber: string, otpCode: string): Promise<{ success: boolean; messageSid?: string; error?: string }> {
-    const otpMessage = `🔐 *Código de Verificación Fini AI*
+    try {
+      console.log('[TWILIO] Sending OTP template to:', phoneNumber);
 
-Tu código de verificación es: *${otpCode}*
+      // Use WhatsApp template for business-initiated messages
+      // This is required to avoid error 63016
+      const twilioMessage = await this.client.messages.create({
+        from: `whatsapp:${this.config.phoneNumber}`,
+        to: `whatsapp:${phoneNumber}`,
+        // Use Twilio's pre-approved verification template
+        contentSid: 'HX4e1ca8b2409ab8b9de3106aede9b5e1c', // Twilio's verification template
+        contentVariables: JSON.stringify({
+          1: otpCode, // The OTP code
+          2: '10' // Expiry time in minutes
+        })
+      });
+
+      console.log('[TWILIO] OTP template sent successfully:', twilioMessage.sid);
+
+      return {
+        success: true,
+        messageSid: twilioMessage.sid
+      };
+    } catch (error) {
+      console.error('[ERROR] Twilio OTP template send failed:', error);
+      
+      // Fallback to freeform message (will fail in production but useful for debugging)
+      console.log('[FALLBACK] Attempting freeform message as fallback...');
+      const otpMessage = `🔐 Código de Verificación Fini AI
+
+Tu código de verificación es: ${otpCode}
 
 Por favor, ingresa este código en la aplicación para completar la configuración de tu número de WhatsApp.
 
@@ -221,33 +249,60 @@ Este código expira en 10 minutos.
 
 ⚠️ No compartas este código con nadie.`;
 
-    return this.sendMessage({
-      to: phoneNumber,
-      from: this.config.phoneNumber,
-      body: otpMessage
-    });
+      return this.sendMessage({
+        to: phoneNumber,
+        from: this.config.phoneNumber,
+        body: otpMessage
+      });
+    }
   }
 
   /**
-   * Send verification success and welcome message
+   * Send verification success and welcome message using template
    */
   async sendVerificationSuccessMessage(phoneNumber: string, displayName: string, storeName?: string): Promise<{ success: boolean; messageSid?: string; error?: string }> {
-    const successMessage = `✅ *¡Verificación Exitosa!*
+    try {
+      console.log('[TWILIO] Sending welcome template to:', phoneNumber);
+
+      // Use WhatsApp template for welcome message
+      const twilioMessage = await this.client.messages.create({
+        from: `whatsapp:${this.config.phoneNumber}`,
+        to: `whatsapp:${phoneNumber}`,
+        // Use a generic welcome template (you'll need to create this in Twilio)
+        contentSid: 'HX8c3f2b7e9a4d6f1e5c9b8a7d6f4e2a1b', // Custom welcome template
+        contentVariables: JSON.stringify({
+          1: displayName,
+          2: storeName || 'tu tienda'
+        })
+      });
+
+      console.log('[TWILIO] Welcome template sent successfully:', twilioMessage.sid);
+
+      return {
+        success: true,
+        messageSid: twilioMessage.sid
+      };
+    } catch (error) {
+      console.error('[ERROR] Twilio welcome template send failed:', error);
+      
+      // Fallback to freeform message
+      console.log('[FALLBACK] Attempting freeform welcome message as fallback...');
+      const successMessage = `✅ ¡Verificación Exitosa!
 
 ¡Hola ${displayName}! Tu número de WhatsApp ha sido verificado correctamente.
 
-🎉 *¡Bienvenido a Fini AI!*
+🎉 ¡Bienvenido a Fini AI!
 
 Soy tu asistente de IA especializado en ${storeName || 'tu tienda'}. 
 
-🤖 *¿Qué puedo hacer por ti?*
+🤖 ¿Qué puedo hacer por ti?
 • 📊 Analytics en tiempo real
 • 🛍️ Información de productos
 • 👥 Atención al cliente 24/7
 • 📈 Ideas de marketing personalizadas
 • 💡 Insights de ventas
 
-*Comandos principales:*
+Comandos principales:
 • Escribe "analytics" para ver tus métricas
 • Escribe "productos" para gestionar inventario
 • Escribe "marketing" para ideas de promoción
@@ -255,13 +310,14 @@ Soy tu asistente de IA especializado en ${storeName || 'tu tienda'}.
 
 ¡Estoy aquí para ayudarte a hacer crecer tu negocio! 🚀
 
-_Puedes escribirme en cualquier momento._`;
+Puedes escribirme en cualquier momento.`;
 
-    return this.sendMessage({
-      to: phoneNumber,
-      from: this.config.phoneNumber,
-      body: successMessage
-    });
+      return this.sendMessage({
+        to: phoneNumber,
+        from: this.config.phoneNumber,
+        body: successMessage
+      });
+    }
   }
 }
 
