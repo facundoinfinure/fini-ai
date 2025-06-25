@@ -118,11 +118,23 @@ export async function GET(request: NextRequest) {
       });
 
       // Store the access token and store info
+      // Handle name field - Tienda Nube sends localized names as objects
+      let storeName = 'Mi Tienda';
+      if (storeInfo.name) {
+        if (typeof storeInfo.name === 'object' && storeInfo.name !== null) {
+          // Extract name from localized object (e.g., {es: "nombre", en: "name"})
+          const nameObj = storeInfo.name as any;
+          storeName = nameObj.es || nameObj.en || nameObj.pt || Object.values(nameObj)[0] || 'Mi Tienda';
+        } else if (typeof storeInfo.name === 'string') {
+          storeName = storeInfo.name;
+        }
+      }
+
       const storeData = {
         user_id: session.user.id,
         platform: 'tiendanube' as const,
         platform_store_id: storeInfo.id.toString(),
-        name: storeInfo.name || 'Mi Tienda',
+        name: storeName,
         domain: storeInfo.url || '',
         access_token: authResponse.access_token,
         refresh_token: null, // Tienda Nube doesn't use refresh tokens

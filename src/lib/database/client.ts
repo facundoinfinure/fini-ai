@@ -117,17 +117,138 @@ export class StoreService {
         access_token: storeData.access_token ? '[REDACTED]' : null
       });
 
-      // First, check if store already exists for this user+platform+platform_store_id
-      const { data: existingStore, error: checkError } = await _supabaseAdmin
+      // First, detect which columns exist in the table
+      const { data: sampleData, error: sampleError } = await _supabaseAdmin
         .from('stores')
         .select('*')
-        .eq('user_id', storeData.user_id)
-        .eq('platform', storeData.platform || 'tiendanube')
-        .eq('platform_store_id', storeData.platform_store_id)
-        .single();
+        .limit(1);
+
+      if (sampleError) {
+        console.error('[ERROR] Cannot access stores table to detect schema:', sampleError);
+        return { 
+          success: false, 
+          error: `Cannot access stores table: ${sampleError.message}` 
+        };
+      }
+
+      const availableColumns = sampleData?.[0] ? Object.keys(sampleData[0]) : [];
+      const hasOldColumns = availableColumns.includes('tiendanube_store_id');
+      const hasNewColumns = availableColumns.includes('platform_store_id');
+
+      console.log('[DEBUG] Table schema detection:', {
+        availableColumns,
+        hasOldColumns,
+        hasNewColumns
+      });
+
+      // Prepare data based on available columns
+      let insertData: any;
+      let checkFields: any = {};
+
+      if (hasOldColumns && hasNewColumns) {
+        // Database has both old and new columns - populate both to avoid NOT NULL violations
+        const storeName = typeof storeData.name === 'object' ? 
+          (storeData.name as any).es || (storeData.name as any).en || 'Mi Tienda' : 
+          storeData.name || 'Mi Tienda';
+
+        insertData = {
+          user_id: storeData.user_id,
+          // Old columns
+          tiendanube_store_id: storeData.platform_store_id,
+          store_name: storeName,
+          store_url: storeData.domain || '',
+          // New columns  
+          platform: storeData.platform || 'tiendanube',
+          platform_store_id: storeData.platform_store_id,
+          name: storeName,
+          domain: storeData.domain || '',
+          // Common columns
+          access_token: storeData.access_token,
+          refresh_token: storeData.refresh_token,
+          token_expires_at: storeData.token_expires_at,
+          is_active: storeData.is_active,
+          created_at: storeData.created_at,
+          updated_at: storeData.updated_at
+        };
+
+        // Check for existing stores using old columns first
+        checkFields = {
+          user_id: storeData.user_id,
+          tiendanube_store_id: storeData.platform_store_id
+        };
+      } else if (hasOldColumns) {
+        // Only old columns exist
+        const storeName = typeof storeData.name === 'object' ? 
+          (storeData.name as any).es || (storeData.name as any).en || 'Mi Tienda' : 
+          storeData.name || 'Mi Tienda';
+
+        insertData = {
+          user_id: storeData.user_id,
+          tiendanube_store_id: storeData.platform_store_id,
+          store_name: storeName,
+          store_url: storeData.domain || '',
+          access_token: storeData.access_token,
+          refresh_token: storeData.refresh_token,
+          token_expires_at: storeData.token_expires_at,
+          is_active: storeData.is_active,
+          created_at: storeData.created_at,
+          updated_at: storeData.updated_at
+        };
+
+        checkFields = {
+          user_id: storeData.user_id,
+          tiendanube_store_id: storeData.platform_store_id
+        };
+      } else {
+        // Only new columns exist
+        const storeName = typeof storeData.name === 'object' ? 
+          (storeData.name as any).es || (storeData.name as any).en || 'Mi Tienda' : 
+          storeData.name || 'Mi Tienda';
+
+        insertData = {
+          user_id: storeData.user_id,
+          platform: storeData.platform || 'tiendanube',
+          platform_store_id: storeData.platform_store_id,
+          name: storeName,
+          domain: storeData.domain || '',
+          access_token: storeData.access_token,
+          refresh_token: storeData.refresh_token,
+          token_expires_at: storeData.token_expires_at,
+          is_active: storeData.is_active,
+          created_at: storeData.created_at,
+          updated_at: storeData.updated_at
+        };
+
+        checkFields = {
+          user_id: storeData.user_id,
+          platform: storeData.platform || 'tiendanube',
+          platform_store_id: storeData.platform_store_id
+        };
+      }
+
+      console.log('[DEBUG] Prepared insert data:', {
+        ...insertData,
+        access_token: '[REDACTED]'
+      });
+
+      // Check if store already exists
+      let existingStore = null;
+      let checkError = null;
+
+      try {
+        const query = _supabaseAdmin.from('stores').select('*');
+        Object.keys(checkFields).forEach(key => {
+          query.eq(key, checkFields[key]);
+        });
+        
+        const { data, error } = await query.single();
+        existingStore = data;
+        checkError = error;
+      } catch (err) {
+        checkError = err;
+      }
 
       if (checkError && checkError.code !== 'PGRST116') {
-        // PGRST116 = no rows found, which is expected for new stores
         console.error('[ERROR] Error checking existing store:', checkError);
         return { 
           success: false, 
@@ -142,7 +263,7 @@ export class StoreService {
         const { data: updatedStore, error: updateError } = await _supabaseAdmin
           .from('stores')
           .update({
-            ...storeData,
+            ...insertData,
             updated_at: new Date().toISOString()
           })
           .eq('id', existingStore.id)
@@ -159,7 +280,7 @@ export class StoreService {
 
         console.log('[DEBUG] Store updated successfully:', {
           id: updatedStore?.id,
-          name: updatedStore?.name,
+          name: updatedStore?.name || updatedStore?.store_name,
           platform: updatedStore?.platform
         });
 
@@ -169,7 +290,7 @@ export class StoreService {
       // Store doesn't exist, create new one
       const { data, error } = await _supabaseAdmin
         .from('stores')
-        .insert([storeData])
+        .insert([insertData])
         .select()
         .single();
 
@@ -189,12 +310,19 @@ export class StoreService {
           };
         }
 
+        if (error.code === '23502') { // NOT NULL violation
+          return { 
+            success: false, 
+            error: 'Error de configuración de base de datos. Por favor contacta soporte técnico.' 
+          };
+        }
+
         throw error;
       }
 
       console.log('[DEBUG] Store created successfully:', {
         id: data?.id,
-        name: data?.name,
+        name: data?.name || data?.store_name,
         platform: data?.platform
       });
 
