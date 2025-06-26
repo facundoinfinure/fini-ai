@@ -19,7 +19,7 @@ import {
 } from '@/lib/lazy-imports';
 import { DashboardSummary } from '@/components/dashboard/dashboard-summary';
 import { Store as StoreType } from "@/types/db";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SidebarLayout } from '@/components/ui/sidebar-layout';
 
 const logger = createLogger('Dashboard');
 
@@ -217,56 +217,29 @@ function DashboardContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Bot className="h-8 w-8 text-blue-600 mr-3" />
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Fini AI</h1>
-                <p className="text-sm text-gray-500">Dashboard de Analytics</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Actualizar
-              </Button>
-              
-              <div className="flex items-center space-x-2">
-                <User className="h-5 w-5 text-gray-600" />
-                <span className="text-sm text-gray-700">{user.email}</span>
-              </div>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSignOut}
-                disabled={isSigningOut}
-              >
-                {isSigningOut ? (
-                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <LogOut className="h-4 w-4 mr-2" />
-                )}
-                Salir
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <SidebarLayout 
+      user={user}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      onSignOut={handleSignOut}
+    >
+      {/* Refresh Button */}
+      <div className="flex justify-end mb-6">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="btn-secondary"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Actualizar
+        </Button>
+      </div>
 
       {/* Notification */}
       {notification && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+        <div className="mb-6">
           <Alert className={`${getNotificationStyle(notification.type)} relative`}>
             <div className="flex items-start">
               {getNotificationIcon(notification.type)}
@@ -293,98 +266,80 @@ function DashboardContent() {
         </div>
       )}
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Error Alert */}
-        {error && (
-          <Alert className="mb-6 border-red-200 bg-red-50">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="text-red-800">
-              {error}
-            </AlertDescription>
-          </Alert>
+      {/* Error Alert */}
+      {error && (
+        <Alert className="mb-6 border-red-200 bg-red-50">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-red-800">
+            {error}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Success Alert */}
+      {success && (
+        <Alert className="mb-6 border-green-200 bg-green-50">
+          <CheckCircle className="h-4 w-4" />
+          <AlertDescription className="text-green-800">
+            {success}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Tab Content */}
+      <div className="space-y-6">
+        {activeTab === "resumen" && (
+          <DashboardErrorBoundary>
+            <Suspense fallback={<DashboardSkeleton />}>
+              <DashboardSummary stores={stores} />
+            </Suspense>
+          </DashboardErrorBoundary>
         )}
 
-        {/* Success Alert */}
-        {success && (
-          <Alert className="mb-6 border-green-200 bg-green-50">
-            <CheckCircle className="h-4 w-4" />
-            <AlertDescription className="text-green-800">
-              {success}
-            </AlertDescription>
-          </Alert>
+        {activeTab === "tiendas" && (
+          <DashboardErrorBoundary>
+            <Suspense fallback={<StoreManagementSkeleton />}>
+              <StoreManagement 
+                stores={stores} 
+                onStoreUpdate={fetchDashboardData}
+              />
+            </Suspense>
+          </DashboardErrorBoundary>
         )}
 
-        {/* Main Dashboard Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-8">
-            <TabsTrigger value="resumen" className="flex items-center gap-2">
-              <BarChart className="h-4 w-4" />
-              Resumen
-            </TabsTrigger>
-            <TabsTrigger value="tiendas" className="flex items-center gap-2">
-              <StoreIcon className="h-4 w-4" />
-              Tiendas
-            </TabsTrigger>
-            <TabsTrigger value="whatsapp" className="flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              WhatsApp
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Analytics
-            </TabsTrigger>
-            <TabsTrigger value="suscripcion" className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4" />
-              Suscripción
-            </TabsTrigger>
-          </TabsList>
+        {activeTab === "whatsapp" && (
+          <DashboardErrorBoundary>
+            <Suspense fallback={<WhatsAppConfigSkeleton />}>
+              <WhatsAppManagement stores={stores} />
+            </Suspense>
+          </DashboardErrorBoundary>
+        )}
 
-          <TabsContent value="resumen" className="space-y-6">
-            <DashboardErrorBoundary>
-              <Suspense fallback={<DashboardSkeleton />}>
-                <DashboardSummary stores={stores} />
-              </Suspense>
-            </DashboardErrorBoundary>
-          </TabsContent>
+        {activeTab === "analytics" && (
+          <DashboardErrorBoundary>
+            <Suspense fallback={<AnalyticsSkeleton />}>
+              <AnalyticsOverview />
+            </Suspense>
+          </DashboardErrorBoundary>
+        )}
 
-          <TabsContent value="tiendas">
-            <DashboardErrorBoundary>
-              <Suspense fallback={<StoreManagementSkeleton />}>
-                <StoreManagement 
-                  stores={stores} 
-                  onStoreUpdate={fetchDashboardData}
-                />
-              </Suspense>
-            </DashboardErrorBoundary>
-          </TabsContent>
+        {activeTab === "suscripcion" && (
+          <DashboardErrorBoundary>
+            <Suspense fallback={<DashboardSkeleton />}>
+              <SubscriptionManagement />
+            </Suspense>
+          </DashboardErrorBoundary>
+        )}
 
-          <TabsContent value="whatsapp">
-            <DashboardErrorBoundary>
-              <Suspense fallback={<WhatsAppConfigSkeleton />}>
-                <WhatsAppManagement stores={stores} />
-              </Suspense>
-            </DashboardErrorBoundary>
-          </TabsContent>
-
-          <TabsContent value="analytics">
-            <DashboardErrorBoundary>
-              <Suspense fallback={<AnalyticsSkeleton />}>
-                <AnalyticsOverview />
-              </Suspense>
-            </DashboardErrorBoundary>
-          </TabsContent>
-
-          <TabsContent value="suscripcion">
-            <DashboardErrorBoundary>
-              <Suspense fallback={<DashboardSkeleton />}>
-                <SubscriptionManagement />
-              </Suspense>
-            </DashboardErrorBoundary>
-          </TabsContent>
-        </Tabs>
-      </main>
-    </div>
+        {activeTab === "chat" && (
+          <DashboardErrorBoundary>
+            <Suspense fallback={<ChatSkeleton />}>
+              <ChatPreview />
+            </Suspense>
+          </DashboardErrorBoundary>
+        )}
+      </div>
+    </SidebarLayout>
   );
 }
 

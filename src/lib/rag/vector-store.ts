@@ -45,6 +45,12 @@ export class PineconeVectorStore implements VectorStore {
         return;
       }
 
+      // SECURITY: Validate all chunks have the same store ID
+      const storeIds = Array.from(new Set(chunks.map(chunk => chunk.metadata.storeId)));
+      if (storeIds.length > 1) {
+        throw new Error(`[SECURITY] Cannot upsert chunks from multiple stores in single operation: ${storeIds.join(', ')}`);
+      }
+
       const index = await this.getIndex();
       
       // Prepare vectors for Pinecone
@@ -95,6 +101,10 @@ export class PineconeVectorStore implements VectorStore {
    */
   async search(queryEmbedding: number[], options: RAGQuery['options'] = {}, filters?: RAGQuery['filters'], context?: RAGQuery['context']): Promise<VectorSearchResult[]> {
     try {
+      // SECURITY: Validate store access and log event
+      await this.validateStoreAccess(context);
+      await this.logSecurityEvent('rag_search', context, true);
+      
       const topK = options.topK || RAG_CONFIG.search.defaultTopK;
       const threshold = options.threshold || RAG_CONFIG.search.defaultThreshold;
       
@@ -204,6 +214,13 @@ export class PineconeVectorStore implements VectorStore {
   private getNamespace(chunk: DocumentChunk): string {
     const { storeId, type } = chunk.metadata;
     
+    // SECURITY: Validate store ID format
+    if (!storeId || typeof storeId !== 'string' || !storeId.match(/^[a-zA-Z0-9_-]+$/)) {
+      throw new Error(`Invalid store ID for namespace generation: ${storeId}`);
+    }
+    
+    console.warn(`[RAG:SECURITY] Creating namespace for store ${storeId}, type: ${type}`);
+    
     switch (type) {
       case 'product':
         return RAG_CONSTANTS.NAMESPACES.products(storeId);
@@ -226,10 +243,19 @@ export class PineconeVectorStore implements VectorStore {
    */
   private getSearchNamespaces(context?: RAGQuery['context'], filters?: RAGQuery['filters']): string[] {
     if (!context?.storeId) {
-      throw new Error('Store ID is required for search');
+      throw new Error('[SECURITY] Store ID is required for search - data segregation enforced');
     }
 
     const storeId = context.storeId;
+    
+    // SECURITY: Validate store ID format
+    if (!storeId.match(/^[a-zA-Z0-9_-]+$/)) {
+      throw new Error(`[SECURITY] Invalid store ID format: ${storeId}`);
+    }
+    
+    // SECURITY: Log access attempt
+    console.warn(`[RAG:SECURITY] Store ${storeId} accessing data via ${context.agentType || 'unknown'} agent`);
+    
     const namespaces: string[] = [];
     
     // If specific types are filtered, only search those namespaces
@@ -268,6 +294,7 @@ export class PineconeVectorStore implements VectorStore {
       );
     }
     
+    console.warn(`[RAG:SECURITY] Store ${storeId} authorized for namespaces: ${namespaces.join(', ')}`);
     return namespaces;
   }
 
@@ -351,5 +378,72 @@ export class PineconeVectorStore implements VectorStore {
     }
 
     return { isValid: true };
+  }
+
+  /**
+   * SECURITY: Validate that the user has access to the store
+   */
+  private async validateStoreAccess(context?: RAGQuery['context']): Promise<void> {
+    if (!context?.storeId) {
+      throw new Error('[SECURITY] Store ID is required for all operations');
+    }
+
+    if (!context?.userId) {
+      throw new Error('[SECURITY] User ID is required for store access validation');
+    }
+
+    // Import security functions
+    const { validateStoreAccess } = await import('@/lib/security/store-access');
+    const { checkCombinedRateLimit } = await import('@/lib/security/rate-limiter');
+
+    // 1. Validate store access in database
+    const accessResult = await validateStoreAccess(context.userId, context.storeId);
+    
+    if (!accessResult.hasAccess) {
+      throw new Error(`[SECURITY] ${accessResult.reason || 'Access denied to store'}`);
+    }
+
+    // 2. Check rate limits for RAG operations
+    const rateLimitResult = await checkCombinedRateLimit(
+      context.storeId, 
+      context.userId, 
+      'rag_search'
+    );
+
+    if (!rateLimitResult.allowed) {
+      const retryAfter = Math.max(
+        rateLimitResult.storeLimit.retryAfter || 0,
+        rateLimitResult.userLimit.retryAfter || 0
+      );
+      throw new Error(`[RATE_LIMIT] RAG search rate limit exceeded. Try again in ${Math.ceil(retryAfter / 1000)} seconds.`);
+    }
+
+    console.warn(`[RAG:SECURITY] Access validated: user ${context.userId} ✓ store ${context.storeId} (${accessResult.store?.name || 'unknown'}) - Remaining: store=${rateLimitResult.storeLimit.remaining}, user=${rateLimitResult.userLimit.remaining}`);
+  }
+
+  /**
+   * Log security events with anomaly detection
+   */
+  private async logSecurityEvent(operation: string, context?: RAGQuery['context'], success: boolean = true): Promise<void> {
+    if (!context?.userId || !context?.storeId) {
+      return;
+    }
+
+    try {
+      const { logSecurityEventWithDetection } = await import('@/lib/security/anomaly-detector');
+      
+      await logSecurityEventWithDetection({
+        userId: context.userId,
+        storeId: context.storeId,
+        operation,
+        success,
+        metadata: {
+          agentType: context.agentType || 'unknown',
+          conversationId: context.conversationId
+        }
+      });
+    } catch (error) {
+      console.error('[RAG:SECURITY] Failed to log security event:', error);
+    }
   }
 } 

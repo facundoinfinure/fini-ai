@@ -11,6 +11,7 @@
 .env.staging
 .env.backup
 *.env
+env.example
 secrets.json
 credentials.json
 service-account-key.json

@@ -112,12 +112,18 @@ export function DashboardSummary({ stores }: DashboardSummaryProps) {
       <Card>
         <CardHeader>
           <CardTitle>Resumen General</CardTitle>
-          <CardDescription>Vista consolidada de tu cuenta</CardDescription>
+          <CardDescription className="text-[#6b7280]">Vista consolidada de tu cuenta</CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className="animate-pulse">
-              <div className="h-16 bg-gray-200 rounded-lg"></div>
+            <div key={i} className="animate-pulse bg-white p-6 rounded-xl border border-[#e5e7eb]">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#f3f4f6] rounded-xl"></div>
+                <div className="flex-1">
+                  <div className="h-6 bg-[#f3f4f6] rounded mb-2"></div>
+                  <div className="h-4 bg-[#f3f4f6] rounded w-3/4"></div>
+                </div>
+              </div>
             </div>
           ))}
         </CardContent>
@@ -164,83 +170,95 @@ export function DashboardSummary({ stores }: DashboardSummaryProps) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             
             {/* Stores Metric */}
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <div className="flex items-center justify-center mb-2">
-                <div className="p-2 bg-blue-100 rounded-full">
-                  <StoreIcon className="h-6 w-6 text-blue-600" />
+            <div className="bg-white p-6 rounded-xl border border-[#e5e7eb] hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#f0f9ff] rounded-xl flex items-center justify-center">
+                  <StoreIcon className="h-6 w-6 text-[#3b82f6]" />
+                </div>
+                <div className="flex-1">
+                  <div className="display-number text-2xl">
+                    {summary.stores.connected}
+                  </div>
+                  <div className="text-sm text-[#6b7280] font-medium">
+                    Tiendas Conectadas
+                  </div>
+                  {summary.stores.total > summary.stores.connected && (
+                    <div className="text-xs text-[#9ca3af] mt-1">
+                      {summary.stores.total - summary.stores.connected} pendientes
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="text-2xl font-bold text-blue-900">
-                {summary.stores.connected}
-              </div>
-              <div className="text-sm text-blue-700">
-                Tiendas Conectadas
-              </div>
-              {summary.stores.total > summary.stores.connected && (
-                <div className="text-xs text-blue-600 mt-1">
-                  {summary.stores.total - summary.stores.connected} pendientes
-                </div>
-              )}
             </div>
 
             {/* WhatsApp Metric */}
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="flex items-center justify-center mb-2">
-                <div className="p-2 bg-green-100 rounded-full">
-                  <Phone className="h-6 w-6 text-green-600" />
+            <div className="bg-white p-6 rounded-xl border border-[#e5e7eb] hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#d1fae5] rounded-xl flex items-center justify-center">
+                  <Phone className="h-6 w-6 text-[#10b981]" />
+                </div>
+                <div className="flex-1">
+                  <div className="display-number text-2xl">
+                    {summary.whatsapp.configuredNumbers}
+                  </div>
+                  <div className="text-sm text-[#6b7280] font-medium">
+                    Números WhatsApp
+                  </div>
+                  {summary.whatsapp.activeConfigs > 0 && (
+                    <div className="text-xs text-[#9ca3af] mt-1">
+                      {summary.whatsapp.activeConfigs} activos
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="text-2xl font-bold text-green-900">
-                {summary.whatsapp.configuredNumbers}
-              </div>
-              <div className="text-sm text-green-700">
-                Números WhatsApp
-              </div>
-              {summary.whatsapp.activeConfigs > 0 && (
-                <div className="text-xs text-green-600 mt-1">
-                  {summary.whatsapp.activeConfigs} activos
-                </div>
-              )}
             </div>
 
             {/* Conversations Metric */}
-            <div className="text-center p-4 bg-purple-50 rounded-lg">
-              <div className="flex items-center justify-center mb-2">
-                <div className="p-2 bg-purple-100 rounded-full">
-                  <MessageSquare className="h-6 w-6 text-purple-600" />
+            <div className="bg-white p-6 rounded-xl border border-[#e5e7eb] hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#fef3c7] rounded-xl flex items-center justify-center">
+                  <MessageSquare className="h-6 w-6 text-[#f59e0b]" />
+                </div>
+                <div className="flex-1">
+                  <div className="display-number text-2xl">
+                    {summary.conversations.active}
+                  </div>
+                  <div className="text-sm text-[#6b7280] font-medium">
+                    Chats Activos
+                  </div>
+                  {summary.conversations.today > 0 && (
+                    <div className="text-xs text-[#9ca3af] mt-1">
+                      {summary.conversations.today} hoy
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="text-2xl font-bold text-purple-900">
-                {summary.conversations.active}
-              </div>
-              <div className="text-sm text-purple-700">
-                Chats Activos
-              </div>
-              {summary.conversations.today > 0 && (
-                <div className="text-xs text-purple-600 mt-1">
-                  {summary.conversations.today} hoy
-                </div>
-              )}
             </div>
 
             {/* Sync Status */}
-            <div className="text-center p-4 bg-orange-50 rounded-lg">
-              <div className="flex items-center justify-center mb-2">
-                <div className="p-2 bg-orange-100 rounded-full">
-                  <Clock className="h-6 w-6 text-orange-600" />
+            <div className="bg-white p-6 rounded-xl border border-[#e5e7eb] hover:shadow-md transition-all duration-200">
+              <div className="flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  summary.lastSync ? 'bg-[#d1fae5]' : 'bg-[#fef2f2]'
+                }`}>
+                  <Clock className={`h-6 w-6 ${
+                    summary.lastSync ? 'text-[#10b981]' : 'text-[#ef4444]'
+                  }`} />
+                </div>
+                <div className="flex-1">
+                  <div className="text-lg font-semibold text-[#1a1a1a]">
+                    {summary.lastSync ? 'Sincronizado' : 'Pendiente'}
+                  </div>
+                  <div className="text-sm text-[#6b7280] font-medium">
+                    Último Sync
+                  </div>
+                  {summary.lastSync && (
+                    <div className="text-xs text-[#9ca3af] mt-1">
+                      {new Date(summary.lastSync).toLocaleDateString('es-AR')}
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="text-sm font-semibold text-orange-900">
-                {summary.lastSync ? 'Sincronizado' : 'Pendiente'}
-              </div>
-              <div className="text-sm text-orange-700">
-                Último Sync
-              </div>
-              {summary.lastSync && (
-                <div className="text-xs text-orange-600 mt-1">
-                  {new Date(summary.lastSync).toLocaleDateString('es-AR')}
-                </div>
-              )}
             </div>
 
           </div>
@@ -250,22 +268,24 @@ export function DashboardSummary({ stores }: DashboardSummaryProps) {
       {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Acciones Rápidas</CardTitle>
-          <CardDescription>Tareas comunes para gestionar tu cuenta</CardDescription>
+          <CardTitle>Acciones Rápidas</CardTitle>
+          <CardDescription className="text-[#6b7280]">Tareas comunes para gestionar tu cuenta</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {summary.stores.total === 0 && (
-              <div className="p-4 border-2 border-dashed border-blue-300 rounded-lg text-center">
-                <StoreIcon className="h-8 w-8 text-blue-400 mx-auto mb-2" />
-                <h3 className="font-medium text-gray-900 mb-1">Conectar Tienda</h3>
-                <p className="text-sm text-gray-600 mb-3">
+              <div className="p-6 border-2 border-dashed border-[#d1d5db] rounded-xl text-center hover:border-[#3b82f6] hover:bg-[#f0f9ff] transition-all duration-200">
+                <div className="w-12 h-12 bg-[#f0f9ff] rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <StoreIcon className="h-6 w-6 text-[#3b82f6]" />
+                </div>
+                <h3 className="font-semibold text-[#1a1a1a] mb-2">Conectar Tienda</h3>
+                <p className="text-sm text-[#6b7280] mb-4">
                   Conecta tu primera tienda de Tienda Nube
                 </p>
                 <a 
                   href="/onboarding" 
-                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                  className="btn-primary inline-flex items-center text-sm"
                 >
                   Comenzar
                 </a>
@@ -273,26 +293,30 @@ export function DashboardSummary({ stores }: DashboardSummaryProps) {
             )}
 
             {summary.whatsapp.totalNumbers === 0 && summary.stores.total > 0 && (
-              <div className="p-4 border-2 border-dashed border-green-300 rounded-lg text-center">
-                <Phone className="h-8 w-8 text-green-400 mx-auto mb-2" />
-                <h3 className="font-medium text-gray-900 mb-1">Configurar WhatsApp</h3>
-                <p className="text-sm text-gray-600 mb-3">
+              <div className="p-6 border-2 border-dashed border-[#d1d5db] rounded-xl text-center hover:border-[#10b981] hover:bg-[#f0fdf4] transition-all duration-200">
+                <div className="w-12 h-12 bg-[#d1fae5] rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <Phone className="h-6 w-6 text-[#10b981]" />
+                </div>
+                <h3 className="font-semibold text-[#1a1a1a] mb-2">Configurar WhatsApp</h3>
+                <p className="text-sm text-[#6b7280] mb-4">
                   Agrega tu primer número de WhatsApp Business
                 </p>
-                <button className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+                <button className="btn-primary inline-flex items-center text-sm bg-[#10b981] hover:bg-[#059669]">
                   Configurar
                 </button>
               </div>
             )}
 
             {summary.stores.total > 0 && (
-              <div className="p-4 border-2 border-dashed border-purple-300 rounded-lg text-center">
-                <TrendingUp className="h-8 w-8 text-purple-400 mx-auto mb-2" />
-                <h3 className="font-medium text-gray-900 mb-1">Ver Analytics</h3>
-                <p className="text-sm text-gray-600 mb-3">
+              <div className="p-6 border-2 border-dashed border-[#d1d5db] rounded-xl text-center hover:border-[#f59e0b] hover:bg-[#fffbeb] transition-all duration-200">
+                <div className="w-12 h-12 bg-[#fef3c7] rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp className="h-6 w-6 text-[#f59e0b]" />
+                </div>
+                <h3 className="font-semibold text-[#1a1a1a] mb-2">Ver Analytics</h3>
+                <p className="text-sm text-[#6b7280] mb-4">
                   Consulta las métricas de tus tiendas
                 </p>
-                <button className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700">
+                <button className="btn-primary inline-flex items-center text-sm bg-[#f59e0b] hover:bg-[#d97706]">
                   Ver Reportes
                 </button>
               </div>
