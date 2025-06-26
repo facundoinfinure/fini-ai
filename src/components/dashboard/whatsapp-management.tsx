@@ -509,13 +509,16 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
               Administra los números conectados a tus tiendas
             </p>
           </div>
-          <Button 
-            onClick={() => setIsDialogOpen(true)}
-            className="btn-success"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Agregar Número
-          </Button>
+          {/* Solo mostrar el botón del header si ya hay números configurados */}
+          {configs && configs.length > 0 && (
+            <Button 
+              onClick={() => setIsDialogOpen(true)}
+              className="btn-success"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Agregar Número
+            </Button>
+          )}
         </div>
 
         <div className="p-0">

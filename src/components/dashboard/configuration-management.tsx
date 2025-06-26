@@ -41,13 +41,16 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
               </h2>
               <p className="section-description">Administra tus tiendas conectadas a Fini AI</p>
             </div>
-            <Button 
-              onClick={handleAddStore}
-              className="btn-primary"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Conectar Tienda
-            </Button>
+            {/* Solo mostrar el botón del header si ya hay tiendas conectadas */}
+            {stores && stores.length > 0 && (
+              <Button 
+                onClick={handleAddStore}
+                className="btn-primary"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Conectar Tienda
+              </Button>
+            )}
           </div>
         </div>
         <div className="section-content">

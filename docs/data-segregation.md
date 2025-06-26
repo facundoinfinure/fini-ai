@@ -212,7 +212,7 @@ results = results.filter(result =>
 
 ### **Variables de Entorno**
 ```bash
-PINECONE_API_KEY=pk-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+PINECONE_API_KEY=<tu_api_key_de_pinecone>
 PINECONE_ENVIRONMENT=your_environment
 PINECONE_INDEX_NAME=fini-ai-store-data  # Un solo índice
 ```
