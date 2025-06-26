@@ -8,7 +8,8 @@ import {
   Settings, 
   LogOut,
   Bell,
-  User
+  User,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -18,6 +19,7 @@ interface SidebarLayoutProps {
   activeTab?: string;
   onTabChange?: (tab: string) => void;
   onSignOut?: () => void;
+  onRefresh?: () => void;
   className?: string;
 }
 
@@ -67,16 +69,17 @@ export function SidebarLayout({
   activeTab = 'resumen', 
   onTabChange, 
   onSignOut,
+  onRefresh,
   className 
 }: SidebarLayoutProps) {
   return (
     <div className={cn("min-h-screen bg-[#f8f9fa] flex", className)}>
-      {/* Sidebar */}
+      {/* Sidebar - Origin Style */}
       <div className="w-60 bg-white border-r border-[#e5e7eb] flex flex-col">
-        {/* Header */}
+        {/* Sidebar Header */}
         <div className="p-6 border-b border-[#e5e7eb]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-[#10b981] to-[#059669] rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-[#1a1a1a] rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-lg">F</span>
             </div>
             <div>
@@ -86,7 +89,7 @@ export function SidebarLayout({
           </div>
         </div>
 
-        {/* Navigation */}
+        {/* Navigation - Origin Style */}
         <nav className="flex-1 p-4 space-y-1">
           {navigationItems.map((item) => {
             const Icon = item.icon;
@@ -97,12 +100,12 @@ export function SidebarLayout({
                 key={item.id}
                 onClick={() => onTabChange?.(item.id)}
                 className={cn(
-                  "nav-item w-full text-left",
+                  "origin-sidebar-item w-full text-left",
                   isActive && "active"
                 )}
               >
-                <Icon className="nav-icon" />
-                <span className="nav-text">{item.label}</span>
+                <Icon className="w-5 h-5" />
+                <span>{item.label}</span>
               </button>
             );
           })}
@@ -140,33 +143,38 @@ export function SidebarLayout({
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        {/* Top Bar */}
-        <header className="bg-white border-b border-[#e5e7eb] px-8 py-4">
-          <div className="flex items-center justify-between">
+        {/* Header - Origin Style: 64px height */}
+        <header className="origin-header">
+          <div className="flex items-center gap-4">
             <div>
-              <h2 className="text-xl font-semibold text-[#1a1a1a] capitalize">
-                {activeTab}
+              <h2 className="page-title">
+                {getPageTitle(activeTab)}
               </h2>
-              <p className="text-sm text-[#6b7280]">
-                {getPageDescription(activeTab)}
-              </p>
             </div>
-            
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-[#6b7280] hover:text-[#1a1a1a] hover:bg-[#f3f4f6]"
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                className="refresh-button"
               >
-                <Bell className="w-5 h-5" />
-              </Button>
-            </div>
+                <RefreshCw className="w-4 h-4" />
+                Actualizar
+              </button>
+            )}
+            
+            {user && (
+              <div className="w-8 h-8 bg-[#f3f4f6] rounded-full flex items-center justify-center">
+                <User className="w-4 h-4 text-[#6b7280]" />
+              </div>
+            )}
           </div>
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 p-8 overflow-auto">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-auto">
+          <div className="main-content">
             {children}
           </div>
         </main>
@@ -175,15 +183,15 @@ export function SidebarLayout({
   );
 }
 
-function getPageDescription(activeTab: string): string {
-  const descriptions: Record<string, string> = {
-    resumen: 'Vista general de tu dashboard y métricas principales',
-    analytics: 'Análisis detallado de rendimiento y estadísticas',
-    tiendas: 'Gestión de tus tiendas conectadas',
-    whatsapp: 'Configuración y gestión de WhatsApp Business',
-    suscripcion: 'Gestión de tu plan y facturación',
-    chat: 'Vista previa de conversaciones activas',
+function getPageTitle(activeTab: string): string {
+  const titles: Record<string, string> = {
+    resumen: 'Resumen',
+    analytics: 'Analytics',
+    tiendas: 'Gestión de Tiendas',
+    whatsapp: 'WhatsApp Business',
+    suscripcion: 'Suscripción',
+    chat: 'Chat Preview',
   };
   
-  return descriptions[activeTab] || 'Gestiona tu tienda con Fini AI';
+  return titles[activeTab] || 'Dashboard';
 } 

@@ -152,214 +152,188 @@ export function AnalyticsOverview() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <BarChart3 className="mr-2 h-5 w-5" />
-              Analytics Overview
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-center p-10">
-            <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-between">
+          <h1 className="page-title">Analytics Overview</h1>
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <AlertCircle className="mr-2 h-5 w-5 text-red-600" />
-            Error en Analytics
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-red-600 mb-4">{error}</p>
-          <Button onClick={fetchAnalytics} variant="outline">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Reintentar
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="metric-card">
+        <div className="flex items-center gap-3 mb-4">
+          <AlertCircle className="h-5 w-5 text-red-600" />
+          <h2 className="section-title">Error en Analytics</h2>
+        </div>
+        <p className="text-red-600 mb-4">{error}</p>
+        <button onClick={fetchAnalytics} className="refresh-button">
+          <RefreshCw className="w-4 h-4" />
+          Reintentar
+        </button>
+      </div>
     );
   }
 
   if (!analytics) return null;
 
   return (
-    <div className="space-y-6">
-      {/* Header with Time Range Selector */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <div>
-            <CardTitle className="flex items-center">
-              <BarChart3 className="mr-2 h-5 w-5" />
-              Analytics Overview
-            </CardTitle>
-            <CardDescription>
-              Resumen de rendimiento de tu tienda
-            </CardDescription>
+    <div className="space-y-8">
+      {/* Header with Period Selector - Origin Style */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="page-title">Analytics Overview</h1>
+          <p className="supporting-text mt-1">Resumen de rendimiento de tu tienda</p>
+        </div>
+        
+        <div className="period-selector">
+          <button
+            onClick={() => setTimeRange('7d')}
+            className={`period-button ${timeRange === '7d' ? 'active' : ''}`}
+          >
+            7d
+          </button>
+          <button
+            onClick={() => setTimeRange('30d')}
+            className={`period-button ${timeRange === '30d' ? 'active' : ''}`}
+          >
+            30d
+          </button>
+          <button
+            onClick={() => setTimeRange('90d')}
+            className={`period-button ${timeRange === '90d' ? 'active' : ''}`}
+          >
+            90d
+          </button>
+        </div>
+      </div>
+
+      {/* Key Metrics Grid - Origin Style */}
+      <div className="metrics-grid">
+        {/* Revenue Card */}
+        <div className="metric-card">
+          <div className="metric-header">
+            <span className="metric-label">Ingresos ({analytics.revenue.period})</span>
+            <span className={`metric-change ${analytics.revenue.change >= 0 ? 'positive' : 'negative'}`}>
+              {formatPercentage(analytics.revenue.change)}
+            </span>
           </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant={timeRange === '7d' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setTimeRange('7d')}
-            >
-              7d
-            </Button>
-            <Button
-              variant={timeRange === '30d' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setTimeRange('30d')}
-            >
-              30d
-            </Button>
-            <Button
-              variant={timeRange === '90d' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setTimeRange('90d')}
-            >
-              90d
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchAnalytics}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+          <div className="metric-value">
+            {formatCurrency(analytics.revenue.current)}
           </div>
-        </CardHeader>
-
-        {/* Key Metrics */}
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {/* Revenue */}
-            <div className="p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-blue-100">
-              <div className="flex items-center justify-between mb-2">
-                <DollarSign className="h-5 w-5 text-blue-600" />
-                {getChangeIcon(analytics.revenue.change)}
-              </div>
-              <div className="text-2xl font-bold text-blue-900">
-                {formatCurrency(analytics.revenue.current)}
-              </div>
-              <div className="text-sm text-blue-700">
-                Ingresos ({analytics.revenue.period})
-              </div>
-              <div className={`text-xs mt-1 ${getChangeColor(analytics.revenue.change)}`}>
-                {formatPercentage(analytics.revenue.change)} vs período anterior
-              </div>
-            </div>
-
-            {/* Orders */}
-            <div className="p-4 border rounded-lg bg-gradient-to-r from-green-50 to-green-100">
-              <div className="flex items-center justify-between mb-2">
-                <ShoppingCart className="h-5 w-5 text-green-600" />
-                {getChangeIcon(analytics.orders.change)}
-              </div>
-              <div className="text-2xl font-bold text-green-900">
-                {analytics.orders.current}
-              </div>
-              <div className="text-sm text-green-700">
-                Órdenes ({analytics.orders.period})
-              </div>
-              <div className={`text-xs mt-1 ${getChangeColor(analytics.orders.change)}`}>
-                {formatPercentage(analytics.orders.change)} vs período anterior
-              </div>
-            </div>
-
-            {/* Customers */}
-            <div className="p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-purple-100">
-              <div className="flex items-center justify-between mb-2">
-                <Users className="h-5 w-5 text-purple-600" />
-                {getChangeIcon(analytics.customers.change)}
-              </div>
-              <div className="text-2xl font-bold text-purple-900">
-                {analytics.customers.current}
-              </div>
-              <div className="text-sm text-purple-700">
-                Clientes ({analytics.customers.period})
-              </div>
-              <div className={`text-xs mt-1 ${getChangeColor(analytics.customers.change)}`}>
-                {formatPercentage(analytics.customers.change)} vs período anterior
-              </div>
-            </div>
-
-            {/* Average Order Value */}
-            <div className="p-4 border rounded-lg bg-gradient-to-r from-orange-50 to-orange-100">
-              <div className="flex items-center justify-between mb-2">
-                <TrendingUp className="h-5 w-5 text-orange-600" />
-                {getChangeIcon(analytics.avgOrderValue.change)}
-              </div>
-              <div className="text-2xl font-bold text-orange-900">
-                {formatCurrency(analytics.avgOrderValue.current)}
-              </div>
-              <div className="text-sm text-orange-700">
-                Ticket Promedio
-              </div>
-              <div className={`text-xs mt-1 ${getChangeColor(analytics.avgOrderValue.change)}`}>
-                {formatPercentage(analytics.avgOrderValue.change)} vs período anterior
-              </div>
-            </div>
+          <div className="metric-subtitle">
+            {formatPercentage(analytics.revenue.change)} vs período anterior
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Orders Card */}
+        <div className="metric-card">
+          <div className="metric-header">
+            <span className="metric-label">Órdenes ({analytics.orders.period})</span>
+            <span className={`metric-change ${analytics.orders.change >= 0 ? 'positive' : 'negative'}`}>
+              {formatPercentage(analytics.orders.change)}
+            </span>
+          </div>
+          <div className="metric-value">
+            {analytics.orders.current}
+          </div>
+          <div className="metric-subtitle">
+            {formatPercentage(analytics.orders.change)} vs período anterior
+          </div>
+        </div>
+
+        {/* Customers Card */}
+        <div className="metric-card">
+          <div className="metric-header">
+            <span className="metric-label">Clientes ({analytics.customers.period})</span>
+            <span className={`metric-change ${analytics.customers.change >= 0 ? 'positive' : 'negative'}`}>
+              {formatPercentage(analytics.customers.change)}
+            </span>
+          </div>
+          <div className="metric-value">
+            {analytics.customers.current}
+          </div>
+          <div className="metric-subtitle">
+            {formatPercentage(analytics.customers.change)} vs período anterior
+          </div>
+        </div>
+
+        {/* Average Order Value Card */}
+        <div className="metric-card">
+          <div className="metric-header">
+            <span className="metric-label">Ticket Promedio</span>
+            <span className={`metric-change ${analytics.avgOrderValue.change >= 0 ? 'positive' : 'negative'}`}>
+              {formatPercentage(analytics.avgOrderValue.change)}
+            </span>
+          </div>
+          <div className="metric-value">
+            {formatCurrency(analytics.avgOrderValue.current)}
+          </div>
+          <div className="metric-subtitle">
+            {formatPercentage(analytics.avgOrderValue.change)} vs período anterior
+          </div>
+        </div>
+      </div>
+
+      {/* Charts Grid - Origin Style */}
+      <div className="charts-grid">
         {/* Sales Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Ventas por Día</CardTitle>
-            <CardDescription>Rendimiento diario de ventas</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={analytics.salesByDay}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip 
-                  formatter={(value, name) => [
-                    name === 'sales' ? formatCurrency(value as number) : value,
-                    name === 'sales' ? 'Ventas' : 'Órdenes'
-                  ]}
-                />
-                <Bar dataKey="sales" fill="#3B82F6" name="sales" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <div className="chart-section">
+          <h3 className="chart-title">Ventas por Día</h3>
+          <p className="chart-subtitle">Rendimiento diario de ventas</p>
+          
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={analytics.salesByDay}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+              <XAxis 
+                dataKey="date" 
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+                axisLine={{ stroke: '#e5e7eb' }}
+              />
+              <YAxis 
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+                axisLine={{ stroke: '#e5e7eb' }}
+              />
+              <Tooltip 
+                formatter={(value, name) => [
+                  name === 'sales' ? formatCurrency(value as number) : value,
+                  name === 'sales' ? 'Ventas' : 'Órdenes'
+                ]}
+                contentStyle={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                }}
+              />
+              <Bar dataKey="sales" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
 
         {/* Top Products */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Productos Top</CardTitle>
-            <CardDescription>Productos más vendidos</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {analytics.topProducts.map((product, index) => (
-                <div key={product.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+        <div className="chart-section">
+          <h3 className="chart-title">Productos Top</h3>
+          <p className="chart-subtitle">Productos más vendidos</p>
+          
+          <div className="space-y-3">
+            {analytics.topProducts.length > 0 ? (
+              analytics.topProducts.map((product, index) => (
+                <div key={product.name} className="flex items-center justify-between p-4 bg-[#f8f9fa] rounded-lg border border-[#e5e7eb]">
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-semibold text-blue-600">
-                        {index + 1}
-                      </span>
+                    <div className="w-8 h-8 bg-[#3b82f6] text-white rounded-full flex items-center justify-center text-sm font-semibold">
+                      {index + 1}
                     </div>
                     <div>
-                      <div className="font-medium">{product.name}</div>
-                      <div className="text-sm text-gray-500">
+                      <div className="font-medium text-[#1a1a1a]">{product.name}</div>
+                      <div className="text-sm text-[#6b7280]">
                         {product.quantity} vendidos
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold">
+                    <div className="font-semibold text-[#1a1a1a]">
                       {formatCurrency(product.sales)}
                     </div>
                     <div className={`text-xs ${getChangeColor(product.change)}`}>
@@ -367,41 +341,39 @@ export function AnalyticsOverview() {
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              ))
+            ) : (
+              <div className="text-center py-8 text-[#6b7280]">
+                <p>No hay datos de productos disponibles</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Conversion Metrics */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Métricas de Conversión</CardTitle>
-          <CardDescription>Indicadores clave de rendimiento</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <div className="text-3xl font-bold text-blue-600 mb-2">
-                {analytics.conversionMetrics.conversionRate}%
-              </div>
-              <div className="text-sm text-blue-700">Tasa de Conversión</div>
-            </div>
-            <div className="text-center p-4 bg-yellow-50 rounded-lg">
-              <div className="text-3xl font-bold text-yellow-600 mb-2">
-                {analytics.conversionMetrics.abandonedCarts}
-              </div>
-              <div className="text-sm text-yellow-700">Carritos Abandonados</div>
-            </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="text-3xl font-bold text-green-600 mb-2">
-                {analytics.conversionMetrics.returnCustomers}%
-              </div>
-              <div className="text-sm text-green-700">Clientes Recurrentes</div>
-            </div>
+      {/* Conversion Metrics - Origin Style */}
+      <div className="conversion-metrics">
+        <div className="conversion-item">
+          <div className="conversion-value percentage">
+            {analytics.conversionMetrics.conversionRate}%
           </div>
-        </CardContent>
-      </Card>
+          <div className="conversion-label">Tasa de Conversión</div>
+        </div>
+        
+        <div className="conversion-item">
+          <div className="conversion-value number">
+            {analytics.conversionMetrics.abandonedCarts}
+          </div>
+          <div className="conversion-label">Carritos Abandonados</div>
+        </div>
+        
+        <div className="conversion-item">
+          <div className="conversion-value success">
+            {analytics.conversionMetrics.returnCustomers}%
+          </div>
+          <div className="conversion-label">Clientes Recurrentes</div>
+        </div>
+      </div>
     </div>
   );
 } 

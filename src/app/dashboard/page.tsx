@@ -217,11 +217,12 @@ function DashboardContent() {
   };
 
   return (
-    <SidebarLayout 
+        <SidebarLayout
       user={user}
       activeTab={activeTab}
       onTabChange={setActiveTab}
       onSignOut={handleSignOut}
+      onRefresh={handleRefresh}
     >
       {/* Refresh Button */}
       <div className="flex justify-end mb-6">

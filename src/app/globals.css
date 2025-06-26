@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    /* Primary Colors */
+    /* Primary Colors - Origin Style */
     --primary-bg: #ffffff;
     --secondary-bg: #f8f9fa;
     --tertiary-bg: #f3f4f6;
@@ -139,7 +139,269 @@
 }
 
 @layer components {
-  /* Card Components */
+  /* Origin-style Header - 64px height */
+  .origin-header {
+    background: #ffffff;
+    height: 64px;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Origin-style Sidebar */
+  .origin-sidebar {
+    background: #ffffff;
+    border-right: 1px solid #e5e7eb;
+    width: 240px;
+  }
+
+  .origin-sidebar-item {
+    height: 44px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+  }
+
+  .origin-sidebar-item:hover {
+    background: #f3f4f6;
+    color: #1a1a1a;
+  }
+
+  .origin-sidebar-item.active {
+    background: #f0f9ff;
+    border-left: 3px solid #3b82f6;
+    color: #3b82f6;
+  }
+
+  .origin-sidebar-item svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Origin-style Metric Cards */
+  .metric-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+  }
+
+  .metric-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+  }
+
+  .metric-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+
+  .metric-label {
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  .metric-change {
+    font-weight: 600;
+    font-size: 12px;
+  }
+
+  .metric-change.positive {
+    color: #10b981;
+  }
+
+  .metric-change.negative {
+    color: #ef4444;
+  }
+
+  .metric-value {
+    font-size: 2.25rem; /* 36px */
+    font-weight: 700;
+    color: #1a1a1a;
+    margin: 8px 0;
+    line-height: 1.2;
+  }
+
+  .metric-subtitle {
+    font-size: 14px;
+    color: #6b7280;
+  }
+
+  /* Origin-style Chart Sections */
+  .chart-section {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .chart-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 4px;
+  }
+
+  .chart-subtitle {
+    font-size: 14px;
+    color: #6b7280;
+    margin-bottom: 20px;
+  }
+
+  /* Origin-style Period Selector */
+  .period-selector {
+    display: flex;
+    background: #f3f4f6;
+    border-radius: 8px;
+    padding: 4px;
+    gap: 2px;
+  }
+
+  .period-button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .period-button.active {
+    background: #ffffff;
+    color: #1a1a1a;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  .period-button:hover:not(.active) {
+    color: #1a1a1a;
+  }
+
+  /* Origin-style Conversion Metrics */
+  .conversion-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 32px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 32px;
+  }
+
+  .conversion-item {
+    text-align: center;
+  }
+
+  .conversion-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .conversion-value.percentage { 
+    color: #3b82f6; 
+  }
+
+  .conversion-value.number { 
+    color: #f59e0b; 
+  }
+
+  .conversion-value.success { 
+    color: #10b981; 
+  }
+
+  .conversion-label {
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  /* Origin-style Buttons */
+  .refresh-button {
+    background: #1a1a1a;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .refresh-button:hover {
+    background: #333333;
+    transform: translateY(-1px);
+  }
+
+  /* Origin Layout Classes */
+  .main-content {
+    padding: 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  /* Typography Hierarchy */
+  .page-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0;
+  }
+
+  .section-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+
+  .metric-number {
+    font-size: 36px;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+
+  .supporting-text {
+    font-size: 14px;
+    color: #6b7280;
+  }
+
+  /* Card Components - Updated for Origin style */
   .card {
     @apply bg-white border border-[#e5e7eb] rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200;
   }
@@ -185,7 +447,7 @@
     @apply text-[#ef4444] font-semibold text-sm;
   }
 
-  /* Navigation */
+  /* Navigation - Updated for Origin style */
   .nav-item {
     @apply h-11 px-4 py-3 rounded-lg transition-all duration-200 flex items-center gap-3;
   }
@@ -199,7 +461,7 @@
   }
 
   .nav-item .nav-icon {
-    @apply w-5 h-5 text-[#6b7280];
+    @apply w-5 h-5 text-current;
   }
 
   .nav-item.active .nav-icon {
@@ -207,7 +469,7 @@
   }
 
   .nav-item .nav-text {
-    @apply text-sm font-medium text-[#374151];
+    @apply text-sm font-medium text-current;
   }
 
   .nav-item.active .nav-text {
@@ -215,40 +477,40 @@
   }
 }
 
-/* Custom styles for PhoneInput component */
+/* Phone Input Styles */
 .PhoneInput {
-  @apply flex items-center space-x-2;
-}
-
-.PhoneInputCountry {
-  @apply flex items-center justify-center px-3 py-2 border border-gray-300 rounded-l-md bg-gray-50 hover:bg-gray-100 transition-colors;
-}
-
-.PhoneInputCountryIcon {
-  @apply w-5 h-5;
-}
-
-.PhoneInputCountrySelect {
-  @apply appearance-none bg-transparent border-none outline-none cursor-pointer;
-}
-
-.PhoneInputInput {
-  @apply flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors;
-}
-
-.PhoneInput--focus .PhoneInputCountry {
-  @apply border-blue-500;
-}
-
-.PhoneInput--focus .PhoneInputInput {
-  @apply border-blue-500;
-}
-
-/* Ensure the phone input looks consistent with other inputs */
-.phone-input-container .PhoneInput {
   @apply w-full;
 }
 
+.PhoneInputCountry {
+  @apply border-r border-[#d1d5db];
+}
+
+.PhoneInputCountryIcon {
+  @apply w-6 h-4;
+}
+
+.PhoneInputCountrySelect {
+  @apply bg-transparent border-none outline-none;
+}
+
+.PhoneInputInput {
+  @apply border border-[#d1d5db] rounded-r-lg px-4 py-3 text-sm w-full transition-colors duration-200 focus:border-[#3b82f6] focus:outline-none;
+}
+
+.PhoneInput--focus .PhoneInputCountry {
+  @apply border-[#3b82f6];
+}
+
+.PhoneInput--focus .PhoneInputInput {
+  @apply border-[#3b82f6] shadow-lg;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.phone-input-container .PhoneInput {
+  @apply rounded-lg overflow-hidden;
+}
+
 .phone-input-container .PhoneInputInput {
-  @apply w-full px-3 py-2 text-sm border border-input bg-background ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply rounded-r-lg;
 } 
