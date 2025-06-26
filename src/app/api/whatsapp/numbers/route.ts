@@ -124,7 +124,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log('[INFO] Creating new WhatsApp number');
+    console.log('[INFO] Creating new WhatsApp number - FORCING OTP VERIFICATION');
 
     const supabase = createClient();
     
@@ -181,25 +181,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Verificar que el número no existe ya
+    // 🔧 NUEVO COMPORTAMIENTO: Si el número ya existe, lo eliminamos y creamos uno nuevo
+    // Esto fuerza SIEMPRE la verificación OTP sin importar el historial
     const { data: existingNumber } = await supabase
       .from('whatsapp_numbers')
       .select('id')
       .eq('phone_number', phone_number)
       .eq('user_id', user.id)
-      .eq('is_active', true)
       .single();
 
     if (existingNumber) {
-      return NextResponse.json(
-        { success: false, error: 'Phone number already exists' },
-        { status: 409 }
-      );
+      console.log('[INFO] Number exists - removing it to force fresh OTP verification');
+      
+      // Eliminar conexiones existentes
+      await supabase
+        .from('whatsapp_store_connections')
+        .delete()
+        .eq('whatsapp_number_id', existingNumber.id);
+      
+      // Eliminar verificaciones existentes
+      await supabase
+        .from('whatsapp_verifications')
+        .delete()
+        .eq('whatsapp_number_id', existingNumber.id);
+      
+      // Eliminar el número existente
+      await supabase
+        .from('whatsapp_numbers')
+        .delete()
+        .eq('id', existingNumber.id);
+        
+      console.log('[INFO] Existing number and all related data deleted - fresh start enforced');
     }
 
-    console.log('[INFO] Attempting to create WhatsApp number');
+    console.log('[INFO] Attempting to create WhatsApp number - ALWAYS UNVERIFIED');
     
-    // Crear el número de WhatsApp
+    // Crear el número de WhatsApp SIEMPRE como NO VERIFICADO
     const { data: newNumber, error: createError } = await supabase
       .from('whatsapp_numbers')
       .insert({
@@ -207,11 +224,12 @@ export async function POST(request: NextRequest) {
         phone_number,
         display_name,
         is_active: true,
-        is_verified: false,
+        is_verified: false, // 🔒 SIEMPRE false para forzar verificación
+        verified_at: null,  // 🔒 SIEMPRE null 
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
-      .select('id, phone_number, display_name')
+      .select('id, phone_number, display_name, is_verified')
       .single();
 
     if (createError) {
@@ -222,7 +240,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('[INFO] WhatsApp number created successfully:', newNumber.id);
+    console.log('[INFO] WhatsApp number created successfully (UNVERIFIED):', newNumber.id);
 
     // Si se proporcionó store_id, crear automáticamente la conexión
     if (store_id && newNumber) {
@@ -253,10 +271,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: newNumber,
+      data: {
+        ...newNumber,
+        requires_verification: true // 🔒 Siempre indica que requiere verificación
+      },
       message: store_id 
-        ? `WhatsApp number created and connected to store successfully`
-        : `WhatsApp number created successfully`
+        ? `WhatsApp number created and connected to store - OTP verification required`
+        : `WhatsApp number created - OTP verification required`
     });
 
   } catch (error) {

@@ -195,6 +195,16 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
     setIsAdding(true);
     setError(null);
     
+    // 🔒 RESET OTP STATE - Limpiar cualquier estado anterior
+    setShowOTPDialog(false);
+    setPendingVerification(null);
+    setOtpCode('');
+    setOtpError(null);
+    setOtpExpiresAt(null);
+    setTimeRemaining(null);
+    
+    console.log('[DEBUG] Starting fresh WhatsApp number creation with OTP verification');
+    
     try {
       const response = await fetch('/api/whatsapp/numbers', {
         method: 'POST',
@@ -211,13 +221,18 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
       const data = await response.json();
       
       if (data.success) {
-        // Close add dialog and show OTP verification
+        console.log('[DEBUG] Number created successfully, forcing OTP verification for:', data.data.id);
+        
+        // Close add dialog 
         setPhoneValue('');
         setFormDisplayName('');
         setIsDialogOpen(false);
         
-        // Start OTP verification flow
+        // 🔒 ALWAYS START OTP VERIFICATION - Sin excepciones
         setPendingVerification(data.data.id);
+        
+        // Force send OTP immediately
+        console.log('[DEBUG] Forcing OTP send for number:', data.data.id);
         await sendOTP(data.data.id);
         
         // Refresh configs to show pending status
@@ -235,6 +250,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   };
 
   const sendOTP = async (whatsappNumberId: string) => {
+    console.log('[DEBUG] Sending OTP for number ID:', whatsappNumberId);
     setIsSendingOTP(true);
     setOtpError(null);
     
@@ -249,16 +265,22 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
       const data = await response.json();
       
       if (data.success) {
+        console.log('[DEBUG] OTP sent successfully, showing dialog');
+        
+        // 🔒 FORCE SHOW OTP DIALOG - Siempre mostrar
         setShowOTPDialog(true);
         const expiresAt = new Date(Date.now() + data.data.expires_in * 1000);
         setOtpExpiresAt(expiresAt);
         setTimeRemaining(data.data.expires_in);
+        
+        console.log('[DEBUG] OTP dialog should be visible now');
       } else {
+        console.error('[ERROR] Failed to send OTP:', data.error);
         setError(data.error || 'Error al enviar código de verificación');
       }
     } catch (err) {
+      console.error('[ERROR] Network error sending OTP:', err);
       setError('Error al enviar código de verificación');
-      console.error('[ERROR] Failed to send OTP:', err);
     } finally {
       setIsSendingOTP(false);
     }
@@ -352,6 +374,18 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
       onConfirm: async () => {
         try {
           setLoading(true);
+          
+          // 🔒 CLEAN OTP STATE - Limpiar estado OTP si se está eliminando el número pendiente
+          if (pendingVerification === configId) {
+            console.log('[DEBUG] Cleaning OTP state for deleted number');
+            setShowOTPDialog(false);
+            setPendingVerification(null);
+            setOtpCode('');
+            setOtpError(null);
+            setOtpExpiresAt(null);
+            setTimeRemaining(null);
+          }
+          
           const response = await fetch(`/api/whatsapp/numbers/${configId}`, {
             method: 'DELETE',
             credentials: 'include'
@@ -359,6 +393,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
           
           const data = await response.json();
           if (data.success) {
+            console.log('[DEBUG] Number deleted successfully, refreshing configs');
             await fetchConfigs();
           } else {
             setError(data.error || 'Error al eliminar la configuración');
