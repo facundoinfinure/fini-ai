@@ -59,12 +59,39 @@ export class TwilioContentTemplateService {
     try {
       console.log(`[CONTENT_API] Creating template: ${config.friendlyName}`);
 
-      const content = await this.client.content.v1.contents.create({
-        friendlyName: config.friendlyName,
-        language: config.language,
-        variables: config.variables || {},
-        types: config.types
+      // Note: Using HTTP API directly since SDK create method isn't available in current version
+      const accountSid = process.env.TWILIO_ACCOUNT_SID!;
+      const authToken = process.env.TWILIO_AUTH_TOKEN!;
+      const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+
+      const formData = new URLSearchParams({
+        FriendlyName: config.friendlyName,
+        Language: config.language,
+        'Types[twilio/text][body]': config.types['twilio/text'].body
       });
+
+      // Add variables if provided
+      if (config.variables) {
+        Object.entries(config.variables).forEach(([key, value]) => {
+          formData.append(`Variables[${key}]`, value);
+        });
+      }
+
+      const response = await fetch(`https://content.twilio.com/v1/Content`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${basicAuth}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const content = await response.json();
 
       return {
         success: true,
@@ -83,12 +110,32 @@ export class TwilioContentTemplateService {
     try {
       console.log(`[CONTENT_API] Submitting for WhatsApp approval: ${request.name}`);
 
-      const approvalRequest = await this.client.content.v1.contents(request.contentSid)
-        .approvalRequests.create({
-          name: request.name,
-          category: request.category,
-          allowCategoryChange: request.allow_category_change || false
-        });
+      // Note: Using HTTP API directly since SDK approval methods aren't available in current version
+      const accountSid = process.env.TWILIO_ACCOUNT_SID!;
+      const authToken = process.env.TWILIO_AUTH_TOKEN!;
+      const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+
+      const formData = new URLSearchParams({
+        Name: request.name,
+        Category: request.category,
+        AllowCategoryChange: (request.allow_category_change || false).toString()
+      });
+
+      const response = await fetch(`https://content.twilio.com/v1/Content/${request.contentSid}/ApprovalRequests`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${basicAuth}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const approvalRequest = await response.json();
 
       return {
         success: true,

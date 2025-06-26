@@ -87,17 +87,37 @@ export async function POST(request: NextRequest) {
 
     const client = twilio(accountSid, authToken);
 
-    // Create content template
-    const contentTemplate = await client.content.v1.contents.create({
-      friendlyName: friendlyName,
-      language: 'es',
-      variables: variables || {},
-      types: {
-        'twilio/text': {
-          body: content
-        }
-      }
+    // Create content template using HTTP API (SDK create method not available)
+    const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+    
+    const formData = new URLSearchParams({
+      FriendlyName: friendlyName,
+      Language: 'es',
+      'Types[twilio/text][body]': content
     });
+
+    // Add variables if provided
+    if (variables) {
+      Object.entries(variables).forEach(([key, value]) => {
+        formData.append(`Variables[${key}]`, value as string);
+      });
+    }
+
+    const response = await fetch(`https://content.twilio.com/v1/Content`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${basicAuth}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const contentTemplate = await response.json();
 
     console.log(`[CONTENT_BUILDER] Template created: ${contentTemplate.sid}`);
 

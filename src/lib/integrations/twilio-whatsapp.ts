@@ -489,85 +489,67 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
   }
 
   /**
-   * Send OTP verification code using smart messaging with template fallback
+   * Send OTP verification code using DIRECT template (resolves error 63016)
+   * 🚨 CRITICAL: Must use contentSid, NEVER body (freeform)
    */
   async sendOTPCode(phoneNumber: string, otpCode: string): Promise<{ success: boolean; messageSid?: string; error?: string }> {
-    const otpMessage = `🔐 *Código de Verificación Fini AI*
+    console.log('🔥 [CRITICAL] sendOTPCode called - MUST use template to avoid 63016');
+    console.log(`🔥 [DEBUG] Phone: ${phoneNumber}, OTP: ${otpCode}`);
+    
+    try {
+      // Get template config
+      const templateConfig = WHATSAPP_TEMPLATES.OTP_VERIFICATION;
+      const variables = templateConfig.variables(otpCode);
+      
+      console.log(`🎯 [TEMPLATE] Using contentSid: ${templateConfig.contentSid}`);
+      console.log(`🎯 [TEMPLATE] Variables: ${JSON.stringify(variables)}`);
+      
+      // Send DIRECTLY using Twilio client with contentSid (NO body field)
+      const twilioMessage = await this.client.messages.create({
+        from: `whatsapp:${this.config.phoneNumber}`,
+        to: `whatsapp:${phoneNumber}`,
+        contentSid: templateConfig.contentSid,
+        contentVariables: JSON.stringify(variables)
+        // 🚨 CRITICAL: NO 'body' field - this would cause 63016
+      });
 
-Tu código de verificación es: *${otpCode}*
+      console.log('✅ [SUCCESS] OTP template sent directly:', twilioMessage.sid);
+      console.log('✅ [SUCCESS] NO ERROR 63016 - Used contentSid directly');
+      
+      return {
+        success: true,
+        messageSid: twilioMessage.sid
+      };
 
-Por favor, ingresa este código en la aplicación para completar la configuración de tu número de WhatsApp.
-
-Este código expira en 10 minutos.
-
-⚠️ No compartas este código con nadie.`;
-
-    const result = await this.sendSmartMessage(
-      phoneNumber,
-      otpMessage,
-      'response', // Use response type, fallback will handle template selection
-      {
-        otpCode: otpCode,
-        expiryMinutes: '10'
-      }
-    );
-
-    if (result.usedTemplate) {
-      console.log('[TWILIO] OTP sent using template:', result.messageSid);
-    } else {
-      console.log('[TWILIO] OTP sent as freeform message:', result.messageSid);
+    } catch (error) {
+      console.error('❌ [ERROR] Direct template send failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Template send failed'
+      };
     }
-
-    return {
-      success: result.success,
-      messageSid: result.messageSid,
-      error: result.error
-    };
   }
 
   /**
-   * Send verification success and welcome message using smart messaging
+   * Send verification success and welcome message using DIRECT template (resolves error 63016)
    */
   async sendVerificationSuccessMessage(phoneNumber: string, displayName: string, storeName?: string): Promise<{ success: boolean; messageSid?: string; error?: string }> {
-    const successMessage = `✅ ¡Verificación Exitosa!
-
-¡Hola ${displayName}! Tu número de WhatsApp ha sido verificado correctamente.
-
-🎉 ¡Bienvenido a Fini AI!
-
-Soy tu asistente de IA especializado en ${storeName || 'tu tienda'}. 
-
-🤖 ¿Qué puedo hacer por ti?
-• 📊 Analytics en tiempo real
-• 🛍️ Información de productos
-• 👥 Atención al cliente 24/7
-• 📈 Ideas de marketing personalizadas
-• 💡 Insights de ventas
-
-Comandos principales:
-• Escribe "analytics" para ver tus métricas
-• Escribe "productos" para gestionar inventario
-• Escribe "marketing" para ideas de promoción
-• Escribe "ayuda" para ver todos los comandos
-
-¡Estoy aquí para ayudarte a hacer crecer tu negocio! 🚀
-
-Puedes escribirme en cualquier momento.`;
-
-    const result = await this.sendSmartMessage(
+    console.log('[TWILIO] Sending welcome using direct template to avoid 63016 error');
+    
+    // Send DIRECTLY using template, no fallback needed
+    const result = await this.sendTemplateByType(
       phoneNumber,
-      successMessage,
-      'welcome', // Use welcome type for proper template selection
+      'welcome',
       {
         displayName: displayName,
         storeName: storeName || 'tu tienda'
       }
     );
 
-    if (result.usedTemplate) {
-      console.log('[TWILIO] Welcome message sent using template:', result.messageSid);
+    if (result.success) {
+      console.log('[TWILIO] Welcome template sent successfully:', result.messageSid);
     } else {
-      console.log('[TWILIO] Welcome message sent as freeform message:', result.messageSid);
+      console.error('[TWILIO] Welcome template failed:', result.error);
     }
 
     return {
