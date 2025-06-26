@@ -32,9 +32,9 @@ interface NavigationItem {
 
 const navigationItems: NavigationItem[] = [
   {
-    id: 'resumen',
-    label: 'Resumen',
-    icon: BarChart3,
+    id: 'chat',
+    label: 'Chat',
+    icon: MessageSquare,
   },
   {
     id: 'analytics',
@@ -42,26 +42,21 @@ const navigationItems: NavigationItem[] = [
     icon: BarChart3,
   },
   {
-    id: 'configuracion',
-    label: 'Configuración',
-    icon: Settings,
-  },
-  {
     id: 'suscripcion',
     label: 'Suscripción',
     icon: CreditCard,
   },
   {
-    id: 'chat',
-    label: 'Chat',
-    icon: MessageSquare,
+    id: 'configuracion',
+    label: 'Configuración',
+    icon: Settings,
   },
 ];
 
 export function SidebarLayout({ 
   children, 
   user, 
-  activeTab = 'resumen', 
+  activeTab = 'chat', 
   onTabChange, 
   onSignOut,
   onRefresh,
@@ -180,11 +175,10 @@ export function SidebarLayout({
 
 function getPageTitle(activeTab: string): string {
   const titles: Record<string, string> = {
-    resumen: 'Resumen',
-    analytics: 'Analytics',
-    configuracion: 'Configuración',
-    suscripcion: 'Suscripción',
     chat: 'Chat Preview',
+    analytics: 'Analytics',
+    suscripcion: 'Suscripción',
+    configuracion: 'Configuración',
   };
   
   return titles[activeTab] || 'Dashboard';

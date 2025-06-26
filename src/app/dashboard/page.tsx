@@ -70,7 +70,7 @@ function DashboardContent() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [notification, setNotification] = useState<Notification | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState("resumen");
+  const [activeTab, setActiveTab] = useState("chat");
 
   // Handle OAuth callback results
   useEffect(() => {
@@ -288,21 +288,10 @@ function DashboardContent() {
 
       {/* Tab Content */}
       <div className="space-y-6">
-        {activeTab === "resumen" && (
+        {activeTab === "chat" && (
           <DashboardErrorBoundary>
-            <Suspense fallback={<DashboardSkeleton />}>
-              <DashboardSummary stores={stores} />
-            </Suspense>
-          </DashboardErrorBoundary>
-        )}
-
-        {activeTab === "configuracion" && (
-          <DashboardErrorBoundary>
-            <Suspense fallback={<StoreManagementSkeleton />}>
-              <ConfigurationManagement 
-                stores={stores} 
-                onStoreUpdate={fetchDashboardData}
-              />
+            <Suspense fallback={<ChatSkeleton />}>
+              <ChatPreview />
             </Suspense>
           </DashboardErrorBoundary>
         )}
@@ -323,10 +312,13 @@ function DashboardContent() {
           </DashboardErrorBoundary>
         )}
 
-        {activeTab === "chat" && (
+        {activeTab === "configuracion" && (
           <DashboardErrorBoundary>
-            <Suspense fallback={<ChatSkeleton />}>
-              <ChatPreview />
+            <Suspense fallback={<StoreManagementSkeleton />}>
+              <ConfigurationManagement 
+                stores={stores} 
+                onStoreUpdate={fetchDashboardData}
+              />
             </Suspense>
           </DashboardErrorBoundary>
         )}
