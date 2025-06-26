@@ -42,14 +42,9 @@ const navigationItems: NavigationItem[] = [
     icon: BarChart3,
   },
   {
-    id: 'tiendas',
-    label: 'Tiendas',
-    icon: Store,
-  },
-  {
-    id: 'whatsapp',
-    label: 'WhatsApp',
-    icon: MessageSquare,
+    id: 'configuracion',
+    label: 'Configuración',
+    icon: Settings,
   },
   {
     id: 'suscripcion',
@@ -187,8 +182,7 @@ function getPageTitle(activeTab: string): string {
   const titles: Record<string, string> = {
     resumen: 'Resumen',
     analytics: 'Analytics',
-    tiendas: 'Gestión de Tiendas',
-    whatsapp: 'WhatsApp Business',
+    configuracion: 'Configuración',
     suscripcion: 'Suscripción',
     chat: 'Chat Preview',
   };

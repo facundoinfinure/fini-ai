@@ -21,6 +21,11 @@ export const WhatsAppManagement = lazy(() =>
     .then(module => ({ default: module.WhatsAppManagement }))
 );
 
+export const ConfigurationManagement = lazy(() => 
+  import('@/components/dashboard/configuration-management')
+    .then(module => ({ default: module.ConfigurationManagement }))
+);
+
 export const SubscriptionManagement = lazy(() => 
   import('@/components/dashboard/subscription-management')
     .then(module => ({ default: module.SubscriptionManagement }))

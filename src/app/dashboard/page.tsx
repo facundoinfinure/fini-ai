@@ -12,8 +12,7 @@ import { DashboardSkeleton, AnalyticsSkeleton, StoreManagementSkeleton, WhatsApp
 import { createLogger, PerformanceTimer } from '@/lib/logger';
 import { 
   AnalyticsOverview,
-  StoreManagement, 
-  WhatsAppManagement,
+  ConfigurationManagement,
   SubscriptionManagement,
   ChatPreview 
 } from '@/lib/lazy-imports';
@@ -297,21 +296,13 @@ function DashboardContent() {
           </DashboardErrorBoundary>
         )}
 
-        {activeTab === "tiendas" && (
+        {activeTab === "configuracion" && (
           <DashboardErrorBoundary>
             <Suspense fallback={<StoreManagementSkeleton />}>
-              <StoreManagement 
+              <ConfigurationManagement 
                 stores={stores} 
                 onStoreUpdate={fetchDashboardData}
               />
-            </Suspense>
-          </DashboardErrorBoundary>
-        )}
-
-        {activeTab === "whatsapp" && (
-          <DashboardErrorBoundary>
-            <Suspense fallback={<WhatsAppConfigSkeleton />}>
-              <WhatsAppManagement stores={stores} />
             </Suspense>
           </DashboardErrorBoundary>
         )}
