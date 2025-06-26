@@ -13,32 +13,39 @@ interface ConfigurationManagementProps {
 
 export function ConfigurationManagement({ stores, onStoreUpdate }: ConfigurationManagementProps) {
   return (
-    <div className="space-y-8">
-      {/* Page Header */}
-      <div className="flex items-center gap-3">
-        <Settings className="h-6 w-6 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
-          <p className="text-gray-600">Gestiona tus tiendas y números de WhatsApp en un solo lugar</p>
+    <div className="config-container">
+      {/* Header - Origin Style */}
+      <div className="config-header">
+        <h1 className="config-title">Configuración</h1>
+        <p className="config-subtitle">Gestiona tus tiendas y números de WhatsApp en un solo lugar</p>
+      </div>
+
+      {/* Gestión de Tiendas Section */}
+      <div className="config-section">
+        <div className="section-header">
+          <h2 className="section-title">
+            <StoreIcon className="h-5 w-5" />
+            Gestión de Tiendas
+          </h2>
+          <p className="section-description">Administra tus tiendas conectadas a Fini AI</p>
+        </div>
+        <div className="section-content">
+          <StoreManagement stores={stores} onStoreUpdate={onStoreUpdate} />
         </div>
       </div>
 
-      {/* Store Management Section */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <StoreIcon className="h-5 w-5 text-blue-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Gestión de Tiendas</h2>
+      {/* Gestión de WhatsApp Section */}
+      <div className="config-section">
+        <div className="section-header">
+          <h2 className="section-title">
+            <MessageSquare className="h-5 w-5" />
+            Gestión de WhatsApp
+          </h2>
+          <p className="section-description">Administra los números conectados a tus tiendas</p>
         </div>
-        <StoreManagement stores={stores} onStoreUpdate={onStoreUpdate} />
-      </div>
-
-      {/* WhatsApp Management Section */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-green-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Gestión de WhatsApp</h2>
+        <div className="section-content">
+          <WhatsAppManagement stores={stores} />
         </div>
-        <WhatsAppManagement stores={stores} />
       </div>
     </div>
   );

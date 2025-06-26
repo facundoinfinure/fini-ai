@@ -390,17 +390,15 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
     return PowerOff;
   };
 
-
-
   const handleConnectToStore = async (whatsappNumberId: string, storeId: string) => {
     try {
       setLoading(true);
-                const response = await fetch('/api/whatsapp/connect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
+      const response = await fetch('/api/whatsapp/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ whatsapp_number_id: whatsappNumberId, store_id: storeId })
-          });
+      });
       
       const data = await response.json();
       if (data.success) {
@@ -499,101 +497,64 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
 
   return (
     <div className="space-y-6">
-      {/* Uber-Style Stats Dashboard */}
+      {/* Unified Stats Dashboard - Origin Style */}
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-emerald-100 hover:shadow-md transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-emerald-700 text-sm font-medium">Números Activos</p>
-                  <p className="text-2xl font-bold text-emerald-900">{stats.activeNumbers}</p>
-                  <p className="text-xs text-emerald-600">de {stats.totalNumbers} registrados</p>
-                </div>
-                <div className="p-3 bg-emerald-200 rounded-xl">
-                  <Signal className="h-6 w-6 text-emerald-700" />
-              </div>
-                </div>
-            </CardContent>
-          </Card>
+        <div className="whatsapp-metrics">
+          <div className="metric-card-unified">
+            <div className="metric-icon">📊</div>
+            <div className="metric-value">{stats.activeNumbers}</div>
+            <div className="metric-label">Números Activos</div>
+            <div className="metric-sublabel">de {stats.totalNumbers} registrados</div>
+          </div>
 
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-md transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-700 text-sm font-medium">Conversaciones</p>
-                  <p className="text-2xl font-bold text-blue-900">{stats.totalMessages}</p>
-                  <p className="text-xs text-blue-600 flex items-center">
-                    <TrendingUp className="h-3 w-3 mr-1" />
-                    Total procesadas
-                  </p>
-              </div>
-                <div className="p-3 bg-blue-200 rounded-xl">
-                  <MessageSquare className="h-6 w-6 text-blue-700" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="metric-card-unified">
+            <div className="metric-icon">💬</div>
+            <div className="metric-value">{stats.totalMessages}</div>
+            <div className="metric-label">Conversaciones</div>
+            <div className="metric-sublabel">Total procesadas</div>
+          </div>
 
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-purple-100 hover:shadow-md transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-purple-700 text-sm font-medium">Tiempo Respuesta</p>
-                  <p className="text-2xl font-bold text-purple-900">{stats.avgResponseTime}s</p>
-                  <p className="text-xs text-purple-600">Promedio de IA</p>
-                </div>
-                <div className="p-3 bg-purple-200 rounded-xl">
-                  <Zap className="h-6 w-6 text-purple-700" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          <div className="metric-card-unified">
+            <div className="metric-icon">⚡</div>
+            <div className="metric-value">{stats.avgResponseTime}s</div>
+            <div className="metric-label">Tiempo Respuesta</div>
+            <div className="metric-sublabel">Promedio de IA</div>
+          </div>
 
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-orange-50 to-orange-100 hover:shadow-md transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-orange-700 text-sm font-medium">Tiendas Conectadas</p>
-                  <p className="text-2xl font-bold text-orange-900">{stores.length}</p>
-                  <p className="text-xs text-orange-600">Integradas activamente</p>
-                </div>
-                <div className="p-3 bg-orange-200 rounded-xl">
-                  <Users className="h-6 w-6 text-orange-700" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="metric-card-unified">
+            <div className="metric-icon">👥</div>
+            <div className="metric-value">{stores.length}</div>
+            <div className="metric-label">Tiendas Conectadas</div>
+            <div className="metric-sublabel">Integradas activamente</div>
+          </div>
         </div>
       )}
 
-      {/* Main WhatsApp Management */}
-      <Card className="border-0 shadow-sm bg-white">
-        <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
-          <div className="flex items-center justify-between">
+      {/* Main WhatsApp Management - Origin Style */}
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <div>
-              <CardTitle className="flex items-center text-slate-900">
-                <Phone className="mr-3 h-5 w-5 text-emerald-600" />
-                Números de WhatsApp
-            </CardTitle>
-              <CardDescription className="text-slate-600 mt-1">
-                Administra los números conectados a tus tiendas
-            </CardDescription>
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+              <Phone className="mr-3 h-5 w-5 text-gray-600" />
+              Números de WhatsApp
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Administra los números conectados a tus tiendas
+            </p>
           </div>
-            <Button 
-              onClick={() => setIsDialogOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
-            >
+          <Button 
+            onClick={() => setIsDialogOpen(true)}
+            className="btn-success"
+          >
             <Plus className="mr-2 h-4 w-4" />
             Agregar Número
           </Button>
-          </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="p-0">
+        <div className="p-0">
           {/* Error Alert */}
           {error && (
-            <div className="mx-6 mt-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center animate-in slide-in-from-top-2 duration-300">
+            <div className="mx-6 mt-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center">
               <AlertCircle className="h-5 w-5 text-red-600 mr-3 flex-shrink-0" />
               <span className="text-red-800 flex-1">{error}</span>
               <Button
@@ -607,180 +568,85 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
             </div>
           )}
 
-          {/* Optimized Configuration List - Elimina redundancia y mejora UX */}
+          {/* Configuration List - Origin Style */}
           {configs && configs.length > 0 ? (
             <div className="p-6">
               <div className="space-y-3">
               {configs.map((config) => {
                 const StatusIcon = getStatusIcon(config.is_active, config.is_configured);
-                  const isHovered = hoveredConfig === config.id;
+                const isHovered = hoveredConfig === config.id;
                 
                 return (
-                  <div
-                    key={config.id}
-                      onMouseEnter={() => setHoveredConfig(config.id)}
-                      onMouseLeave={() => setHoveredConfig(null)}
-                      className={`group relative flex items-center justify-between p-6 border rounded-xl transition-all duration-200 ${
-                        isHovered 
-                          ? 'border-emerald-200 bg-emerald-50 shadow-md transform scale-[1.01]' 
-                          : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
-                      }`}
-                    >
-                      {/* Left Section - Main Info */}
-                      <div className="flex items-center space-x-4 flex-1">
-                        {/* Status Indicator */}
-                        <div className={`relative p-3 rounded-xl transition-all duration-200 ${
-                          config.is_active && config.is_configured 
-                            ? 'bg-emerald-100 text-emerald-600' 
-                            : !config.is_configured 
-                            ? 'bg-amber-100 text-amber-600' 
-                            : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          <StatusIcon className="h-6 w-6" />
-                          {config.is_active && config.is_configured && (
-                            <div className="absolute -top-1 -right-1 h-3 w-3 bg-emerald-500 rounded-full animate-pulse"></div>
-                          )}
+                  <div key={config.id} className="number-item"
+                    onMouseEnter={() => setHoveredConfig(config.id)}
+                    onMouseLeave={() => setHoveredConfig(null)}
+                  >
+                    {/* Left Section - Main Info */}
+                    <div className="number-info">
+                      {/* Status Indicator */}
+                      <div className={`number-status ${config.is_active && config.is_configured ? '' : 
+                        !config.is_configured ? 'warning' : 'inactive'}`} />
+                      
+                      {/* Status Icon */}
+                      <div className={`p-3 rounded-xl transition-all duration-200 ${
+                        config.is_active && config.is_configured 
+                          ? 'bg-emerald-100 text-emerald-600' 
+                          : !config.is_configured 
+                          ? 'bg-amber-100 text-amber-600' 
+                          : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        <StatusIcon className="h-6 w-6" />
+                        {config.is_active && config.is_configured && (
+                          <div className="absolute -top-1 -right-1 h-3 w-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                        )}
                       </div>
                       
-                        {/* Number Info */}
-                      <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h3 className="font-semibold text-slate-900 text-lg">
-                            {config.display_name || config.phone_numbers[0]}
-                          </h3>
-                          {config.display_name && (
-                              <span className="text-sm text-slate-500 font-mono bg-slate-100 px-2 py-1 rounded">
-                                {config.phone_numbers[0]}
-                            </span>
-                          )}
-                                                <Badge className={`text-xs font-medium ${getStatusColor(config.is_active, config.is_verified)}`}>
-                      {getStatusText(config.is_active, config.is_verified)}
-                          </Badge>
-                        </div>
-                        
-                          {/* Store Connection Info */}
-                          <div className="flex items-center space-x-4 text-sm text-slate-600">
-                            {config.store_name ? (
-                              <div className="flex items-center space-x-2">
-                                <Link2 className="h-4 w-4 text-emerald-500" />
-                                <span className="font-medium">{config.store_name}</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center space-x-2">
-                                <Unlink className="h-4 w-4 text-slate-400" />
-                                <span className="text-slate-400">Sin tienda conectada</span>
-                              </div>
-                            )}
-                            
-                            {config.message_count !== undefined && (
-                              <div className="flex items-center space-x-2">
-                                <MessageSquare className="h-4 w-4 text-blue-500" />
-                                <span>{config.message_count} conversaciones</span>
-                              </div>
-                            )}
-                            
-                          {config.last_activity && (
-                              <div className="flex items-center space-x-2">
-                                <Clock className="h-4 w-4 text-slate-400" />
-                            <span>
-                                  {new Date(config.last_activity).toLocaleDateString('es-AR', {
-                                    day: 'numeric',
-                                    month: 'short',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                            </span>
-                              </div>
-                          )}
+                      {/* Number Info */}
+                      <div className="number-details">
+                        <h4>
+                          {config.display_name || config.phone_numbers[0]}
+                        </h4>
+                        {config.display_name && (
+                          <p className="font-mono">
+                            {config.phone_numbers[0]}
+                          </p>
+                        )}
+                        <div className={`status-badge ${config.is_active && config.is_verified ? 'active' : 
+                          config.is_verified ? 'verified' : 'inactive'}`}>
+                          {getStatusText(config.is_active, config.is_verified)}
                         </div>
                       </div>
                     </div>
 
-                      {/* Right Section - Actions */}
-                      <div className={`flex items-center space-x-2 transition-all duration-200 ${
-                        isHovered ? 'opacity-100 translate-x-0' : 'opacity-70 translate-x-1'
-                      }`}>
-                        {/* Store Connection Dropdown */}
-                        {stores.length > 1 && (
-                          <div className="relative">
-                            <select
-                              value={config.store_id || ''}
-                              onChange={(e) => {
-                                const newStoreId = e.target.value;
-                                if (newStoreId && newStoreId !== config.store_id) {
-                                  handleConnectToStore(config.id, newStoreId);
-                                } else if (!newStoreId && config.store_id) {
-                                  handleDisconnectFromStore(config.id, config.store_id);
-                                }
-                              }}
-                              className="appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 hover:border-slate-300 transition-colors"
-                              disabled={loading}
-                            >
-                              <option value="">Sin tienda</option>
-                              {stores.map((store) => (
-                                <option key={store.id} value={store.id}>
-                                  {store.name}
-                                </option>
-                              ))}
-                            </select>
-                            <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                          </div>
-                        )}
-
-                        {/* Verify Number */}
-                        {!config.is_verified && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setPendingVerification(config.id);
-                              sendOTP(config.id);
-                            }}
-                            disabled={isSendingOTP || loading}
-                            className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-300 transition-all duration-200"
-                          >
-                            {isSendingOTP && pendingVerification === config.id ? (
-                              <>
-                                <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                                Enviando...
-                              </>
-                            ) : (
-                              <>
-                                <MessageSquare className="h-4 w-4 mr-1" />
-                                Verificar
-                              </>
-                            )}
-                          </Button>
-                        )}
-
-                        {/* Toggle Status */}
-                        {config.is_configured && config.is_verified && (
+                    {/* Right Section - Actions */}
+                    <div className="number-actions">
+                      {config.is_configured && config.is_verified && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleToggleStatus(config.id)}
                           disabled={loading}
-                            className={`border-2 transition-all duration-200 ${
-                              config.is_active 
-                                ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50' 
-                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                            }`}
+                          className={`btn-secondary ${
+                            config.is_active 
+                              ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50' 
+                              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
                         >
                           {config.is_active ? (
                             <>
-                                <Power className="h-4 w-4 mr-1" />
-                                Activo
+                              <Power className="h-4 w-4 mr-1" />
+                              Activo
                             </>
                           ) : (
                             <>
-                                <PowerOff className="h-4 w-4 mr-1" />
-                                Inactivo
+                              <PowerOff className="h-4 w-4 mr-1" />
+                              Inactivo
                             </>
                           )}
                         </Button>
                       )}
                       
-                        {/* Settings */}
+                      {/* Settings */}
                       <Button
                         variant="outline"
                         size="sm"
@@ -790,17 +656,17 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                           setFormDisplayName(config.display_name || '');
                           setIsDialogOpen(true);
                         }}
-                          className="border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200"
+                        className="btn-icon"
                       >
                         <Settings className="h-4 w-4" />
                       </Button>
                       
-                        {/* Delete */}
+                      {/* Delete */}
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleDeleteConfig(config.id, config.display_name || config.phone_numbers[0] || 'Configuración de WhatsApp')}
-                          className="border-red-200 text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-300 transition-all duration-200"
+                        className="btn-danger"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -824,15 +690,15 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
               </p>
               <Button 
                 onClick={() => setIsDialogOpen(true)} 
-                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-8 py-3"
+                className="btn-success"
               >
                 <Plus className="mr-2 h-5 w-5" />
                 Configurar WhatsApp
               </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
              {/* Add/Edit WhatsApp Number Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
