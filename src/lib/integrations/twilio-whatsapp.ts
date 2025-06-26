@@ -30,28 +30,35 @@ export interface WhatsAppWebhook {
 }
 
 // WhatsApp Message Templates Configuration
+// Updated to use Content Template Builder API with dynamic Content SIDs
 export const WHATSAPP_TEMPLATES = {
-  // OTP Verification Template
+  // OTP Verification Template - Created via Content Template Builder API
   OTP_VERIFICATION: {
     contentSid: process.env.TWILIO_OTP_CONTENTSID || 'HXc00fd0971da921a1e4ca16cf99903a31',
+    friendlyName: 'fini_otp_verification_v3',
+    category: 'AUTHENTICATION',
     variables: (otpCode: string) => ({
       1: otpCode,
       2: '10' // Expiry in minutes
     })
   },
   
-  // Welcome Message Template
+  // Welcome Message Template - Created via Content Template Builder API
   WELCOME: {
-    contentSid: process.env.TWILIO_WELCOME_CONTENTSID || 'HX375350016ecc645927aca568343a747', 
+    contentSid: process.env.TWILIO_WELCOME_CONTENTSID || 'HX375350016ecc645927aca568343a747',
+    friendlyName: 'fini_welcome_v3',
+    category: 'MARKETING',
     variables: (displayName: string, storeName: string) => ({
       1: displayName,
       2: storeName
     })
   },
   
-  // General Analytics Template
+  // General Analytics Template - Created via Content Template Builder API
   ANALYTICS: {
     contentSid: process.env.TWILIO_ANALYTICS_CONTENTSID || 'HX21a8906e743b3fd022adf6683b9ff46c',
+    friendlyName: 'fini_analytics_v3',
+    category: 'UTILITY',
     variables: (sales: string, orders: string, storeName: string) => ({
       1: sales,
       2: orders, 
@@ -59,9 +66,11 @@ export const WHATSAPP_TEMPLATES = {
     })
   },
   
-  // Marketing Ideas Template
+  // Marketing Ideas Template - Created via Content Template Builder API
   MARKETING: {
     contentSid: process.env.TWILIO_MARKETING_CONTENTSID || 'HXf914f35a15c4341B0c7c7940d7ef7bfc',
+    friendlyName: 'fini_marketing_v3',
+    category: 'MARKETING',
     variables: (storeName: string, idea1: string, idea2: string) => ({
       1: storeName,
       2: idea1,
@@ -69,12 +78,27 @@ export const WHATSAPP_TEMPLATES = {
     })
   },
   
-  // Error/Support Template (reutilizamos welcome para errores)
+  // Error/Support Template - Created via Content Template Builder API
   ERROR_SUPPORT: {
-    contentSid: process.env.TWILIO_ERROR_CONTENTSID || 'HX375350016ecc645927aca568343a747',
+    contentSid: process.env.TWILIO_ERROR_CONTENTSID || 'HXa5d6a66578456c49a9c00f9ad08c06af',
+    friendlyName: 'fini_error_v3',
+    category: 'UTILITY',
     variables: (errorType: string) => ({
       1: 'Usuario',
       2: errorType
+    })
+  },
+  
+  // Daily Summary Template - New template created via Content Template Builder API
+  DAILY_SUMMARY: {
+    contentSid: process.env.TWILIO_DAILY_SUMMARY_CONTENTSID || 'HX_NEW_DAILY_SUMMARY',
+    friendlyName: 'fini_daily_summary_v3',
+    category: 'UTILITY',
+    variables: (storeName: string, sales: string, orders: string, topProduct: string) => ({
+      1: storeName,
+      2: sales,
+      3: orders,
+      4: topProduct
     })
   }
 };
@@ -166,6 +190,13 @@ export class TwilioWhatsAppService {
       let variables;
 
       switch (messageType) {
+        case 'otp':
+          templateConfig = WHATSAPP_TEMPLATES.OTP_VERIFICATION;
+          variables = templateConfig.variables(
+            data?.otpCode || '123456'
+          );
+          break;
+
         case 'analytics':
           templateConfig = WHATSAPP_TEMPLATES.ANALYTICS;
           variables = templateConfig.variables(
