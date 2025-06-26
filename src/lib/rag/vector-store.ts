@@ -9,15 +9,32 @@ import { RAG_CONFIG, RAG_CONSTANTS } from './config';
 import type { DocumentChunk, VectorSearchResult, VectorStore, RAGQuery } from './types';
 
 export class PineconeVectorStore implements VectorStore {
-  private pinecone: Pinecone;
+  private pinecone: Pinecone | null = null;
   private indexName: string;
 
   constructor() {
-    this.pinecone = new Pinecone({
-      apiKey: RAG_CONFIG.pinecone.apiKey,
-      environment: RAG_CONFIG.pinecone.environment,
-    });
     this.indexName = RAG_CONFIG.pinecone.indexName;
+    
+    // Lazy initialization - only create Pinecone client when needed
+    // This prevents build errors when API keys are not available
+  }
+
+  /**
+   * Get or create Pinecone client instance
+   */
+  private getPineconeClient(): Pinecone {
+    if (!this.pinecone) {
+      if (!RAG_CONFIG.pinecone.apiKey) {
+        throw new Error('Pinecone API key not configured. Set PINECONE_API_KEY environment variable.');
+      }
+      
+      this.pinecone = new Pinecone({
+        apiKey: RAG_CONFIG.pinecone.apiKey,
+        environment: RAG_CONFIG.pinecone.environment,
+      });
+    }
+    
+    return this.pinecone;
   }
 
   /**
@@ -25,7 +42,8 @@ export class PineconeVectorStore implements VectorStore {
    */
   private async getIndex() {
     try {
-      const index = this.pinecone.index(this.indexName);
+      const pinecone = this.getPineconeClient();
+      const index = pinecone.index(this.indexName);
       return index;
     } catch (error) {
       console.warn(`[ERROR] Failed to get Pinecone index: ${this.indexName}`, error);

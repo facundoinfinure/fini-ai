@@ -81,7 +81,8 @@ class MemoryRateLimiter {
 
   private cleanup(): void {
     const now = Date.now();
-    for (const [key, entry] of this.store.entries()) {
+    const entries = Array.from(this.store.entries());
+    for (const [key, entry] of entries) {
       if (now >= entry.resetTime) {
         this.store.delete(key);
       }
@@ -285,11 +286,11 @@ export async function getRateLimitStatus(storeId: string, userId: string): Promi
 export const PREMIUM_RATE_LIMITS = {
   pro: {
     multiplier: 3, // 3x limits for Pro plan
-    operations: ['rag_search', 'agent_query', 'data_indexing']
+    operations: ['rag_search', 'agent_query', 'data_indexing'] as const
   },
   enterprise: {
     multiplier: 10, // 10x limits for Enterprise plan
-    operations: ['rag_search', 'agent_query', 'data_indexing', 'store_access']
+    operations: ['rag_search', 'agent_query', 'data_indexing', 'store_access'] as const
   }
 } as const;
 
@@ -302,19 +303,20 @@ export async function checkPremiumRateLimit(
   operation: keyof typeof RATE_LIMITS,
   subscriptionPlan: 'free' | 'pro' | 'enterprise' = 'free'
 ): Promise<RateLimitResult> {
-  let config = RATE_LIMITS[operation];
+  const baseConfig = RATE_LIMITS[operation];
+  
+  // Create a new config object with potentially adjusted limits
+  const config: RateLimitConfig = {
+    maxRequests: baseConfig.maxRequests,
+    windowMs: baseConfig.windowMs,
+    keyPrefix: baseConfig.keyPrefix
+  };
   
   // Apply premium multipliers
-  if (subscriptionPlan === 'pro' && PREMIUM_RATE_LIMITS.pro.operations.includes(operation)) {
-    config = {
-      ...config,
-      maxRequests: config.maxRequests * PREMIUM_RATE_LIMITS.pro.multiplier
-    };
-  } else if (subscriptionPlan === 'enterprise' && PREMIUM_RATE_LIMITS.enterprise.operations.includes(operation)) {
-    config = {
-      ...config,
-      maxRequests: config.maxRequests * PREMIUM_RATE_LIMITS.enterprise.multiplier
-    };
+  if (subscriptionPlan === 'pro' && (PREMIUM_RATE_LIMITS.pro.operations as readonly string[]).includes(operation)) {
+    config.maxRequests = baseConfig.maxRequests * PREMIUM_RATE_LIMITS.pro.multiplier;
+  } else if (subscriptionPlan === 'enterprise' && (PREMIUM_RATE_LIMITS.enterprise.operations as readonly string[]).includes(operation)) {
+    config.maxRequests = baseConfig.maxRequests * PREMIUM_RATE_LIMITS.enterprise.multiplier;
   }
   
   const key = `${storeId}:${userId}`;

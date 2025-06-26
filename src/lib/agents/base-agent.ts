@@ -13,7 +13,16 @@ import type {
   AgentTypeConfig 
 } from './types';
 
-import { ragEngine } from '@/lib/rag';
+// Dynamic import to avoid Pinecone initialization during build
+const getRagEngine = async () => {
+  try {
+    const { ragEngine } = await import('@/lib/rag');
+    return ragEngine;
+  } catch (error) {
+    console.warn('[AGENT] RAG engine not available:', error);
+    return null;
+  }
+};
 
 export abstract class BaseAgent implements Agent {
   public readonly type: AgentType;
@@ -105,7 +114,15 @@ export abstract class BaseAgent implements Agent {
         }
       };
 
-      const _ragResult = await ragEngine.search(_ragQuery);
+      const ragEngineInstance = await getRagEngine();
+      if (!ragEngineInstance) {
+        if (AGENT_CONFIG.debugMode) {
+          console.warn(`[AGENT:${this.type}] RAG engine not available, skipping context retrieval`);
+        }
+        return '';
+      }
+
+      const _ragResult = await ragEngineInstance.search(_ragQuery);
       const _executionTime = Date.now() - _startTime;
 
       if (AGENT_CONFIG.debugMode) {

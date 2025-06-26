@@ -27,6 +27,29 @@ export type {
   RAGEngine,
 } from './types';
 
-// Create singleton instance for easy access
+// Create singleton instance for easy access (lazy initialization)
 import { FiniRAGEngine } from './rag-engine';
-export const ragEngine = new FiniRAGEngine(); 
+
+let _ragEngineInstance: FiniRAGEngine | null = null;
+
+export const ragEngine = {
+  get instance(): FiniRAGEngine {
+    if (!_ragEngineInstance) {
+      _ragEngineInstance = new FiniRAGEngine();
+    }
+    return _ragEngineInstance;
+  },
+  
+  // For compatibility with existing code
+  async search(query: any): Promise<any> {
+    return this.instance.search(query);
+  },
+  
+  async upsert(documents: any, storeId: string): Promise<any> {
+    return this.instance.upsert(documents, storeId);
+  },
+  
+  async deleteByStoreId(storeId: string): Promise<any> {
+    return this.instance.deleteByStoreId(storeId);
+  }
+}; 
