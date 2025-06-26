@@ -299,19 +299,6 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
         </div>
       )}
 
-      {/* Add Store Button for existing stores */}
-      {stores && stores.length > 0 && (
-        <div className="flex justify-start pt-4">
-          <Button 
-            onClick={handleAddStore}
-            className="btn-primary"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Conectar Tienda
-          </Button>
-        </div>
-      )}
-
       {/* Edit Store Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>

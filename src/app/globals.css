@@ -582,6 +582,15 @@
   line-height: 1.4;
 }
 
+/* Header with button layout */
+.section-header .flex {
+  width: 100%;
+}
+
+.section-header .btn-primary {
+  flex-shrink: 0;
+}
+
 .section-content {
   padding: 24px;
 }
