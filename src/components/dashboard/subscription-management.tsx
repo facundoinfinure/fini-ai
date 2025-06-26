@@ -218,10 +218,11 @@ export function SubscriptionManagement() {
 
   if (loading) {
     return (
-      <div className="subscription-container max-w-7xl mx-auto px-8 pb-8">
-        <div className="subscription-header bg-white p-8 border-b border-gray-200 mb-8">
-          <h1 className="subscription-title text-2xl font-semibold text-gray-900 mb-2">Tu Suscripción Actual</h1>
-          <p className="subscription-subtitle text-gray-600">Gestiona tu plan y facturación</p>
+      <div className="max-w-7xl mx-auto px-8 pb-8">
+        {/* Header Premium Style */}
+        <div className="bg-white px-8 pt-8 pb-6 border-b border-gray-200 mb-8 -mx-8">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-2">Tu Suscripción Actual</h1>
+          <p className="text-gray-600">Gestiona tu plan y facturación</p>
         </div>
         <div className="flex items-center justify-center py-20">
           <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
@@ -232,10 +233,11 @@ export function SubscriptionManagement() {
 
   if (error) {
     return (
-      <div className="subscription-container max-w-7xl mx-auto px-8 pb-8">
-        <div className="subscription-header bg-white p-8 border-b border-gray-200 mb-8">
-          <h1 className="subscription-title text-2xl font-semibold text-gray-900 mb-2">Tu Suscripción Actual</h1>
-          <p className="subscription-subtitle text-gray-600">Gestiona tu plan y facturación</p>
+      <div className="max-w-7xl mx-auto px-8 pb-8">
+        {/* Header Premium Style */}
+        <div className="bg-white px-8 pt-8 pb-6 border-b border-gray-200 mb-8 -mx-8">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-2">Tu Suscripción Actual</h1>
+          <p className="text-gray-600">Gestiona tu plan y facturación</p>
         </div>
         <Alert className="border-red-200 bg-red-50">
           <AlertCircle className="h-4 w-4" />
@@ -253,247 +255,308 @@ export function SubscriptionManagement() {
   const isOnTrial = subscription.status === 'trial';
 
   return (
-    <div className="subscription-container max-w-7xl mx-auto px-8 pb-8">
-      {/* Header */}
-      <div className="subscription-header bg-white p-8 border-b border-gray-200 mb-8">
-        <h1 className="subscription-title text-2xl font-semibold text-gray-900 mb-2">Tu Suscripción Actual</h1>
-        <p className="subscription-subtitle text-gray-600">Gestiona tu plan y facturación</p>
+    <div className="max-w-7xl mx-auto px-8 pb-8">
+      {/* Header Premium Style */}
+      <div className="bg-white px-8 pt-8 pb-6 border-b border-gray-200 mb-8 -mx-8">
+        <h1 className="text-2xl font-semibold text-gray-900 mb-2">Tu Suscripción Actual</h1>
+        <p className="text-gray-600">Gestiona tu plan y facturación</p>
       </div>
 
-      {/* Plan Actual Prominente */}
-      <div className="current-plan-section bg-white border border-gray-200 rounded-xl p-6 mb-8">
-        <div className="current-plan-header flex justify-between items-center mb-5">
-          <h2 className="current-plan-title text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Tu Suscripción Actual
-          </h2>
-          <span className="plan-badge bg-green-600 text-white px-3 py-1 rounded-full text-xs font-medium">
-            {subscription.status === 'active' ? 'Activa' : 
-             subscription.status === 'trial' ? 'Prueba Gratuita' : 
-             subscription.status}
-          </span>
-        </div>
-        
-        <div className="current-plan-info flex items-center gap-4 mb-5">
-          <div className="plan-icon w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-xl">
-            <currentPlan.icon className="h-6 w-6 text-gray-600" />
-          </div>
-          <div className="plan-details">
-            <h3 className="text-xl font-semibold text-gray-900 mb-1">{currentPlan.name}</h3>
-            <p className="text-sm text-gray-600 m-0">
-              {currentPlan.price === 0 ? 'Gratis' : `$${currentPlan.price}/mes`}
-            </p>
-          </div>
-        </div>
-
-        {isOnTrial && subscription.trialDaysLeft && (
-          <Alert className="mb-5 border-blue-200 bg-blue-50">
-            <Gift className="h-4 w-4" />
-            <AlertDescription className="text-blue-800">
-              <strong>Prueba gratuita:</strong> Te quedan {subscription.trialDaysLeft} días. 
-              Actualiza para continuar usando todas las funcionalidades.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {subscription.nextBilling && (
-          <p className="text-sm text-gray-600 mb-5">
-            <Calendar className="inline h-4 w-4 mr-1" />
-            Próxima facturación: {new Date(subscription.nextBilling).toLocaleDateString('es-AR')}
-          </p>
-        )}
-
-        {/* Métricas de uso */}
-        <div className="usage-metrics">
-          <div className="usage-item flex justify-between items-center py-4 border-b border-gray-100">
-            <span className="usage-label text-sm text-gray-600 font-medium">Tiendas Conectadas</span>
-            <span className="usage-value text-base font-semibold text-gray-900">{subscription.usage.stores}/{subscription.usage.maxStores}</span>
-          </div>
-          <div className="usage-item flex justify-between items-center py-4 border-b border-gray-100">
-            <span className="usage-label text-sm text-gray-600 font-medium">Mensajes de WhatsApp</span>
-            <span className="usage-value text-base font-semibold text-gray-900">{subscription.usage.messages}/{subscription.usage.maxMessages}</span>
-          </div>
-          <div className="usage-item flex justify-between items-center py-4">
-            <span className="usage-label text-sm text-gray-600 font-medium">Consultas de Analytics</span>
-            <span className="usage-value text-base font-semibold text-gray-900">{subscription.usage.analytics}/{subscription.usage.maxAnalytics}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Planes Disponibles */}
-      <div className="plans-section my-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Planes Disponibles</h2>
-        
-        <div className="plans-grid grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-          {plans.map((plan) => {
-            const isCurrent = plan.id === subscription.plan;
-            const isUpgradeOption = plans.findIndex(p => p.id === subscription.plan) < plans.findIndex(p => p.id === plan.id);
-            
-            return (
-              <div 
-                key={plan.id} 
-                className={`plan-card bg-white border border-gray-200 rounded-xl p-6 relative transition-all duration-200 hover:border-gray-300 hover:shadow-lg hover:-translate-y-0.5 ${
-                  isCurrent ? 'plan-card-current border-blue-500 bg-blue-50/30' : ''
-                } ${
-                  plan.popular ? 'plan-card-popular border-purple-500' : ''
-                } ${
-                  plan.recommended ? 'plan-card-recommended border-green-500' : ''
-                }`}
+      <div className="space-y-8">
+        {/* Current Subscription Status - Prominente */}
+        <Card className="border-0 shadow-sm bg-white">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center text-lg font-semibold text-gray-900">
+                <BarChart3 className="mr-3 h-5 w-5 text-gray-600" />
+                Tu Suscripción Actual
+              </CardTitle>
+              <Badge 
+                variant={subscription.status === 'active' ? 'default' : 'secondary'}
+                className={`${
+                  subscription.status === 'active' 
+                    ? 'bg-green-600 hover:bg-green-700 text-white' 
+                    : 'bg-gray-100 text-gray-600'
+                } px-3 py-1`}
               >
-                {plan.popular && (
-                  <div className="plan-badge-top popular absolute -top-3 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider">
-                    Más Popular
+                {subscription.status === 'active' ? 'Activa' : 
+                 subscription.status === 'trial' ? 'Prueba Gratuita' : 
+                 subscription.status}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-2 gap-8">
+              {/* Plan Info - Mejorado */}
+              <div>
+                <div className="flex items-center space-x-4 mb-6">
+                  <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+                    <currentPlan.icon className="h-6 w-6 text-gray-600" />
                   </div>
-                )}
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900">{currentPlan.name}</h3>
+                    <p className="text-gray-600 text-sm">
+                      {currentPlan.price === 0 ? 'Gratis' : `$${currentPlan.price}/mes`}
+                    </p>
+                  </div>
+                </div>
                 
-                {plan.recommended && (
-                  <div className="plan-badge-top recommended absolute -top-3 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider">
-                    Recomendado
-                  </div>
+                {isOnTrial && subscription.trialDaysLeft && (
+                  <Alert className="mb-6 border-blue-200 bg-blue-50">
+                    <Gift className="h-4 w-4" />
+                    <AlertDescription className="text-blue-800">
+                      <strong>Prueba gratuita:</strong> Te quedan {subscription.trialDaysLeft} días. 
+                      Actualiza para continuar usando todas las funcionalidades.
+                    </AlertDescription>
+                  </Alert>
                 )}
 
-                <div className="plan-header text-center mb-6">
-                  <div className="plan-icon-large w-14 h-14 bg-gray-100 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4">
-                    <plan.icon className="h-6 w-6 text-gray-600" />
-                  </div>
-                  <h3 className="plan-name text-xl font-semibold text-gray-900 mb-2">{plan.name}</h3>
-                  <div className="plan-price text-3xl font-bold text-gray-900 mb-1">
-                    {plan.price === 0 ? 'Gratis' : `$${plan.price}`}
-                  </div>
-                  {plan.price > 0 && <p className="plan-price-period text-sm text-gray-600">/mes</p>}
-                </div>
-
-                <div className="plan-features mb-6">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-3">Incluye:</h4>
-                  <ul className="feature-list list-none p-0 m-0">
-                    {plan.features.slice(0, 4).map((feature, index) => (
-                      <li key={index} className="feature-item included flex items-center gap-2 py-1.5 text-sm text-gray-700">
-                        <div className="feature-icon check w-4 h-4 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs flex-shrink-0">
-                          <Check className="h-3 w-3" />
-                        </div>
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                    {plan.features.length > 4 && (
-                      <li className="text-sm text-gray-500 py-1.5">
-                        +{plan.features.length - 4} funcionalidades más
-                      </li>
-                    )}
-                  </ul>
-                </div>
-
-                {plan.limitations.length > 0 && (
-                  <div className="plan-features mb-6">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">No incluye:</h4>
-                    <ul className="feature-list list-none p-0 m-0">
-                      {plan.limitations.slice(0, 2).map((limitation, index) => (
-                        <li key={index} className="feature-item not-included flex items-center gap-2 py-1.5 text-sm text-gray-500">
-                          <div className="feature-icon cross w-4 h-4 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-xs flex-shrink-0">
-                            <X className="h-3 w-3" />
-                          </div>
-                          <span>{limitation}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                {subscription.nextBilling && (
+                  <p className="text-sm text-gray-600 flex items-center">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Próxima facturación: {new Date(subscription.nextBilling).toLocaleDateString('es-AR')}
+                  </p>
                 )}
-
-                <div className="plan-action mt-6">
-                  {isCurrent ? (
-                    <button className="plan-button current w-full py-3 px-6 rounded-lg font-medium text-sm cursor-default bg-gray-100 text-gray-600 flex items-center justify-center gap-2">
-                      <Check className="h-4 w-4" />
-                      Plan Actual
-                    </button>
-                  ) : isUpgradeOption ? (
-                    <button 
-                      className="plan-button upgrade w-full py-3 px-6 rounded-lg font-medium text-sm cursor-pointer transition-all duration-200 bg-green-600 text-white hover:bg-green-700 hover:-translate-y-0.5 flex items-center justify-center gap-2"
-                      onClick={() => handleUpgrade(plan.id)}
-                      disabled={isUpgrading}
-                    >
-                      {isUpgrading ? (
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <TrendingUp className="h-4 w-4" />
-                      )}
-                      Actualizar Plan
-                      <ArrowRight className="h-4 w-4" />
-                    </button>
-                  ) : (
-                    <button className="plan-button primary w-full py-3 px-6 rounded-lg font-medium text-sm cursor-pointer transition-all duration-200 bg-gray-900 text-white hover:bg-gray-700 hover:-translate-y-0.5 flex items-center justify-center gap-2" disabled>
-                      Plan Anterior
-                    </button>
-                  )}
-                </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
 
-      {/* Gestión de Facturación */}
-      <div className="billing-section bg-white border border-gray-200 rounded-xl mt-8 overflow-hidden">
-        <div className="billing-header p-5 border-b border-gray-100 bg-gray-50/50">
-          <h2 className="billing-title text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Gestión de Facturación
-          </h2>
-          <p className="billing-description text-sm text-gray-600">Administra tus métodos de pago y facturación</p>
-        </div>
-        
-        <div className="billing-content p-6">
-          <div className="billing-grid grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="payment-methods">
-              <h3 className="text-base font-medium text-gray-900 mb-4">Métodos de Pago</h3>
-              <div className="payment-method-item flex items-center justify-between p-4 border border-gray-200 rounded-lg mb-3 bg-white">
-                <div className="payment-info flex items-center gap-3">
-                  <div className="payment-icon w-8 h-8 bg-gray-100 rounded-md flex items-center justify-center">
-                    <CreditCard className="h-4 w-4 text-gray-600" />
+              {/* Usage Metrics - Estilo Origin */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-gray-900 mb-4">Uso del Plan</h4>
+                
+                {/* Stores Usage */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-600">Tiendas Conectadas</span>
+                    <span className="text-base font-semibold text-gray-900">
+                      {subscription.usage.stores}/{subscription.usage.maxStores}
+                    </span>
                   </div>
-                  <div className="payment-details">
-                    <h4 className="text-sm font-medium text-gray-900 mb-0.5">•••• •••• •••• 4242</h4>
-                    <p className="text-xs text-gray-600 m-0">Expira 12/25</p>
+                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-600 rounded-full transition-all duration-300"
+                      style={{ width: `${getUsagePercentage(subscription.usage.stores, subscription.usage.maxStores)}%` }}
+                    />
                   </div>
                 </div>
-                <div className="payment-actions flex gap-2">
-                  <button className="change-plan-btn bg-white text-gray-600 border border-gray-300 px-4 py-2 rounded-md text-xs font-medium cursor-pointer transition-all duration-200 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400">
-                    Cambiar
-                  </button>
+
+                {/* Messages Usage */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-600">Mensajes de WhatsApp</span>
+                    <span className="text-base font-semibold text-gray-900">
+                      {subscription.usage.messages}/{subscription.usage.maxMessages}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-600 rounded-full transition-all duration-300"
+                      style={{ width: `${getUsagePercentage(subscription.usage.messages, subscription.usage.maxMessages)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Analytics Usage */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-600">Consultas de Analytics</span>
+                    <span className="text-base font-semibold text-gray-900">
+                      {subscription.usage.analytics}/{subscription.usage.maxAnalytics}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-600 rounded-full transition-all duration-300"
+                      style={{ width: `${getUsagePercentage(subscription.usage.analytics, subscription.usage.maxAnalytics)}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-            
-            <div className="payment-history">
-              <h3 className="text-base font-medium text-gray-900 mb-4">Historial de Pagos</h3>
-              <div className="space-y-0">
-                <div className="payment-history-item flex justify-between items-center py-4 border-b border-gray-100">
-                  <div>
-                    <p className="payment-date text-sm text-gray-900 font-medium">Plan Pro - Diciembre 2024</p>
-                    <p className="payment-plan text-xs text-gray-600 mt-0.5">Pagado el 1 de Dic</p>
+          </CardContent>
+        </Card>
+
+        {/* Available Plans - Estilo Origin */}
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Planes Disponibles</h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            {plans.map((plan) => {
+              const isCurrent = plan.id === subscription.plan;
+              const isUpgradeOption = plans.findIndex(p => p.id === subscription.plan) < plans.findIndex(p => p.id === plan.id);
+              
+              return (
+                <Card 
+                  key={plan.id} 
+                  className={`relative transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 ${
+                    isCurrent ? 'ring-2 ring-blue-500 bg-blue-50/30' : 'hover:border-gray-300'
+                  } ${
+                    plan.popular ? 'border-purple-500' : ''
+                  } ${
+                    plan.recommended ? 'border-green-500' : ''
+                  }`}
+                >
+                  {plan.popular && (
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                      <Badge className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-1.5 text-xs font-semibold uppercase tracking-wider">
+                        Más Popular
+                      </Badge>
+                    </div>
+                  )}
+                  
+                  {plan.recommended && (
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                      <Badge className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 text-xs font-semibold uppercase tracking-wider">
+                        Recomendado
+                      </Badge>
+                    </div>
+                  )}
+
+                  <CardHeader className="pb-4 text-center">
+                    <div className="w-14 h-14 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                      <plan.icon className="h-6 w-6 text-gray-600" />
+                    </div>
+                    <CardTitle className="text-xl font-semibold text-gray-900">{plan.name}</CardTitle>
+                    <div className="text-3xl font-bold text-gray-900 mb-1">
+                      {plan.price === 0 ? 'Gratis' : `$${plan.price}`}
+                    </div>
+                    {plan.price > 0 && <p className="text-sm text-gray-600">/mes</p>}
+                  </CardHeader>
+
+                  <CardContent className="space-y-6">
+                    {/* Features */}
+                    <div>
+                      <h4 className="font-semibold text-sm text-gray-900 mb-3">Incluye:</h4>
+                      <ul className="space-y-2">
+                        {plan.features.slice(0, 4).map((feature, index) => (
+                          <li key={index} className="flex items-center text-sm text-gray-700">
+                            <div className="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center mr-3 flex-shrink-0">
+                              <Check className="h-3 w-3 text-green-700" />
+                            </div>
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                        {plan.features.length > 4 && (
+                          <li className="text-sm text-gray-500 ml-7">
+                            +{plan.features.length - 4} funcionalidades más
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+
+                    {/* Limitations */}
+                    {plan.limitations.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-sm text-gray-900 mb-3">No incluye:</h4>
+                        <ul className="space-y-2">
+                          {plan.limitations.slice(0, 2).map((limitation, index) => (
+                            <li key={index} className="flex items-center text-sm text-gray-500">
+                              <div className="w-4 h-4 rounded-full bg-red-100 flex items-center justify-center mr-3 flex-shrink-0">
+                                <X className="h-3 w-3 text-red-700" />
+                              </div>
+                              <span>{limitation}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* CTA Button */}
+                    <div className="pt-4">
+                      {isCurrent ? (
+                        <Button variant="outline" className="w-full" disabled>
+                          <Check className="h-4 w-4 mr-2" />
+                          Plan Actual
+                        </Button>
+                      ) : isUpgradeOption ? (
+                        <Button 
+                          className="w-full bg-green-600 hover:bg-green-700 text-white transition-all duration-200 hover:-translate-y-0.5" 
+                          onClick={() => handleUpgrade(plan.id)}
+                          disabled={isUpgrading}
+                        >
+                          {isUpgrading ? (
+                            <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                          ) : (
+                            <TrendingUp className="h-4 w-4 mr-2" />
+                          )}
+                          Actualizar Plan
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </Button>
+                      ) : (
+                        <Button variant="outline" className="w-full" disabled>
+                          Plan Anterior
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Billing Management - Estilo Origin */}
+        <Card className="overflow-hidden border-0 shadow-sm">
+          <CardHeader className="bg-gray-50/50 border-b border-gray-100">
+            <CardTitle className="flex items-center text-lg font-semibold text-gray-900">
+              <CreditCard className="mr-3 h-5 w-5" />
+              Gestión de Facturación
+            </CardTitle>
+            <CardDescription className="text-gray-600">
+              Administra tus métodos de pago y facturación
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <h3 className="font-medium text-gray-900">Métodos de Pago</h3>
+                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-white">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-gray-100 rounded-md flex items-center justify-center">
+                      <CreditCard className="h-4 w-4 text-gray-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm text-gray-900">•••• •••• •••• 4242</p>
+                      <p className="text-xs text-gray-600">Expira 12/25</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="payment-amount text-base font-semibold text-gray-900">$39.00</p>
-                    <p className="payment-status text-xs text-green-600 font-medium">Pagado</p>
-                  </div>
-                </div>
-                
-                <div className="payment-history-item flex justify-between items-center py-4">
-                  <div>
-                    <p className="payment-date text-sm text-gray-900 font-medium">Plan Pro - Noviembre 2024</p>
-                    <p className="payment-plan text-xs text-gray-600 mt-0.5">Pagado el 1 de Nov</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="payment-amount text-base font-semibold text-gray-900">$39.00</p>
-                    <p className="payment-status text-xs text-green-600 font-medium">Pagado</p>
-                  </div>
+                  <Button variant="outline" size="sm" className="text-xs">
+                    Cambiar
+                  </Button>
                 </div>
               </div>
               
-              <button className="view-history-btn text-blue-600 bg-none border-none text-sm font-medium cursor-pointer py-2 transition-colors duration-200 hover:text-blue-800 hover:underline">
-                Ver Historial Completo
-              </button>
+              <div className="space-y-4">
+                <h3 className="font-medium text-gray-900">Historial de Pagos</h3>
+                <div className="space-y-0">
+                  <div className="flex justify-between items-center py-4 border-b border-gray-100">
+                    <div>
+                      <p className="font-medium text-sm text-gray-900">Plan Pro - Diciembre 2024</p>
+                      <p className="text-xs text-gray-600">Pagado el 1 de Dic</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-900">$39.00</p>
+                      <p className="text-xs text-green-600 font-medium">Pagado</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center py-4">
+                    <div>
+                      <p className="font-medium text-sm text-gray-900">Plan Pro - Noviembre 2024</p>
+                      <p className="text-xs text-gray-600">Pagado el 1 de Nov</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-900">$39.00</p>
+                      <p className="text-xs text-green-600 font-medium">Pagado</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <Button variant="outline" size="sm" className="w-full text-sm">
+                  Ver Historial Completo
+                </Button>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
