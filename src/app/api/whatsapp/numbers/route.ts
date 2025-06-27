@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+// Helper para generar headers CORS dinámicos
+function getCorsHeaders(status = 200): ResponseInit {
+  const origin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  return {
+    status,
+    headers: {
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  };
+}
+
 export const dynamic = 'force-dynamic';
 
 // GET - Get WhatsApp configuration for the current user
@@ -17,15 +31,7 @@ export async function GET() {
       console.error('[ERROR] Authentication failed:', userError?.message || 'No user found');
       return NextResponse.json(
         { success: false, error: 'User not authenticated' },
-        { 
-          status: 401,
-          headers: {
-            'Access-Control-Allow-Credentials': 'true',
-            'Access-Control-Allow-Origin': 'http://localhost:3000',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          }
-        }
+        getCorsHeaders(401)
       );
     }
 
@@ -55,7 +61,7 @@ export async function GET() {
       console.error('[ERROR] Failed to fetch WhatsApp numbers:', numbersError.message);
       return NextResponse.json(
         { success: false, error: 'Failed to fetch WhatsApp numbers' },
-        { status: 500 }
+        getCorsHeaders(500)
       );
     }
 
@@ -102,21 +108,14 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: formattedNumbers
-    }, {
-      headers: {
-        'Access-Control-Allow-Credentials': 'true',
-        'Access-Control-Allow-Origin': 'http://localhost:3000',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      }
-    });
+    }, getCorsHeaders(200));
 
   } catch (error) {
-    console.error('[ERROR] Failed to fetch WhatsApp numbers:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+          console.error('[ERROR] Failed to fetch WhatsApp numbers:', error);
+      return NextResponse.json(
+        { success: false, error: 'Internal server error' },
+        getCorsHeaders(500)
+      );
   }
 }
 
@@ -134,21 +133,13 @@ export async function POST(request: NextRequest) {
     if (userError || !user) {
       console.error('[ERROR] Authentication failed:', userError?.message || 'No user found');
       
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'User not authenticated. Please refresh the page and try again.'
-        },
-        { 
-          status: 401,
-          headers: {
-            'Access-Control-Allow-Credentials': 'true',
-            'Access-Control-Allow-Origin': 'http://localhost:3000',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          }
-        }
-      );
+              return NextResponse.json(
+          { 
+            success: false, 
+            error: 'User not authenticated. Please refresh the page and try again.'
+          },
+          getCorsHeaders(401)
+        );
     }
 
     console.log('[INFO] User authenticated successfully');
@@ -159,7 +150,7 @@ export async function POST(request: NextRequest) {
     if (!phone_number || !display_name) {
       return NextResponse.json(
         { success: false, error: 'Phone number and display name are required' },
-        { status: 400 }
+        getCorsHeaders(400)
       );
     }
 
@@ -176,7 +167,7 @@ export async function POST(request: NextRequest) {
       if (storeError || !store) {
         return NextResponse.json(
           { success: false, error: 'Store not found or unauthorized' },
-          { status: 404 }
+          getCorsHeaders(404)
         );
       }
     }
@@ -237,7 +228,7 @@ export async function POST(request: NextRequest) {
       console.error('[ERROR] Failed to create WhatsApp number:', createError.message);
       return NextResponse.json(
         { success: false, error: 'Failed to create WhatsApp number' },
-        { status: 500 }
+        getCorsHeaders(500)
       );
     }
 
@@ -284,26 +275,18 @@ export async function POST(request: NextRequest) {
       message: store_id 
         ? `WhatsApp number created and connected to store - OTP verification required`
         : `WhatsApp number created - OTP verification required`
-    });
+    }, getCorsHeaders(200));
 
   } catch (error) {
-    console.error('[ERROR] Failed to create WhatsApp number:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+          console.error('[ERROR] Failed to create WhatsApp number:', error);
+      return NextResponse.json(
+        { success: false, error: 'Internal server error' },
+        getCorsHeaders(500)
+      );
   }
 }
 
 // OPTIONS handler for CORS preflight requests
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Origin': 'http://localhost:3000',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    },
-  });
+  return new NextResponse(null, getCorsHeaders());
 } 
