@@ -196,6 +196,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
     
     if (!phoneValue || !formDisplayName || !selectedStoreId) {
       console.log('[DEBUG] Missing required values, aborting');
+      setPhoneError('Todos los campos son requeridos');
       return;
     }
     
@@ -251,15 +252,14 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         setFormDisplayName('');
         setIsDialogOpen(false);
         
-        // 🔒 CRITICAL FIX: Use React.startTransition to prevent batching issues
-        // Set pending verification and trigger OTP in separate render cycle
-        setPendingVerification(data.data.id);
+        // 🔒 CRITICAL FIX: Set pending verification first, then send OTP in next tick
+        setPendingVerification(() => data.data.id);
         
         // Use setTimeout to ensure state update is processed before sending OTP
         setTimeout(async () => {
           console.log('[DEBUG] Delayed OTP send for number:', data.data.id);
           await sendOTP(data.data.id);
-        }, 150);
+        }, 200);
         
         // Refresh configs to show pending status
         console.log('[DEBUG] Refreshing configs...');

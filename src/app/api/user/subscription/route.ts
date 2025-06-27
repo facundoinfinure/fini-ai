@@ -46,25 +46,23 @@ export async function GET() {
       console.error('[ERROR] Failed to fetch stores count:', storesError.message);
     }
 
-    // Obtener conteo de mensajes del mes actual
+    // Obtener conteo de conversaciones del mes actual (usando conversaciones como proxy para mensajes)
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const { data: messages, error: messagesError } = await supabase
-      .from('messages')
-      .select(`
-        id,
-        conversations!inner (
-          user_id
-        )
-      `, { count: 'exact' })
-      .eq('conversations.user_id', user.id)
+    const { data: conversations, error: conversationsError } = await supabase
+      .from('conversations')
+      .select('id, message_count', { count: 'exact' })
+      .eq('user_id', user.id)
       .gte('created_at', startOfMonth.toISOString());
 
-    if (messagesError) {
-      console.error('[ERROR] Failed to fetch messages count:', messagesError.message);
+    if (conversationsError) {
+      console.error('[ERROR] Failed to fetch conversations count:', conversationsError.message);
     }
+
+    // Calcular total de mensajes desde las conversaciones
+    const totalMessages = conversations?.reduce((total, conv) => total + (conv.message_count || 0), 0) || 0;
 
     // Determinar límites según el plan
     const plan = userProfile?.subscription_plan || 'free';
@@ -91,7 +89,7 @@ export async function GET() {
       usage: {
         stores: stores?.length || 0,
         maxStores,
-        messages: messages?.length || 0,
+        messages: totalMessages,
         maxMessages,
         analytics: 0, // TODO: Implementar conteo de consultas analytics
         maxAnalytics
