@@ -38,8 +38,8 @@ export const WHATSAPP_TEMPLATES = {
     friendlyName: 'fini_otp_verification_v3',
     category: 'AUTHENTICATION',
     variables: (otpCode: string) => ({
-      1: otpCode,
-      2: '10' // Expiry in minutes
+      1: otpCode
+      // Note: Expiry is hardcoded in template (code_expiration_minutes: 10)
     })
   },
   
