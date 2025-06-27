@@ -489,16 +489,36 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
   }
 
   /**
-   * Send OTP verification code - Smart freeform first, template fallback if needed
-   * 🔧 FIXED: Use freeform as PRIMARY method, templates only as optimization
+   * Send OTP verification code - TEMPLATE FIRST approach to avoid 63016 error
+   * 🔧 FIXED: Use template as PRIMARY method to prevent 63016 errors completely
    */
   async sendOTPCode(phoneNumber: string, otpCode: string): Promise<{ success: boolean; messageSid?: string; error?: string }> {
     console.log('🔧 [OTP] Starting OTP send process...');
     console.log(`📱 [OTP] Phone: ${phoneNumber}, Code: ${otpCode}`);
     
-    // 🎯 PRIMARY METHOD: Freeform message (works within 24h window)
-    console.log('🚀 [OTP] Attempting freeform message first (most reliable)...');
+    // 🎯 PRIMARY METHOD: Template message (ALWAYS works, no 63016 error)
+    console.log('🚀 [OTP] Using template-first approach to avoid 63016 error...');
     
+    const templateResult = await this.sendTemplateByType(
+      phoneNumber,
+      'otp',
+      {
+        otpCode: otpCode
+      }
+    );
+
+    if (templateResult.success) {
+      console.log('✅ [OTP SUCCESS] Template OTP sent successfully:', templateResult.messageSid);
+      return {
+        success: true,
+        messageSid: templateResult.messageSid
+      };
+    }
+
+    // 🔄 FALLBACK: If template fails for some reason, try freeform (rare case)
+    console.log('🔄 [OTP] Template failed, trying freeform as fallback...');
+    console.log('❌ [OTP] Template error:', templateResult.error);
+
     try {
       const otpMessage = await this.client.messages.create({
         from: `whatsapp:${this.config.phoneNumber}`,
@@ -509,74 +529,19 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
               `🔒 No compartas este código`
       });
       
-      console.log('✅ [OTP SUCCESS] Freeform OTP sent successfully:', otpMessage.sid);
+      console.log('✅ [OTP SUCCESS] Fallback freeform OTP sent:', otpMessage.sid);
       return {
         success: true,
         messageSid: otpMessage.sid
       };
       
     } catch (freeformError) {
-      console.error('❌ [OTP] Freeform failed:', freeformError);
+      console.error('❌ [OTP] Both template and freeform failed');
       
-      // Check if it's the 63016 error (outside 24h window)
-      if (freeformError instanceof Error && freeformError.message.includes('63016')) {
-        console.log('🔄 [OTP] Error 63016 detected - outside 24h window, trying template...');
-        
-        // 🔄 FALLBACK: Try template if configured
-        const templateConfig = WHATSAPP_TEMPLATES.OTP_VERIFICATION;
-        
-        if (templateConfig.contentSid && 
-            templateConfig.contentSid !== '' && 
-            !templateConfig.contentSid.includes('HX_') &&
-            templateConfig.contentSid.startsWith('HX')) {
-          
-          console.log('🎯 [OTP] Template configured, attempting template send...');
-          
-          try {
-            const variables = {
-              1: otpCode,
-              2: '10' // Expiry in minutes
-            };
-            
-            const templateMessage = await this.client.messages.create({
-              from: `whatsapp:${this.config.phoneNumber}`,
-              to: `whatsapp:${phoneNumber}`,
-              contentSid: templateConfig.contentSid,
-              contentVariables: JSON.stringify(variables)
-            });
-            
-            console.log('✅ [OTP SUCCESS] Template OTP sent:', templateMessage.sid);
-            return {
-              success: true,
-              messageSid: templateMessage.sid
-            };
-            
-          } catch (templateError) {
-            console.error('❌ [OTP] Template also failed:', templateError);
-            
-            return {
-              success: false,
-              error: `Both freeform and template failed. Freeform: ${freeformError.message}. Template: ${templateError instanceof Error ? templateError.message : 'Unknown'}`
-            };
-          }
-        } else {
-          console.error('❌ [OTP] No valid template configured');
-          console.error(`❌ [OTP] ContentSid: "${templateConfig.contentSid}"`);
-          
-          return {
-            success: false,
-            error: `Outside 24h window but no valid template configured. Freeform error: ${freeformError.message}`
-          };
-        }
-      } else {
-        // Other freeform errors (not 63016)
-        console.error('❌ [OTP] Freeform failed with non-63016 error');
-        
-        return {
-          success: false,
-          error: `Freeform message failed: ${freeformError instanceof Error ? freeformError.message : 'Unknown error'}`
-        };
-      }
+      return {
+        success: false,
+        error: `Both template and freeform failed. Template: ${templateResult.error}. Freeform: ${freeformError instanceof Error ? freeformError.message : 'Unknown'}`
+      };
     }
   }
 
