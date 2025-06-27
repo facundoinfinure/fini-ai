@@ -278,13 +278,18 @@ export class StoreService {
           };
         }
 
-        console.log('[DEBUG] Store updated successfully:', {
-          id: updatedStore?.id,
-          name: updatedStore?.name || updatedStore?.store_name,
-          platform: updatedStore?.platform
-        });
+              console.log('[DEBUG] Store updated successfully:', {
+        id: updatedStore?.id,
+        name: updatedStore?.name || updatedStore?.store_name,
+        platform: updatedStore?.platform
+      });
 
-        return { success: true, store: updatedStore };
+      // 🚀 ASYNC NAMESPACE INITIALIZATION: Non-blocking, fail-safe
+      if (updatedStore?.id) {
+        this.initializeStoreNamespacesAsync(updatedStore.id);
+      }
+
+      return { success: true, store: updatedStore };
       }
 
       // Store doesn't exist, create new one
@@ -325,6 +330,11 @@ export class StoreService {
         name: data?.name || data?.store_name,
         platform: data?.platform
       });
+
+      // 🚀 ASYNC NAMESPACE INITIALIZATION: Non-blocking, fail-safe
+      if (data?.id) {
+        this.initializeStoreNamespacesAsync(data.id);
+      }
 
       return { success: true, store: data };
     } catch (error) {
@@ -380,6 +390,36 @@ export class StoreService {
         error: error instanceof Error ? error.message : 'Unknown error' 
       };
     }
+  }
+
+  /**
+   * Initialize RAG namespaces for a store asynchronously
+   * 🛡️ FAIL-SAFE: Never breaks store creation/update process
+   */
+  static initializeStoreNamespacesAsync(storeId: string): void {
+    // Fire-and-forget async operation
+    (async () => {
+      try {
+        console.log(`[DEBUG] Starting async namespace initialization for store: ${storeId}`);
+        
+        // Dynamic import to avoid circular dependencies and reduce bundle size
+        const { FiniRAGEngine } = await import('@/lib/rag');
+        
+        const ragEngine = new FiniRAGEngine();
+        const result = await ragEngine.initializeStoreNamespaces(storeId);
+        
+        if (result.success) {
+          console.log(`[SUCCESS] RAG namespaces initialized for store: ${storeId}`);
+        } else {
+          console.warn(`[WARNING] RAG namespace initialization failed for store ${storeId}:`, result.error);
+          // Note: This is expected if RAG isn't configured yet - not a critical error
+        }
+      } catch (error) {
+        console.warn(`[WARNING] Async namespace initialization failed for store ${storeId}:`, error);
+        // 🛡️ CRITICAL: Never throw errors that could break store operations
+        // RAG initialization is a nice-to-have optimization, not a requirement
+      }
+    })();
   }
 }
 
