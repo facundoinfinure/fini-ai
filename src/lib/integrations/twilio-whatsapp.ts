@@ -489,120 +489,94 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
   }
 
   /**
-   * Send OTP verification code using DIRECT template (resolves error 63016)
-   * 🚨 CRITICAL: Must use contentSid, NEVER body (freeform)
+   * Send OTP verification code - Smart freeform first, template fallback if needed
+   * 🔧 FIXED: Use freeform as PRIMARY method, templates only as optimization
    */
   async sendOTPCode(phoneNumber: string, otpCode: string): Promise<{ success: boolean; messageSid?: string; error?: string }> {
-    console.log('🔥 [CRITICAL] sendOTPCode called - MUST use template to avoid 63016');
-    console.log(`🔥 [DEBUG] Phone: ${phoneNumber}, OTP: ${otpCode}`);
+    console.log('🔧 [OTP] Starting OTP send process...');
+    console.log(`📱 [OTP] Phone: ${phoneNumber}, Code: ${otpCode}`);
+    
+    // 🎯 PRIMARY METHOD: Freeform message (works within 24h window)
+    console.log('🚀 [OTP] Attempting freeform message first (most reliable)...');
     
     try {
-      // Get template config
-      const templateConfig = WHATSAPP_TEMPLATES.OTP_VERIFICATION;
-      
-      // 🔧 FIX: Call variables function directly with proper parameter
-      const variables = {
-        1: otpCode,
-        2: '10' // Expiry in minutes
-      };
-      
-      console.log(`🎯 [TEMPLATE] Using contentSid: ${templateConfig.contentSid}`);
-      console.log(`🎯 [TEMPLATE] Variables: ${JSON.stringify(variables)}`);
-      
-      // 🔧 CRITICAL FIX: Validate contentSid exists and handle 20422 error
-      if (!templateConfig.contentSid || templateConfig.contentSid === '' || templateConfig.contentSid.includes('HX_')) {
-        console.error('❌ [ERROR] TWILIO_OTP_CONTENTSID not configured or invalid');
-        console.error('❌ [ERROR] Current contentSid:', templateConfig.contentSid);
-        console.error('❌ [ERROR] Environment TWILIO_OTP_CONTENTSID:', process.env.TWILIO_OTP_CONTENTSID);
-        
-        // 🔧 PRIMARY FALLBACK: Use simple freeform text message
-        console.log('🔄 [FALLBACK] Attempting freeform OTP message (works within 24h window)');
-        
-        try {
-          const fallbackMessage = await this.client.messages.create({
-            from: `whatsapp:${this.config.phoneNumber}`,
-            to: `whatsapp:${phoneNumber}`,
-            body: `🔐 *Código de verificación Fini AI*\n\n` +
-                  `Tu código: *${otpCode}*\n\n` +
-                  `⏰ Expira en 10 minutos\n` +
-                  `🔒 No compartas este código`
-          });
-          
-          console.log('✅ [FALLBACK SUCCESS] OTP sent via freeform message:', fallbackMessage.sid);
-          return {
-            success: true,
-            messageSid: fallbackMessage.sid
-          };
-        } catch (fallbackError) {
-          console.error('❌ [FALLBACK FAILED]:', fallbackError);
-          throw new Error(`Template not configured and freeform failed: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown'}`);
-        }
-      }
-      
-      // Send DIRECTLY using Twilio client with contentSid (NO body field)
-      const twilioMessage = await this.client.messages.create({
+      const otpMessage = await this.client.messages.create({
         from: `whatsapp:${this.config.phoneNumber}`,
         to: `whatsapp:${phoneNumber}`,
-        contentSid: templateConfig.contentSid,
-        contentVariables: JSON.stringify(variables)
-        // 🚨 CRITICAL: NO 'body' field - this would cause 63016
+        body: `🔐 *Código de verificación Fini AI*\n\n` +
+              `Tu código: *${otpCode}*\n\n` +
+              `⏰ Expira en 10 minutos\n` +
+              `🔒 No compartas este código`
       });
-
-      console.log('✅ [SUCCESS] OTP template sent directly:', twilioMessage.sid);
-      console.log('✅ [SUCCESS] NO ERROR 63016 - Used contentSid directly');
       
+      console.log('✅ [OTP SUCCESS] Freeform OTP sent successfully:', otpMessage.sid);
       return {
         success: true,
-        messageSid: twilioMessage.sid
+        messageSid: otpMessage.sid
       };
-
-    } catch (error) {
-      console.error('❌ [ERROR] Template send failed:', error);
       
-      // 🔧 ENHANCED ERROR HANDLING for common Twilio errors
-      if (error instanceof Error) {
-        console.error('❌ [ERROR] Error message:', error.message);
+    } catch (freeformError) {
+      console.error('❌ [OTP] Freeform failed:', freeformError);
+      
+      // Check if it's the 63016 error (outside 24h window)
+      if (freeformError instanceof Error && freeformError.message.includes('63016')) {
+        console.log('🔄 [OTP] Error 63016 detected - outside 24h window, trying template...');
         
-        // Handle specific Twilio errors
-        if (error.message.includes('20422')) {
-          console.error('❌ [ERROR 20422] Invalid Parameter - Template ContentSid or variables issue');
-          console.error('❌ [ERROR 20422] This usually means ContentSid is invalid or variables don\'t match template');
+        // 🔄 FALLBACK: Try template if configured
+        const templateConfig = WHATSAPP_TEMPLATES.OTP_VERIFICATION;
+        
+        if (templateConfig.contentSid && 
+            templateConfig.contentSid !== '' && 
+            !templateConfig.contentSid.includes('HX_') &&
+            templateConfig.contentSid.startsWith('HX')) {
           
-          // 🔄 ATTEMPT FREEFORM FALLBACK for 20422
-          console.log('🔄 [20422 FALLBACK] Attempting freeform message...');
+          console.log('🎯 [OTP] Template configured, attempting template send...');
+          
           try {
-            const emergencyMessage = await this.client.messages.create({
+            const variables = {
+              1: otpCode,
+              2: '10' // Expiry in minutes
+            };
+            
+            const templateMessage = await this.client.messages.create({
               from: `whatsapp:${this.config.phoneNumber}`,
               to: `whatsapp:${phoneNumber}`,
-              body: `🔐 *Fini AI - Código de Verificación*\n\n` +
-                    `Código: *${otpCode}*\n\n` +
-                    `Este código expira en 10 minutos.\n` +
-                    `Por seguridad, no lo compartas con nadie.`
+              contentSid: templateConfig.contentSid,
+              contentVariables: JSON.stringify(variables)
             });
             
-            console.log('✅ [20422 FALLBACK SUCCESS] Emergency OTP sent:', emergencyMessage.sid);
+            console.log('✅ [OTP SUCCESS] Template OTP sent:', templateMessage.sid);
             return {
               success: true,
-              messageSid: emergencyMessage.sid
+              messageSid: templateMessage.sid
             };
-          } catch (emergencyError) {
-            console.error('❌ [20422 FALLBACK FAILED]:', emergencyError);
+            
+          } catch (templateError) {
+            console.error('❌ [OTP] Template also failed:', templateError);
+            
+            return {
+              success: false,
+              error: `Both freeform and template failed. Freeform: ${freeformError.message}. Template: ${templateError instanceof Error ? templateError.message : 'Unknown'}`
+            };
           }
+        } else {
+          console.error('❌ [OTP] No valid template configured');
+          console.error(`❌ [OTP] ContentSid: "${templateConfig.contentSid}"`);
+          
+          return {
+            success: false,
+            error: `Outside 24h window but no valid template configured. Freeform error: ${freeformError.message}`
+          };
         }
+      } else {
+        // Other freeform errors (not 63016)
+        console.error('❌ [OTP] Freeform failed with non-63016 error');
         
-        if (error.message.includes('20404')) {
-          console.error('❌ [ERROR 20404] Content SID not found - Template doesn\'t exist');
-        }
-        
-        if (error.message.includes('63016')) {
-          console.error('❌ [ERROR 63016] Outside 24h window - Must use approved template');
-        }
+        return {
+          success: false,
+          error: `Freeform message failed: ${freeformError instanceof Error ? freeformError.message : 'Unknown error'}`
+        };
       }
-      
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Template send failed'
-      };
     }
   }
 
