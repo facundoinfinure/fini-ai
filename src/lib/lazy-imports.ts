@@ -32,8 +32,13 @@ export const SubscriptionManagement = lazy(() =>
 );
 
 export const ChatPreview = lazy(() => 
-  import('@/components/dashboard/chat-preview')
-    .then(module => ({ default: module.ChatPreview }))
+  import('@/components/chat/chat-dashboard-wrapper')
+    .then(module => ({ default: module.ChatDashboardWrapper }))
+);
+
+export const ChatMetrics = lazy(() => 
+  import('@/components/chat/chat-metrics')
+    .then(module => ({ default: module.ChatMetrics }))
 );
 
 // Future components will be added here as they are implemented
