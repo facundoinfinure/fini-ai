@@ -13,12 +13,7 @@ const nextConfig = {
     },
     optimizeCss: true,
     optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
-    eslint: {
-      ignoreDuringBuilds: false
-    },
-    typescript: {
-      ignoreBuildErrors: false
-    },
+
     serverComponentsExternalPackages: ['@supabase/supabase-js'],
   },
 
@@ -255,9 +250,7 @@ const nextConfig = {
       exclude: ['error', 'warn']
     } : false,
   },
-
-  generateStaticParams: false,
-
+  
   async rewrites() {
     return [
       {

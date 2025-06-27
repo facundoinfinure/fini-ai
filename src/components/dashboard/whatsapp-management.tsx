@@ -211,13 +211,15 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
     setError(null);
     
     // 🔒 RESET OTP STATE - Limpiar cualquier estado anterior
-    console.log('[DEBUG] Resetting OTP state...');
-    setShowOTPDialog(false);
-    setPendingVerification(null);
-    setOtpCode('');
-    setOtpError(null);
-    setOtpExpiresAt(null);
-    setTimeRemaining(null);
+    console.log('[DEBUG] Resetting OTP state completely...');
+    
+    // Use functional updates to ensure we get the latest state
+    setShowOTPDialog(() => false);
+    setPendingVerification(() => null);
+    setOtpCode(() => '');
+    setOtpError(() => null);
+    setOtpExpiresAt(() => null);
+    setTimeRemaining(() => null);
     
     console.log('[DEBUG] Starting fresh WhatsApp number creation with OTP verification');
     
@@ -249,13 +251,15 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         setFormDisplayName('');
         setIsDialogOpen(false);
         
-        // 🔒 ALWAYS START OTP VERIFICATION - Sin excepciones
-        console.log('[DEBUG] Setting pending verification to:', data.data.id);
+        // 🔒 CRITICAL FIX: Use React.startTransition to prevent batching issues
+        // Set pending verification and trigger OTP in separate render cycle
         setPendingVerification(data.data.id);
         
-        // Force send OTP immediately
-        console.log('[DEBUG] Forcing OTP send for number:', data.data.id);
-        await sendOTP(data.data.id);
+        // Use setTimeout to ensure state update is processed before sending OTP
+        setTimeout(async () => {
+          console.log('[DEBUG] Delayed OTP send for number:', data.data.id);
+          await sendOTP(data.data.id);
+        }, 150);
         
         // Refresh configs to show pending status
         console.log('[DEBUG] Refreshing configs...');
@@ -292,40 +296,43 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         body: JSON.stringify({ whatsapp_number_id: whatsappNumberId })
       });
       
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       console.log('[DEBUG] OTP send response:', data);
       
       if (data.success) {
         console.log('[DEBUG] OTP sent successfully, showing dialog');
         
-        // 🔒 FORCE SHOW OTP DIALOG - Siempre mostrar
+        // 🔒 CRITICAL: Set all states in the correct order
         setShowOTPDialog(true);
-        const expiresAt = new Date(Date.now() + data.data.expires_in * 1000);
+        const expiresAt = new Date(Date.now() + (data.data.expires_in * 1000));
         setOtpExpiresAt(expiresAt);
         setTimeRemaining(data.data.expires_in);
         
-        console.log('[DEBUG] OTP dialog state after success:', {
+        console.log('[DEBUG] OTP dialog state set:', {
           showOTPDialog: true,
           expiresAt,
-          timeRemaining: data.data.expires_in
+          timeRemaining: data.data.expires_in,
+          pendingVerification: whatsappNumberId
         });
-        
-        // Force a re-render by updating state in next tick
-        setTimeout(() => {
-          console.log('[DEBUG] Force re-render check - showOTPDialog should be true');
-          setShowOTPDialog(true);
-        }, 100);
         
       } else {
         console.error('[ERROR] Failed to send OTP:', data.error);
         setError(data.error || 'Error al enviar código de verificación');
+        // Clear pending verification on failure
+        setPendingVerification(null);
       }
     } catch (err) {
       console.error('[ERROR] Network error sending OTP:', err);
-      setError('Error al enviar código de verificación');
+      setError(`Error al enviar código de verificación: ${err instanceof Error ? err.message : 'Network error'}`);
+      // Clear pending verification on failure
+      setPendingVerification(null);
     } finally {
       setIsSendingOTP(false);
-      console.log('[DEBUG] OTP send process completed. Current showOTPDialog:', showOTPDialog);
+      console.log('[DEBUG] OTP send process completed. showOTPDialog:', showOTPDialog);
     }
   };
 
@@ -765,6 +772,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
               </label>
                <div className="phone-input-container border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all duration-200">
                 <PhoneInput
+                  id="phoneNumber"
                   international
                   countryCallingCodeEditable={false}
                   defaultCountry="AR"
@@ -900,6 +908,19 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
               className="w-full bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
             >
               🔄 Reset State
+            </button>
+            <button 
+              onClick={async () => {
+                console.log('[DEBUG] Testing send-otp API directly');
+                if (pendingVerification) {
+                  await sendOTP(pendingVerification);
+                } else {
+                  console.log('[DEBUG] No pending verification ID');
+                }
+              }}
+              className="w-full bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+            >
+              📡 Test OTP Send
             </button>
           </div>
         </div>
