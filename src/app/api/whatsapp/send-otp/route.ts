@@ -71,18 +71,52 @@ export async function POST(request: NextRequest) {
 
     // Send OTP via WhatsApp using templates (required for business-initiated messages)
     console.log('[INFO] Using WhatsApp templates for OTP delivery');
+    console.log('[DEBUG] Twilio config check:', {
+      hasAccountSid: !!process.env.TWILIO_ACCOUNT_SID,
+      hasAuthToken: !!process.env.TWILIO_AUTH_TOKEN,
+      hasPhoneNumber: !!process.env.TWILIO_PHONE_NUMBER,
+      hasOtpContentSid: !!process.env.TWILIO_OTP_CONTENTSID
+    });
+    
     const twilioService = createTwilioWhatsAppService();
-    const sendResult = await twilioService.sendOTPCode(whatsappNumber.phone_number, otpCode);
-
-    if (!sendResult.success) {
-      console.error('[ERROR] Failed to send OTP:', sendResult.error);
+    
+    try {
+      const sendResult = await twilioService.sendOTPCode(whatsappNumber.phone_number, otpCode);
+      
+      if (!sendResult.success) {
+        console.error('[ERROR] Failed to send OTP via Twilio:', sendResult.error);
+        
+        // Cleanup the stored OTP if send failed
+        await supabase
+          .from('whatsapp_verifications')
+          .delete()
+          .eq('whatsapp_number_id', whatsapp_number_id)
+          .eq('otp_code', otpCode);
+          
+        return NextResponse.json(
+          { success: false, error: `Error al enviar código: ${sendResult.error}` },
+          { status: 500 }
+        );
+      }
+      
+      console.log('[SUCCESS] OTP sent successfully to:', whatsappNumber.phone_number);
+      console.log('[SUCCESS] Twilio message SID:', sendResult.messageSid);
+      
+    } catch (twilioError) {
+      console.error('[ERROR] Twilio service exception:', twilioError);
+      
+      // Cleanup the stored OTP if send failed
+      await supabase
+        .from('whatsapp_verifications')
+        .delete()
+        .eq('whatsapp_number_id', whatsapp_number_id)
+        .eq('otp_code', otpCode);
+        
       return NextResponse.json(
-        { success: false, error: 'Error al enviar código de verificación' },
-        { status: 500 }
-      );
-    }
-
-    console.log('[INFO] OTP sent successfully to:', whatsappNumber.phone_number);
+        { success: false, error: 'Error interno del servicio de mensajería' },
+                 { status: 500 }
+       );
+     }
 
     return NextResponse.json({
       success: true,

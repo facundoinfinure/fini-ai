@@ -216,6 +216,7 @@ export async function POST(request: NextRequest) {
 
     console.log('[INFO] Attempting to create WhatsApp number - ALWAYS UNVERIFIED');
     
+    // 🔒 FUERZA ESTRICTA: SIEMPRE crear como NO VERIFICADO
     // Crear el número de WhatsApp SIEMPRE como NO VERIFICADO
     const { data: newNumber, error: createError } = await supabase
       .from('whatsapp_numbers')
@@ -224,12 +225,12 @@ export async function POST(request: NextRequest) {
         phone_number,
         display_name,
         is_active: true,
-        is_verified: false, // 🔒 SIEMPRE false para forzar verificación
-        verified_at: null,  // 🔒 SIEMPRE null 
+        is_verified: false, // 🔒 SIEMPRE false - NUNCA cambiar esto
+        verified_at: null,  // 🔒 SIEMPRE null - NUNCA cambiar esto
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
-      .select('id, phone_number, display_name, is_verified')
+      .select('id, phone_number, display_name, is_verified, created_at')
       .single();
 
     if (createError) {
@@ -240,7 +241,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('[INFO] WhatsApp number created successfully (UNVERIFIED):', newNumber.id);
+    console.log('[SUCCESS] WhatsApp number created UNVERIFIED - status enforced:', {
+      id: newNumber.id,
+      phone: newNumber.phone_number,
+      is_verified: newNumber.is_verified, // Should ALWAYS be false
+      created_at: newNumber.created_at
+    });
 
     // Si se proporcionó store_id, crear automáticamente la conexión
     if (store_id && newNumber) {
