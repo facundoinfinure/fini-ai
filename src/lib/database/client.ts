@@ -519,8 +519,7 @@ export class ConversationService {
       const { data, error } = await _supabaseAdmin
         .from('conversations')
         .select('*')
-        .eq('user_id', userId)
-        .eq('is_active', true);
+        .eq('user_id', userId);
 
       if (error) throw error;
 
@@ -541,7 +540,6 @@ export class ConversationService {
         .select('*')
         .eq('user_id', userId)
         .eq('customer_number', customerNumber)
-        .eq('is_active', true)
         .single();
 
       if (error) throw error;
@@ -586,8 +584,7 @@ export class MessageService {
       const { data, error } = await _supabaseAdmin
         .from('messages')
         .select('*')
-        .eq('conversation_id', conversationId)
-        .eq('is_active', true);
+        .eq('conversation_id', conversationId);
 
       if (error) throw error;
 
@@ -614,7 +611,6 @@ export class AnalyticsCacheService {
         .eq('store_id', storeId)
         .eq('data_type', dataType)
         .eq('period', period)
-        .eq('is_active', true)
         .single();
 
       if (error) throw error;
@@ -660,7 +656,6 @@ export class UserSettingsService {
         .from('user_settings')
         .select('*')
         .eq('user_id', userId)
-        .eq('is_active', true)
         .single();
 
       if (error) throw error;
