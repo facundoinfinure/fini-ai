@@ -509,25 +509,33 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
       console.log(`🎯 [TEMPLATE] Using contentSid: ${templateConfig.contentSid}`);
       console.log(`🎯 [TEMPLATE] Variables: ${JSON.stringify(variables)}`);
       
-      // Validate contentSid exists
-      if (!templateConfig.contentSid || templateConfig.contentSid === '') {
-        console.error('❌ [ERROR] TWILIO_OTP_CONTENTSID not configured - attempting fallback');
+      // 🔧 CRITICAL FIX: Validate contentSid exists and handle 20422 error
+      if (!templateConfig.contentSid || templateConfig.contentSid === '' || templateConfig.contentSid.includes('HX_')) {
+        console.error('❌ [ERROR] TWILIO_OTP_CONTENTSID not configured or invalid');
+        console.error('❌ [ERROR] Current contentSid:', templateConfig.contentSid);
+        console.error('❌ [ERROR] Environment TWILIO_OTP_CONTENTSID:', process.env.TWILIO_OTP_CONTENTSID);
         
-        // Fallback: Use simple text message (only works within 24h window)
+        // 🔧 PRIMARY FALLBACK: Use simple freeform text message
+        console.log('🔄 [FALLBACK] Attempting freeform OTP message (works within 24h window)');
+        
         try {
           const fallbackMessage = await this.client.messages.create({
             from: `whatsapp:${this.config.phoneNumber}`,
             to: `whatsapp:${phoneNumber}`,
-            body: `🔐 Tu código de verificación Fini AI: ${otpCode}\n\nExpira en 10 minutos.\n\n¡No compartas este código con nadie!`
+            body: `🔐 *Código de verificación Fini AI*\n\n` +
+                  `Tu código: *${otpCode}*\n\n` +
+                  `⏰ Expira en 10 minutos\n` +
+                  `🔒 No compartas este código`
           });
           
-          console.log('✅ [FALLBACK] OTP sent via freeform message:', fallbackMessage.sid);
+          console.log('✅ [FALLBACK SUCCESS] OTP sent via freeform message:', fallbackMessage.sid);
           return {
             success: true,
             messageSid: fallbackMessage.sid
           };
         } catch (fallbackError) {
-          throw new Error(`Content SID not configured and fallback failed: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown'}`);
+          console.error('❌ [FALLBACK FAILED]:', fallbackError);
+          throw new Error(`Template not configured and freeform failed: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown'}`);
         }
       }
       
@@ -549,12 +557,46 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
       };
 
     } catch (error) {
-      console.error('❌ [ERROR] Direct template send failed:', error);
-      console.error('❌ [ERROR] Error details:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('❌ [ERROR] Template send failed:', error);
       
-      // Enhanced error logging for debugging
-      if (error instanceof Error && error.message.includes('20404')) {
-        console.error('❌ [ERROR] Content SID not found - Check template configuration');
+      // 🔧 ENHANCED ERROR HANDLING for common Twilio errors
+      if (error instanceof Error) {
+        console.error('❌ [ERROR] Error message:', error.message);
+        
+        // Handle specific Twilio errors
+        if (error.message.includes('20422')) {
+          console.error('❌ [ERROR 20422] Invalid Parameter - Template ContentSid or variables issue');
+          console.error('❌ [ERROR 20422] This usually means ContentSid is invalid or variables don\'t match template');
+          
+          // 🔄 ATTEMPT FREEFORM FALLBACK for 20422
+          console.log('🔄 [20422 FALLBACK] Attempting freeform message...');
+          try {
+            const emergencyMessage = await this.client.messages.create({
+              from: `whatsapp:${this.config.phoneNumber}`,
+              to: `whatsapp:${phoneNumber}`,
+              body: `🔐 *Fini AI - Código de Verificación*\n\n` +
+                    `Código: *${otpCode}*\n\n` +
+                    `Este código expira en 10 minutos.\n` +
+                    `Por seguridad, no lo compartas con nadie.`
+            });
+            
+            console.log('✅ [20422 FALLBACK SUCCESS] Emergency OTP sent:', emergencyMessage.sid);
+            return {
+              success: true,
+              messageSid: emergencyMessage.sid
+            };
+          } catch (emergencyError) {
+            console.error('❌ [20422 FALLBACK FAILED]:', emergencyError);
+          }
+        }
+        
+        if (error.message.includes('20404')) {
+          console.error('❌ [ERROR 20404] Content SID not found - Template doesn\'t exist');
+        }
+        
+        if (error.message.includes('63016')) {
+          console.error('❌ [ERROR 63016] Outside 24h window - Must use approved template');
+        }
       }
       
       return {
