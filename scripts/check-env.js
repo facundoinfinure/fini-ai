@@ -14,6 +14,13 @@ const optionalVars = [
   'TIENDANUBE_CLIENT_SECRET'
 ];
 
+const whatsappVars = [
+  'TWILIO_ACCOUNT_SID',
+  'TWILIO_AUTH_TOKEN', 
+  'TWILIO_PHONE_NUMBER',
+  'TWILIO_OTP_CONTENTSID'
+];
+
 console.log('🔍 Verificando variables de entorno...\n');
 
 let hasErrors = false;
@@ -42,6 +49,23 @@ optionalVars.forEach(varName => {
   const value = process.env[varName];
   if (!value) {
     console.log(`⚠️  ${varName}: No configurada (opcional)`);
+  } else if (value.includes('your-') || value.includes('tu-') || value.includes('here')) {
+    console.log(`⚠️  ${varName}: VALOR DE EJEMPLO`);
+    hasWarnings = true;
+  } else {
+    const maskedValue = value.length > 20 ? 
+      `${value.substring(0, 8)}...${value.substring(value.length - 4)}` : 
+      `${value.substring(0, 4)}...`;
+    console.log(`✅ ${varName}: ${maskedValue}`);
+  }
+});
+
+console.log('\n📱 Variables WHATSAPP (requeridas para OTP):');
+whatsappVars.forEach(varName => {
+  const value = process.env[varName];
+  if (!value) {
+    console.log(`❌ ${varName}: NO CONFIGURADA - OTP no funcionará`);
+    hasWarnings = true;
   } else if (value.includes('your-') || value.includes('tu-') || value.includes('here')) {
     console.log(`⚠️  ${varName}: VALOR DE EJEMPLO`);
     hasWarnings = true;

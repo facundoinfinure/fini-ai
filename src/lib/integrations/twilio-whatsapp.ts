@@ -34,7 +34,7 @@ export interface WhatsAppWebhook {
 export const WHATSAPP_TEMPLATES = {
   // OTP Verification Template - Created via Content Template Builder API
   OTP_VERIFICATION: {
-    contentSid: process.env.TWILIO_OTP_CONTENTSID || 'HXc00fd0971da921a1e4ca16cf99903a31',
+    contentSid: process.env.TWILIO_OTP_CONTENTSID || '', // Must be configured in environment
     friendlyName: 'fini_otp_verification_v3',
     category: 'AUTHENTICATION',
     variables: (otpCode: string) => ({
@@ -499,10 +499,37 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
     try {
       // Get template config
       const templateConfig = WHATSAPP_TEMPLATES.OTP_VERIFICATION;
-      const variables = templateConfig.variables(otpCode);
+      
+      // 🔧 FIX: Call variables function directly with proper parameter
+      const variables = {
+        1: otpCode,
+        2: '10' // Expiry in minutes
+      };
       
       console.log(`🎯 [TEMPLATE] Using contentSid: ${templateConfig.contentSid}`);
       console.log(`🎯 [TEMPLATE] Variables: ${JSON.stringify(variables)}`);
+      
+      // Validate contentSid exists
+      if (!templateConfig.contentSid || templateConfig.contentSid === '') {
+        console.error('❌ [ERROR] TWILIO_OTP_CONTENTSID not configured - attempting fallback');
+        
+        // Fallback: Use simple text message (only works within 24h window)
+        try {
+          const fallbackMessage = await this.client.messages.create({
+            from: `whatsapp:${this.config.phoneNumber}`,
+            to: `whatsapp:${phoneNumber}`,
+            body: `🔐 Tu código de verificación Fini AI: ${otpCode}\n\nExpira en 10 minutos.\n\n¡No compartas este código con nadie!`
+          });
+          
+          console.log('✅ [FALLBACK] OTP sent via freeform message:', fallbackMessage.sid);
+          return {
+            success: true,
+            messageSid: fallbackMessage.sid
+          };
+        } catch (fallbackError) {
+          throw new Error(`Content SID not configured and fallback failed: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown'}`);
+        }
+      }
       
       // Send DIRECTLY using Twilio client with contentSid (NO body field)
       const twilioMessage = await this.client.messages.create({
@@ -523,6 +550,13 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
 
     } catch (error) {
       console.error('❌ [ERROR] Direct template send failed:', error);
+      console.error('❌ [ERROR] Error details:', error instanceof Error ? error.message : 'Unknown error');
+      
+      // Enhanced error logging for debugging
+      if (error instanceof Error && error.message.includes('20404')) {
+        console.error('❌ [ERROR] Content SID not found - Check template configuration');
+      }
+      
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Template send failed'
