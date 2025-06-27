@@ -30,7 +30,6 @@ export class PineconeVectorStore implements VectorStore {
       
       this.pinecone = new Pinecone({
         apiKey: RAG_CONFIG.pinecone.apiKey,
-        environment: RAG_CONFIG.pinecone.environment,
       });
     }
     

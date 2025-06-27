@@ -8,7 +8,6 @@ import type { RAGEngineConfig } from './types';
 export const RAG_CONFIG: RAGEngineConfig = {
   pinecone: {
     apiKey: process.env.PINECONE_API_KEY || '',
-    environment: process.env.PINECONE_ENVIRONMENT || 'gcp-starter',
     indexName: process.env.PINECONE_INDEX_NAME || 'fini-ai-store-data',
   },
   openai: {
@@ -40,9 +39,6 @@ export const validateRAGConfig = (): {
   if (!RAG_CONFIG.openai.apiKey) missing.push('OPENAI_API_KEY');
 
   // Optional but recommended
-  if (!process.env.PINECONE_ENVIRONMENT) {
-    warnings.push('PINECONE_ENVIRONMENT not set, using default: gcp-starter');
-  }
   if (!process.env.PINECONE_INDEX_NAME) {
     warnings.push('PINECONE_INDEX_NAME not set, using default: fini-ai-store-data');
   }

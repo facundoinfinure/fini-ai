@@ -79,7 +79,6 @@ export interface VectorSearchResult {
 export interface RAGEngineConfig {
   pinecone: {
     apiKey: string;
-    environment: string;
     indexName: string;
   };
   openai: {
