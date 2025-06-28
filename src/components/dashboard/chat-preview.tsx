@@ -62,7 +62,21 @@ interface Conversation {
   messages: Message[];
 }
 
-export function ChatPreview() {
+interface Store {
+  id: string;
+  name: string;
+  domain?: string;
+  whatsapp_number?: string;
+  whatsapp_display_name?: string;
+  whatsapp_verified?: boolean;
+  status: 'connected' | 'disconnected' | 'pending';
+}
+
+interface ChatPreviewProps {
+  selectedStore?: Store;
+}
+
+export function ChatPreview({ selectedStore }: ChatPreviewProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -141,6 +155,21 @@ export function ChatPreview() {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
+    // Validate that we have a selected store
+    if (!selectedStore?.id) {
+      console.error('No store selected');
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: 'Error: No hay una tienda seleccionada. Por favor selecciona una tienda desde la configuración.',
+        timestamp: new Date().toISOString(),
+        direction: 'outbound',
+        type: 'system',
+        status: 'sent'
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      return;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       content: inputValue,
@@ -161,7 +190,7 @@ export function ChatPreview() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: inputValue,
-          storeId: 'current-store', // TODO: Get from props
+          storeId: selectedStore.id, // Use actual store UUID
           conversationId: selectedConversation?.id || 'current'
         })
       });
@@ -183,10 +212,10 @@ export function ChatPreview() {
         setMessages(prev => [...prev, assistantMessage]);
       } else {
         console.error('Error sending message:', result.error);
-        // Mostrar mensaje de error
+        // Mostrar mensaje de error más específico
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
-          content: 'Lo siento, ha ocurrido un error. Por favor intenta nuevamente.',
+          content: `Error del servidor: ${result.error || 'Error desconocido'}. Por favor intenta nuevamente.`,
           timestamp: new Date().toISOString(),
           direction: 'outbound',
           type: 'system',
@@ -196,6 +225,15 @@ export function ChatPreview() {
       }
     } catch (error) {
       console.error('Error:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: 'Error de conexión. Verifica tu conexión a internet y vuelve a intentar.',
+        timestamp: new Date().toISOString(),
+        direction: 'outbound',
+        type: 'system',
+        status: 'sent'
+      };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
       setIsTyping(false);

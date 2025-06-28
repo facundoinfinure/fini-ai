@@ -342,7 +342,7 @@ export function ChatDashboardWrapper() {
           </TabsList>
           
           <TabsContent value="chat" className="mt-6">
-            <ChatPreview />
+            <ChatPreview selectedStore={selectedStore} />
           </TabsContent>
           
           <TabsContent value="metrics" className="mt-6">

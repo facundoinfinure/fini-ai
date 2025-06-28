@@ -1,0 +1,79 @@
+"TimeUTC","timestampInMs","requestPath","requestMethod","requestQueryString","responseStatusCode","requestId","requestUserAgent","level","environment","branch","vercelCache","type","function","host","deploymentDomain","deploymentId","durationMs","region","maxMemoryUsed","memorySize","message","projectId","traceId","sessionId","invocationId","instanceId"
+"2025-06-28 19:15:13",1751138113307,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","error","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[CHAT-SYNC] Failed to save bot message: Unknown error","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:15:13",1751138113307,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[ERROR] Message data that failed: {
+  conversation_id: 'bea60fd5-29d5-4f36-8039-5554de0ace16',
+  direction: 'outbound',
+  body: 'Para poder dar una respuesta precisa a tu consulta...',
+  agent_type: 'product_manager',
+  confidence: 0.6,
+  processing_time_ms: 20017,
+  created_at: '2025-06-28T19:15:13.262Z'
+}","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:15:13",1751138113307,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[ERROR] Create message failed: {
+  code: '23514',
+  details: 'Failing row contains (137a7024-5969-4af6-9c30-9c9cb928779a, bea60fd5-29d5-4f36-8039-5554de0ace16, null, outbound, Para poder dar una respuesta precisa a tu consulta, necesito inf..., null, product_manager, 0.60, 20017, 2025-06-28 19:15:13.262+00).',
+  hint: null,
+  message: 'new row for relation ""messages"" violates check constraint ""messages_agent_type_check""'
+}","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:15:13",1751138113262,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[AGENT:PRODUCT_MANAGER] Product management response generated in 16801ms","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:14:57",1751138097244,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","error","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[ERROR] Agent product_manager RAG retrieval failed: Error: Search failed: Vector search failed: [SECURITY] Database query failed: invalid input syntax for type uuid: ""current-store""
+    at E.search (/var/task/.next/server/chunks/3746.js:1:27062)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async u.getRelevantContext (/var/task/.next/server/chunks/1597.js:1:1556)
+    at async u.process (/var/task/.next/server/chunks/8386.js:525:1346)
+    at async y.processMessage (/var/task/.next/server/chunks/8386.js:714:1489)
+    at async m (/var/task/.next/server/app/api/chat/send/route.js:1:3586)
+    at async /var/task/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:38411
+    at async e_.execute (/var/task/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:27880)
+    at async e_.handle (/var/task/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:39943)
+    at async en (/var/task/node_modules/next/dist/compiled/next-server/server.runtime.prod.js:16:25561)","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:14:57",1751138097244,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[ERROR] Failed to search documents: Error: Vector search failed: [SECURITY] Database query failed: invalid input syntax for type uuid: ""current-store""
+    at w.search (/var/task/.next/server/chunks/3746.js:1:18320)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async E.search (/var/task/.next/server/chunks/3746.js:1:26548)
+    at async u.getRelevantContext (/var/task/.next/server/chunks/1597.js:1:1556)
+    at async u.process (/var/task/.next/server/chunks/8386.js:525:1346)
+    at async y.processMessage (/var/task/.next/server/chunks/8386.js:714:1489)
+    at async m (/var/task/.next/server/app/api/chat/send/route.js:1:3586)
+    at async /var/task/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:38411
+    at async e_.execute (/var/task/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:27880)
+    at async e_.handle (/var/task/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:39943)","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:14:57",1751138097244,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[ERROR] Failed to search vectors in Pinecone: Error: [SECURITY] Database query failed: invalid input syntax for type uuid: ""current-store""
+    at w.validateStoreAccess (/var/task/.next/server/chunks/3746.js:1:21988)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async w.search (/var/task/.next/server/chunks/3746.js:1:17382)
+    at async E.search (/var/task/.next/server/chunks/3746.js:1:26548)
+    at async u.getRelevantContext (/var/task/.next/server/chunks/1597.js:1:1556)
+    at async u.process (/var/task/.next/server/chunks/8386.js:525:1346)
+    at async y.processMessage (/var/task/.next/server/chunks/8386.js:714:1489)
+    at async m (/var/task/.next/server/app/api/chat/send/route.js:1:3586)
+    at async /var/task/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:38411
+    at async e_.execute (/var/task/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:27880)","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:14:57",1751138097243,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[SECURITY:AUDIT] {""event"":""store_access_denied"",""userId"":""29d3fb5e-2f60-464f-bf1a-c35292b0c72f"",""storeId"":""current-store"",""success"":false,""timestamp"":""2025-06-28T19:14:57.242Z"",""details"":{""reason"":""Database query failed: invalid input syntax for type uuid: \""current-store\"""",""error"":""invalid input syntax for type uuid: \""current-store\""""}}","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:14:57",1751138097243,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[SECURITY:DB] Store access denied - Database query failed: invalid input syntax for type uuid: ""current-store""","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:14:57",1751138097195,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[SECURITY:DB] Validating store access: user 29d3fb5e-2f60-464f-bf1a-c35292b0c72f → store current-store","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:14:57",1751138097191,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[RAG:embeddings] Generated embedding with 1536 dimensions","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:14:56",1751138096504,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[RAG:embeddings] Generating embedding for text: Que producto es el mas caro de mi tienda?...","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:14:56",1751138096504,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[RAG:engine] Searching for: ""Que producto es el mas caro de mi tienda?""","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:14:56",1751138096461,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[AGENT:PRODUCT_MANAGER] Processing product management query: ""Que producto es el mas caro de mi tienda?""","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:14:56",1751138096461,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[MULTI-AGENT] Routing to product_manager agent","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:14:56",1751138096461,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[MULTI-AGENT] Routing decision: {
+  selectedAgent: 'product_manager',
+  confidence: 0.95,
+  reasoning: ""Análisis inteligente: El agente 'product_manager' es el que tiene acceso a la información del catálogo de productos y puede indicar cuál es el producto más caro de la tienda."",
+  routingRules: {
+    analyticsScore: 0.01098901098901099,
+    customerServiceScore: 0,
+    marketingScore: 0,
+    stockManagerScore: 0,
+    financialAdvisorScore: 0,
+    businessConsultantScore: 0,
+    productManagerScore: 0.011494252873563218,
+    operationsManagerScore: 0,
+    salesCoachScore: 0,
+    generalScore: 0.2
+  },
+  fallbackMessage: undefined
+}","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:14:56",1751138096460,"fini-tn.vercel.app/api/chat/send","POST","",-1,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","warning","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",-1,"iad1",-1,-1,"[AGENT:ORCHESTRATOR] Intelligent routing: product_manager (95%)","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC",""
+"2025-06-28 19:14:52",1751138092722,"fini-tn.vercel.app/api/chat/send","POST","",200,"np9gc-1751138092507-dee48dcd90c7","Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36","info","production","main","MISS","lambda","/api/chat/send","fini-tn.vercel.app","fini-tn.vercel.app","dpl_5CcPGfLYcKcYyqcNFFQyPKnDMZes",20568,"iad1",116,2048,"","prj_8i22mimp6RO1WTRkdRfuqTTiWDzD","","","01JYVZDHNJK6AW68EQ37B8HPAC","4OW1wpoXwfUm"
