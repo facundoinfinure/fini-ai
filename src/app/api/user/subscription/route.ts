@@ -21,13 +21,30 @@ export async function GET() {
     }
 
     // Obtener información del usuario desde la base de datos
-    const { data: userProfile, error: profileError } = await supabase
-      .from('users')
-      .select('subscription_plan, subscription_status')
-      .eq('id', user.id)
-      .single();
+    // Manejo resiliente: intentar con columnas nuevas, fallback a defaults
+    let userProfile = null;
+    let profileError = null;
+    
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('subscription_plan, subscription_status')
+        .eq('id', user.id)
+        .single();
+      
+      userProfile = data;
+      profileError = error;
+    } catch (error) {
+      // Si las columnas no existen, usar valores por defecto
+      console.log('[INFO] Using default subscription values (columns may not exist yet)');
+      userProfile = {
+        subscription_plan: 'free',
+        subscription_status: 'active'
+      };
+      profileError = null;
+    }
 
-    if (profileError) {
+    if (profileError && !profileError.message?.includes('column')) {
       console.error('[ERROR] Failed to fetch user profile:', profileError.message);
       return NextResponse.json(
         { success: false, error: 'Failed to fetch user profile' },
