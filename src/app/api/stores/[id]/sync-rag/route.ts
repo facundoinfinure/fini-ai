@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import { StoreService } from '@/lib/database/client';
 
 /**
  * Force RAG data sync for a specific store
  * POST /api/stores/[id]/sync-rag
+ * 🔄 Fixed deployment import issue
  */
 export async function POST(
   request: NextRequest,
@@ -21,7 +22,7 @@ export async function POST(
     }
 
     // Get user from session
-    const supabase = createServerClient();
+    const supabase = createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
