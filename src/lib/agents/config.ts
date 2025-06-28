@@ -659,10 +659,10 @@ export const ROUTING_KEYWORDS = {
 
 // Confidence thresholds for routing decisions
 export const ROUTING_THRESHOLDS = {
-  high_confidence: 0.8,
-  medium_confidence: 0.6,
-  low_confidence: 0.4,
-  fallback_threshold: 0.3
+  high_confidence: 0.7,
+  medium_confidence: 0.5,
+  low_confidence: 0.3,
+  fallback_threshold: 0.2
 };
 
 // Agent priorities (higher number = higher priority)

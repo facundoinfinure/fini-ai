@@ -177,16 +177,32 @@ En la implementación completa, esto se enrutaría automáticamente al agente es
 
     // Boost score for specific analytics patterns
     if (message.includes('cuánto') && (message.includes('vend') || message.includes('gané'))) {
-      score += 0.3;
+      score += 0.4;
     }
     if (message.includes('reporte') || message.includes('estadística') || message.includes('métrica')) {
-      score += 0.2;
+      score += 0.3;
     }
     if (message.includes('producto') && message.includes('más')) {
-      score += 0.2;
+      score += 0.3;
     }
     if (message.includes('comparar') || message.includes('vs') || message.includes('anterior')) {
-      score += 0.2;
+      score += 0.3;
+    }
+    
+    // NUEVO: Boost para consultas de productos/inventario
+    if (message.includes('producto') || message.includes('productos')) {
+      if (message.includes('tengo') || message.includes('cargados') || message.includes('hay')) {
+        score += 0.4; // "que productos tengo" -> consulta de inventario analytics
+      }
+      if (message.includes('vendidos') || message.includes('populares') || message.includes('top')) {
+        score += 0.4; // consulta de performance de productos
+      }
+    }
+    
+    // Boost para consultas de inventario/stock que son analytics
+    if ((message.includes('cuántos') || message.includes('qué')) && 
+        (message.includes('productos') || message.includes('stock') || message.includes('inventario'))) {
+      score += 0.4;
     }
 
     return Math.min(score, 1.0);
@@ -312,19 +328,35 @@ En la implementación completa, esto se enrutaría automáticamente al agente es
 
     // Boost score for specific product management patterns
     if (message.includes('producto') && (message.includes('análisis') || message.includes('performance'))) {
-      score += 0.3;
+      score += 0.4;
     }
     if (message.includes('precio') && (message.includes('estrategia') || message.includes('competencia'))) {
-      score += 0.3;
+      score += 0.4;
     }
     if (message.includes('catálogo') && (message.includes('optimizar') || message.includes('mejorar'))) {
-      score += 0.3;
+      score += 0.4;
     }
     if (message.includes('lanzamiento') || message.includes('nuevo producto')) {
-      score += 0.2;
+      score += 0.3;
     }
     if (message.includes('pricing') || message.includes('portfolio') || message.includes('surtido')) {
-      score += 0.2;
+      score += 0.3;
+    }
+    
+    // NUEVO: Boost para consultas de gestión de catálogo/productos
+    if (message.includes('producto') || message.includes('productos')) {
+      if (message.includes('tengo') || message.includes('cargados') || message.includes('catálogo')) {
+        score += 0.3; // "que productos tengo" -> gestión de catálogo
+      }
+      if (message.includes('agregar') || message.includes('añadir') || message.includes('incorporar')) {
+        score += 0.4; // gestión de portfolio
+      }
+    }
+    
+    // Boost para consultas de catálogo
+    if ((message.includes('qué') || message.includes('cuáles')) && 
+        (message.includes('productos') || message.includes('catálogo'))) {
+      score += 0.3;
     }
 
     return Math.min(score, 1.0);
