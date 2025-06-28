@@ -124,6 +124,88 @@ export interface Database {
           updated_at?: string;
         };
       };
+      conversations: {
+        Row: {
+          id: string;
+          user_id: string;
+          store_id: string | null;
+          whatsapp_number: string;
+          customer_number: string;
+          conversation_id: string;
+          title: string | null;
+          status: 'active' | 'closed' | 'archived';
+          last_message_at: string;
+          message_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          store_id?: string | null;
+          whatsapp_number: string;
+          customer_number: string;
+          conversation_id: string;
+          title?: string | null;
+          status?: 'active' | 'closed' | 'archived';
+          last_message_at?: string;
+          message_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          store_id?: string | null;
+          whatsapp_number?: string;
+          customer_number?: string;
+          conversation_id?: string;
+          title?: string | null;
+          status?: 'active' | 'closed' | 'archived';
+          last_message_at?: string;
+          message_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          twilio_message_sid: string | null;
+          direction: 'inbound' | 'outbound';
+          body: string;
+          media_url: string | null;
+          agent_type: string | null;
+          confidence: number | null;
+          processing_time_ms: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          twilio_message_sid?: string | null;
+          direction: 'inbound' | 'outbound';
+          body: string;
+          media_url?: string | null;
+          agent_type?: string | null;
+          confidence?: number | null;
+          processing_time_ms?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          conversation_id?: string;
+          twilio_message_sid?: string | null;
+          direction?: 'inbound' | 'outbound';
+          body?: string;
+          media_url?: string | null;
+          agent_type?: string | null;
+          confidence?: number | null;
+          processing_time_ms?: number | null;
+          created_at?: string;
+        };
+      };
       whatsapp_conversations: {
         Row: {
           id: string;

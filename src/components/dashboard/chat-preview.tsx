@@ -4,9 +4,16 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, MoreHorizontal, Bot, User, CheckCheck, Check, Send, RefreshCw, AlertCircle } from 'lucide-react';
+import { MessageSquare, MoreHorizontal, Bot, User, CheckCheck, Check, Send, RefreshCw, AlertCircle, Plus, Trash2, Edit3, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator 
+} from '@/components/ui/dropdown-menu';
 
 interface Message {
   id: string;
@@ -19,6 +26,7 @@ interface Message {
 
 interface Conversation {
   id: string;
+  title?: string; // Título auto-generado o personalizado
   customerName: string;
   customerPhone: string;
   lastMessage: string;
@@ -42,6 +50,9 @@ export function ChatPreview() {
   const [stats, setStats] = useState<ChatStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [creatingConversation, setCreatingConversation] = useState(false);
+  const [deletingConversation, setDeletingConversation] = useState<string | null>(null);
+  const [generatingTitle, setGeneratingTitle] = useState<string | null>(null);
 
   useEffect(() => {
     fetchChatData();
@@ -130,6 +141,102 @@ export function ChatPreview() {
     return null;
   };
 
+  // 🆕 Crear nueva conversación
+  const handleCreateNewConversation = async () => {
+    try {
+      setCreatingConversation(true);
+      
+      // Obtener primer store disponible (simplificado, se puede mejorar)
+      const storeId = 'default-store-id'; // TODO: Obtener store ID real
+      
+      const response = await fetch('/api/conversations/new', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storeId })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        await fetchChatData(); // Refrescar lista
+        setSelectedConversation(result.data);
+        console.log('Nueva conversación creada:', result.data.id);
+      } else {
+        console.error('Error creando conversación:', result.error);
+      }
+    } catch (error) {
+      console.error('Error creando conversación:', error);
+    } finally {
+      setCreatingConversation(false);
+    }
+  };
+
+  // 🗑️ Eliminar conversación
+  const handleDeleteConversation = async (conversationId: string) => {
+    try {
+      setDeletingConversation(conversationId);
+      
+      const response = await fetch(`/api/conversations/${conversationId}`, {
+        method: 'DELETE'
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Remover de la lista local
+        setConversations(prev => prev.filter(c => c.id !== conversationId));
+        
+        // Si era la conversación seleccionada, limpiar selección
+        if (selectedConversation?.id === conversationId) {
+          setSelectedConversation(null);
+        }
+        
+        console.log('Conversación eliminada:', conversationId);
+      } else {
+        console.error('Error eliminando conversación:', result.error);
+      }
+    } catch (error) {
+      console.error('Error eliminando conversación:', error);
+    } finally {
+      setDeletingConversation(null);
+    }
+  };
+
+  // ✨ Generar título automáticamente
+  const handleGenerateTitle = async (conversationId: string) => {
+    try {
+      setGeneratingTitle(conversationId);
+      
+      const response = await fetch(`/api/conversations/${conversationId}/generate-title`, {
+        method: 'POST'
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Actualizar título en la lista local
+        setConversations(prev => prev.map(c => 
+          c.id === conversationId 
+            ? { ...c, title: result.data.title }
+            : c
+        ));
+        
+        // Actualizar conversación seleccionada si es la misma
+        if (selectedConversation?.id === conversationId) {
+          setSelectedConversation(prev => prev ? { ...prev, title: result.data.title } : null);
+        }
+        
+        console.log('Título generado:', result.data.title);
+      } else {
+        console.error('Error generando título:', result.error);
+      }
+    } catch (error) {
+      console.error('Error generando título:', error);
+    } finally {
+      setGeneratingTitle(null);
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -215,9 +322,25 @@ export function ChatPreview() {
               <MessageSquare className="mr-2 h-5 w-5" />
               Conversaciones Recientes
             </span>
-            <Button variant="outline" size="sm">
-              Ver Todas
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleCreateNewConversation}
+                disabled={creatingConversation}
+                className="flex items-center gap-1"
+              >
+                {creatingConversation ? (
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Plus className="h-3 w-3" />
+                )}
+                Nueva
+              </Button>
+              <Button variant="outline" size="sm">
+                Ver Todas
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -236,14 +359,22 @@ export function ChatPreview() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2 mb-1">
                         <h4 className="font-medium text-sm truncate">
-                          {conversation.customerName}
+                          {conversation.title || conversation.customerName}
                         </h4>
                         <Badge 
                           className={`text-xs px-1 py-0 ${getStatusColor(conversation.status)}`}
                         >
                           {getStatusText(conversation.status)}
                         </Badge>
+                        {conversation.title && (
+                          <div title="Título auto-generado">
+                            <Sparkles className="h-3 w-3 text-purple-500" />
+                          </div>
+                        )}
                       </div>
+                      <p className="text-xs text-gray-500 truncate mb-1">
+                        {conversation.customerName}
+                      </p>
                       <p className="text-xs text-gray-600 truncate mb-1">
                         {conversation.lastMessage}
                       </p>
@@ -251,11 +382,56 @@ export function ChatPreview() {
                         {format(new Date(conversation.lastMessageTime), 'HH:mm', { locale: es })}
                       </p>
                     </div>
-                    {conversation.unreadCount > 0 && (
-                      <div className="ml-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                        {conversation.unreadCount}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1 ml-2">
+                      {conversation.unreadCount > 0 && (
+                        <div className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                          {conversation.unreadCount}
+                        </div>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                            <MoreHorizontal className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleGenerateTitle(conversation.id);
+                            }}
+                            disabled={generatingTitle === conversation.id}
+                          >
+                            {generatingTitle === conversation.id ? (
+                              <RefreshCw className="mr-2 h-3 w-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="mr-2 h-3 w-3" />
+                            )}
+                            Generar título
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
+                            <Edit3 className="mr-2 h-3 w-3" />
+                            Editar título
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteConversation(conversation.id);
+                            }}
+                            disabled={deletingConversation === conversation.id}
+                            className="text-red-600"
+                          >
+                            {deletingConversation === conversation.id ? (
+                              <RefreshCw className="mr-2 h-3 w-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="mr-2 h-3 w-3" />
+                            )}
+                            Eliminar conversación
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </div>
               ))}

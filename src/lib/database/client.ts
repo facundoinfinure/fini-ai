@@ -632,6 +632,59 @@ export class ConversationService {
       };
     }
   }
+
+  static async updateConversation(conversationId: string, updates: Partial<Conversation>): Promise<{ success: boolean; conversation?: Conversation; error?: string }> {
+    try {
+      const { data, error } = await _supabaseAdmin
+        .from('conversations')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', conversationId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, conversation: data };
+    } catch (error) {
+      console.warn('[ERROR] Update conversation failed:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+  static async deleteConversation(conversationId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Delete messages first (FK constraint)
+      const { error: messagesError } = await _supabaseAdmin
+        .from('messages')
+        .delete()
+        .eq('conversation_id', conversationId);
+
+      if (messagesError) throw messagesError;
+
+      // Delete conversation
+      const { error: conversationError } = await _supabaseAdmin
+        .from('conversations')
+        .delete()
+        .eq('id', conversationId)
+        .eq('user_id', userId); // Security: ensure user owns the conversation
+
+      if (conversationError) throw conversationError;
+
+      return { success: true };
+    } catch (error) {
+      console.warn('[ERROR] Delete conversation failed:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
 }
 
 /**

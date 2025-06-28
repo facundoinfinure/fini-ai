@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { FiniMultiAgentSystem } from '@/lib/agents/multi-agent-system';
 import { ConversationService, MessageService } from '@/lib/database/client';
 import { createTwilioWhatsAppService } from '@/lib/integrations/twilio-whatsapp';
+import { conversationTitleService } from '@/lib/services/conversation-title-service';
 import type { AgentContext } from '@/lib/agents/types';
 
 /**
@@ -177,6 +178,43 @@ export async function POST(request: NextRequest) {
 
     if (!botMessageResult.success) {
       console.error('[CHAT-SYNC] Failed to save bot message:', botMessageResult.error);
+    }
+
+    // 7.5. 🎯 AUTO-GENERATE TITLE: Generate conversation title after a few messages
+    try {
+      // Check if conversation needs a title (no title and has enough messages)
+      if (!conversation?.title && finalConversationId) {
+        const messagesResult = await MessageService.getMessagesByConversationId(finalConversationId);
+        
+        if (messagesResult.success && messagesResult.messages && messagesResult.messages.length >= 3) {
+          console.log('[CHAT-SYNC] Auto-generating title for conversation with', messagesResult.messages.length, 'messages');
+          
+          // Generate title asynchronously (don't block response)
+          conversationTitleService.generateTitle(messagesResult.messages)
+            .then(async (generatedTitle) => {
+              // Update conversation with generated title
+              const supabaseForTitle = createClient();
+              const { error: titleUpdateError } = await supabaseForTitle
+                .from('conversations')
+                .update({ 
+                  title: generatedTitle,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', finalConversationId);
+              
+              if (titleUpdateError) {
+                console.error('[CHAT-SYNC] Failed to update conversation title:', titleUpdateError.message);
+              } else {
+                console.log(`[CHAT-SYNC] ✅ Auto-generated title: "${generatedTitle}"`);
+              }
+            })
+            .catch((titleError) => {
+              console.error('[CHAT-SYNC] Error in async title generation:', titleError);
+            });
+        }
+      }
+    } catch (titleError) {
+      console.error('[CHAT-SYNC] Title generation error (non-blocking):', titleError);
     }
 
     // 8. 🔄 BIDIRECTIONAL SYNC: Send response to WhatsApp if customer has WhatsApp number

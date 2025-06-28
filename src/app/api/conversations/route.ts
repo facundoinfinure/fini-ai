@@ -28,6 +28,7 @@ export async function GET() {
         whatsapp_number,
         customer_number,
         conversation_id,
+        title,
         status,
         last_message_at,
         message_count,
@@ -66,6 +67,7 @@ export async function GET() {
 
       return {
         id: conv.id,
+        title: conv.title || `Cliente ${conv.customer_number.slice(-4)}`, // Usar título si existe, sino usar cliente
         customerName: `Cliente ${conv.customer_number.slice(-4)}`, // Mostrar solo últimos 4 dígitos
         customerPhone: conv.customer_number,
         lastMessage: lastMessage?.content || 'Sin mensajes',

@@ -78,6 +78,7 @@ export interface Conversation {
   whatsapp_number: string;
   customer_number: string;
   conversation_id: string;
+  title?: string;
   status: 'active' | 'closed' | 'archived';
   last_message_at: string;
   message_count: number;
@@ -207,6 +208,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   whatsapp_number TEXT NOT NULL,
   customer_number TEXT NOT NULL,
   conversation_id TEXT UNIQUE NOT NULL,
+  title TEXT, -- Título auto-generado o personalizado
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'closed', 'archived')),
   last_message_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   message_count INTEGER DEFAULT 0,
