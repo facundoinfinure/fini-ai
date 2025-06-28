@@ -101,18 +101,52 @@ export async function GET() {
       );
     }
 
+    // Para cada store, obtener información de WhatsApp
+    const storesWithWhatsApp = await Promise.all(
+      (rawStores || []).map(async (store) => {
+        // Buscar conexión de WhatsApp para este store
+        const { data: whatsappConnection } = await supabase
+          .from('whatsapp_store_connections')
+          .select(`
+            id,
+            is_active,
+            whatsapp_numbers(
+              id,
+              phone_number,
+              display_name,
+              is_verified,
+              is_active
+            )
+          `)
+          .eq('store_id', (store as any).id)
+          .eq('is_active', true)
+          .single();
+
+        const whatsappInfo = whatsappConnection?.whatsapp_numbers as any;
+        const hasWhatsApp = !!whatsappInfo;
+        const isWhatsAppVerified = hasWhatsApp && whatsappInfo.is_verified && whatsappInfo.is_active;
+
+        return {
+          id: (store as any).id,
+          name: hasNewColumns ? (store as any).name : ((store as any).store_name || 'Mi Tienda'),
+          domain: hasNewColumns ? (store as any).domain : ((store as any).store_url || ''),
+          platform: (store as any).platform || 'tiendanube',
+          platform_store_id: (store as any).platform_store_id || (store as any).tiendanube_store_id || '',
+          access_token: (store as any).access_token,
+          is_active: (store as any).is_active,
+          created_at: (store as any).created_at,
+          updated_at: (store as any).updated_at,
+          // Información de WhatsApp
+          whatsapp_number: hasWhatsApp ? whatsappInfo.phone_number : null,
+          whatsapp_display_name: hasWhatsApp ? whatsappInfo.display_name : null,
+          whatsapp_verified: isWhatsAppVerified,
+          status: isWhatsAppVerified ? 'connected' : (hasWhatsApp ? 'pending' : 'disconnected')
+        };
+      })
+    );
+
     // Normalize the data to use consistent field names
-    const stores = rawStores?.map(store => ({
-      id: (store as any).id,
-      name: hasNewColumns ? (store as any).name : ((store as any).store_name || 'Mi Tienda'),
-      domain: hasNewColumns ? (store as any).domain : ((store as any).store_url || ''),
-      platform: (store as any).platform || 'tiendanube',
-      platform_store_id: (store as any).platform_store_id || (store as any).tiendanube_store_id || '',
-      access_token: (store as any).access_token,
-      is_active: (store as any).is_active,
-      created_at: (store as any).created_at,
-      updated_at: (store as any).updated_at
-    })) || [];
+    const stores = storesWithWhatsApp;
 
     console.log(`[INFO] Found ${stores.length} stores for user ${user.id}`);
 

@@ -29,6 +29,8 @@ interface Store {
   name: string;
   domain?: string;
   whatsapp_number?: string;
+  whatsapp_display_name?: string;
+  whatsapp_verified?: boolean;
   status: 'connected' | 'disconnected' | 'pending';
 }
 
@@ -74,6 +76,14 @@ export function ChatDashboardWrapper() {
 
         setStores(storesArray);
         
+        console.log('[CHAT-WRAPPER] Stores loaded with WhatsApp info:', storesArray.map(s => ({
+          id: s.id,
+          name: s.name,
+          whatsapp_number: s.whatsapp_number,
+          whatsapp_verified: s.whatsapp_verified,
+          status: s.status
+        })));
+        
         // Update selected store if it exists in new data
         if (selectedStore) {
           const updatedSelectedStore = storesArray.find(s => s.id === selectedStore.id);
@@ -82,7 +92,7 @@ export function ChatDashboardWrapper() {
             setWhatsappStatus({
               connected: !!updatedSelectedStore.whatsapp_number,
               number: updatedSelectedStore.whatsapp_number || '',
-              verified: updatedSelectedStore.status === 'connected'
+              verified: updatedSelectedStore.whatsapp_verified || false
             });
           }
         } else {
@@ -93,14 +103,14 @@ export function ChatDashboardWrapper() {
             setWhatsappStatus({
               connected: !!firstConnected.whatsapp_number,
               number: firstConnected.whatsapp_number || '',
-              verified: true
+              verified: firstConnected.whatsapp_verified || false
             });
           } else if (storesArray.length > 0) {
             setSelectedStore(storesArray[0]);
             setWhatsappStatus({
               connected: !!storesArray[0].whatsapp_number,
               number: storesArray[0].whatsapp_number || '',
-              verified: storesArray[0].status === 'connected'
+              verified: storesArray[0].whatsapp_verified || false
             });
           }
         }
@@ -120,7 +130,7 @@ export function ChatDashboardWrapper() {
     setWhatsappStatus({
       connected: !!store.whatsapp_number,
       number: store.whatsapp_number || '',
-      verified: store.status === 'connected'
+      verified: store.whatsapp_verified || false
     });
   };
 
