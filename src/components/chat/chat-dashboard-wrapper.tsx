@@ -20,7 +20,8 @@ import {
   Sparkles,
   User,
   Bot,
-  Settings
+  Settings,
+  RefreshCw
 } from 'lucide-react';
 
 interface Store {
@@ -47,6 +48,15 @@ export function ChatDashboardWrapper() {
     loadStores();
   }, []);
 
+  // Auto-refresh stores data periodically to catch WhatsApp configuration changes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadStores();
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [selectedStore]);
+
   const loadStores = async () => {
     try {
       setIsLoading(true);
@@ -64,17 +74,35 @@ export function ChatDashboardWrapper() {
 
         setStores(storesArray);
         
-        // Auto-select first connected store
-        const firstConnected = storesArray.find(s => s.status === 'connected');
-        if (firstConnected) {
-          setSelectedStore(firstConnected);
-          setWhatsappStatus({
-            connected: !!firstConnected.whatsapp_number,
-            number: firstConnected.whatsapp_number || '',
-            verified: true
-          });
-        } else if (storesArray.length > 0) {
-          setSelectedStore(storesArray[0]);
+        // Update selected store if it exists in new data
+        if (selectedStore) {
+          const updatedSelectedStore = storesArray.find(s => s.id === selectedStore.id);
+          if (updatedSelectedStore) {
+            setSelectedStore(updatedSelectedStore);
+            setWhatsappStatus({
+              connected: !!updatedSelectedStore.whatsapp_number,
+              number: updatedSelectedStore.whatsapp_number || '',
+              verified: updatedSelectedStore.status === 'connected'
+            });
+          }
+        } else {
+          // Auto-select first connected store
+          const firstConnected = storesArray.find(s => s.status === 'connected');
+          if (firstConnected) {
+            setSelectedStore(firstConnected);
+            setWhatsappStatus({
+              connected: !!firstConnected.whatsapp_number,
+              number: firstConnected.whatsapp_number || '',
+              verified: true
+            });
+          } else if (storesArray.length > 0) {
+            setSelectedStore(storesArray[0]);
+            setWhatsappStatus({
+              connected: !!storesArray[0].whatsapp_number,
+              number: storesArray[0].whatsapp_number || '',
+              verified: storesArray[0].status === 'connected'
+            });
+          }
         }
       } else {
         setError('Error cargando tiendas: ' + (data.error || 'Error desconocido'));
@@ -179,7 +207,7 @@ export function ChatDashboardWrapper() {
               </Badge>
             </div>
             
-            {/* Store Selector */}
+            {/* Store Selector & Refresh */}
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-600">Tienda:</span>
               <select
@@ -196,6 +224,16 @@ export function ChatDashboardWrapper() {
                   </option>
                 ))}
               </select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadStores}
+                disabled={isLoading}
+                className="flex items-center space-x-1"
+              >
+                <RefreshCw className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
+                <span className="text-xs">Actualizar</span>
+              </Button>
             </div>
           </CardTitle>
           
@@ -233,7 +271,7 @@ export function ChatDashboardWrapper() {
         </CardHeader>
         
         <CardContent>
-          {!whatsappStatus.connected && (
+          {!whatsappStatus.verified && (
             <Alert className="mb-4 border-orange-200 bg-orange-50">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="text-orange-800">
@@ -245,6 +283,11 @@ export function ChatDashboardWrapper() {
                 >
                   Configurar WhatsApp
                 </Button>
+                {whatsappStatus.connected && !whatsappStatus.verified && (
+                  <span className="block mt-1 text-sm">
+                    ⏳ WhatsApp conectado pero pendiente de verificación
+                  </span>
+                )}
               </AlertDescription>
             </Alert>
           )}
