@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { UnifiedChat } from './unified-chat';
+import { ChatPreview } from '@/components/dashboard/chat-preview';
 import { ChatMetrics } from './chat-metrics';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +21,9 @@ import {
   User,
   Bot,
   Settings,
-  RefreshCw
+  RefreshCw,
+  Plus,
+  Trash2
 } from 'lucide-react';
 
 interface Store {
@@ -312,13 +314,16 @@ export function ChatDashboardWrapper() {
         </CardContent>
       </Card>
 
-      {/* Chat Interface */}
+      {/* Chat Interface with Full Conversation Management */}
       {selectedStore && (
         <Tabs defaultValue="chat" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="chat" className="flex items-center space-x-2">
               <MessageSquare className="h-4 w-4" />
-              <span>Chat Unificado</span>
+              <span>Chat + Conversaciones</span>
+              <Badge variant="secondary" className="ml-1 text-xs">
+                ✨ GPT Style
+              </Badge>
             </TabsTrigger>
             <TabsTrigger value="metrics" className="flex items-center space-x-2">
               <BarChart3 className="h-4 w-4" />
@@ -327,19 +332,37 @@ export function ChatDashboardWrapper() {
           </TabsList>
           
           <TabsContent value="chat" className="mt-6">
-            <UnifiedChat
-              storeId={selectedStore.id}
-              whatsappNumber={whatsappStatus.number}
-              onMessageSent={(message) => {
-                console.log('[CHAT-WRAPPER] Message sent:', message);
-              }}
-              onResponseReceived={(response) => {
-                console.log('[CHAT-WRAPPER] Response received:', response);
-              }}
-              onSyncStatusChange={(status) => {
-                console.log('[CHAT-WRAPPER] Sync status changed:', status);
-              }}
-            />
+            {/* 🎉 ChatPreview with full conversation management features */}
+            <div className="space-y-4">
+              {/* Feature highlight banner */}
+              <Alert className="border-blue-200 bg-blue-50">
+                <Sparkles className="h-4 w-4" />
+                <AlertDescription className="text-blue-800">
+                  <strong>🎉 Funcionalidades ChatGPT/Claude disponibles:</strong>
+                  <div className="mt-2 flex flex-wrap gap-2 text-sm">
+                    <Badge variant="outline" className="flex items-center space-x-1">
+                      <Plus className="h-3 w-3" />
+                      <span>Nueva conversación</span>
+                    </Badge>
+                    <Badge variant="outline" className="flex items-center space-x-1">
+                      <Trash2 className="h-3 w-3" />
+                      <span>Eliminar conversación</span>
+                    </Badge>
+                    <Badge variant="outline" className="flex items-center space-x-1">
+                      <Sparkles className="h-3 w-3" />
+                      <span>Títulos automáticos IA</span>
+                    </Badge>
+                    <Badge variant="outline" className="flex items-center space-x-1">
+                      <MessageSquare className="h-3 w-3" />
+                      <span>Lista de conversaciones</span>
+                    </Badge>
+                  </div>
+                </AlertDescription>
+              </Alert>
+              
+              {/* Full ChatPreview component with all conversation management */}
+              <ChatPreview />
+            </div>
           </TabsContent>
           
           <TabsContent value="metrics" className="mt-6">
