@@ -284,9 +284,9 @@ export class StoreService {
         platform: updatedStore?.platform
       });
 
-      // 🚀 ASYNC NAMESPACE INITIALIZATION: Non-blocking, fail-safe
+      // 🚀 ASYNC RAG DATA SYNC: Non-blocking, fail-safe, complete data indexing
       if (updatedStore?.id) {
-        this.initializeStoreNamespacesAsync(updatedStore.id);
+        this.syncStoreDataToRAGAsync(updatedStore.id);
       }
 
       return { success: true, store: updatedStore };
@@ -331,9 +331,9 @@ export class StoreService {
         platform: data?.platform
       });
 
-      // 🚀 ASYNC NAMESPACE INITIALIZATION: Non-blocking, fail-safe
+      // 🚀 ASYNC RAG DATA SYNC: Non-blocking, fail-safe, complete data indexing
       if (data?.id) {
-        this.initializeStoreNamespacesAsync(data.id);
+        this.syncStoreDataToRAGAsync(data.id);
       }
 
       return { success: true, store: data };
@@ -418,6 +418,85 @@ export class StoreService {
         console.warn(`[WARNING] Async namespace initialization failed for store ${storeId}:`, error);
         // 🛡️ CRITICAL: Never throw errors that could break store operations
         // RAG initialization is a nice-to-have optimization, not a requirement
+      }
+    })();
+  }
+
+  /**
+   * Get a store by ID
+   */
+  static async getStore(storeId: string): Promise<{ success: boolean; store?: Store; error?: string }> {
+    try {
+      const { data, error } = await _supabaseAdmin
+        .from('stores')
+        .select('*')
+        .eq('id', storeId)
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, store: data };
+    } catch (error) {
+      console.warn('[ERROR] Get store failed:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+  /**
+   * Sync complete store data to RAG/Pinecone asynchronously  
+   * 🚀 NEW: Full data synchronization for agent context
+   * 🛡️ FAIL-SAFE: Never breaks store operations
+   */
+  static syncStoreDataToRAGAsync(storeId: string): void {
+    // Fire-and-forget async operation
+    (async () => {
+      try {
+        console.log(`[DEBUG] Starting async RAG data sync for store: ${storeId}`);
+        
+        // Get store with access token for API calls
+        const store = await this.getStore(storeId);
+        if (!store.success || !store.store) {
+          console.warn(`[WARNING] Cannot sync RAG data - store not found: ${storeId}`);
+          return;
+        }
+
+        const storeData = store.store;
+        if (!storeData.access_token) {
+          console.warn(`[WARNING] Cannot sync RAG data - no access token for store: ${storeId}`);
+          return;
+        }
+
+        // Initialize namespaces first
+        const { FiniRAGEngine } = await import('@/lib/rag');
+        const ragEngine = new FiniRAGEngine();
+        
+        // 1. Initialize namespaces
+        console.log(`[DEBUG] Initializing RAG namespaces for store: ${storeId}`);
+        const namespaceResult = await ragEngine.initializeStoreNamespaces(storeId);
+        
+        if (!namespaceResult.success) {
+          console.warn(`[WARNING] RAG namespaces failed for store ${storeId}:`, namespaceResult.error);
+          return; // Skip data sync if namespaces failed
+        }
+
+        // 2. Sync complete store data
+        console.log(`[DEBUG] Starting full data indexing for store: ${storeId}`);
+        await ragEngine.indexStoreData(storeId, storeData.access_token);
+        
+        console.log(`[SUCCESS] Complete RAG data sync finished for store: ${storeId}`);
+        
+        // 3. Update last sync timestamp
+        await this.updateStore(storeId, { 
+          last_sync_at: new Date().toISOString() 
+        });
+        
+      } catch (error) {
+        console.warn(`[WARNING] Async RAG data sync failed for store ${storeId}:`, error);
+        // 🛡️ CRITICAL: Never throw errors that could break store operations
+        // RAG sync is enhancement, not a requirement for basic functionality
       }
     })();
   }
