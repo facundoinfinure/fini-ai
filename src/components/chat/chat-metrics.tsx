@@ -177,156 +177,117 @@ export function ChatMetrics({ storeId, className }: ChatMetricsProps) {
   }
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <TrendingUp className="mr-2 h-5 w-5" />
-          Métricas de Chat
-          <Badge variant="outline" className="ml-2">
-            Tiempo Real
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          {/* Total Messages */}
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-blue-600">Mensajes Totales</p>
-                <p className="text-2xl font-bold text-blue-800">{metrics.totalMessages}</p>
-              </div>
-              <MessageSquare className="h-8 w-8 text-blue-500" />
-            </div>
-          </div>
+    <div className={`space-y-3 ${className}`}>
+      {/* Compact Header */}
+      <div className="text-center pb-2 border-b border-gray-200">
+        <h4 className="font-medium text-gray-900 text-sm flex items-center justify-center gap-1">
+          <TrendingUp className="h-3 w-3" />
+          Métricas Chat
+        </h4>
+      </div>
 
-          {/* Total Conversations */}
-          <div className="bg-green-50 p-3 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-green-600">Conversaciones</p>
-                <p className="text-2xl font-bold text-green-800">{metrics.totalConversations}</p>
-              </div>
-              <Users className="h-8 w-8 text-green-500" />
-            </div>
-          </div>
-
-          {/* Average Confidence */}
-          <div className="bg-purple-50 p-3 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-purple-600">Confianza Promedio</p>
-                <p className="text-2xl font-bold text-purple-800">
-                  {Math.round(metrics.averageConfidence * 100)}%
-                </p>
-              </div>
-              <Target className="h-8 w-8 text-purple-500" />
-            </div>
-          </div>
-
-          {/* Average Response Time */}
-          <div className="bg-orange-50 p-3 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-orange-600">Tiempo Respuesta</p>
-                <p className="text-2xl font-bold text-orange-800">
-                  {Math.round(metrics.averageResponseTime)}ms
-                </p>
-              </div>
-              <Clock className="h-8 w-8 text-orange-500" />
-            </div>
-          </div>
+      {/* Main Stats - Compact Grid */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-blue-50 p-2 rounded-lg text-center">
+          <MessageSquare className="h-3 w-3 text-blue-600 mx-auto mb-1" />
+          <div className="text-sm font-bold text-blue-700">{metrics.totalMessages}</div>
+          <div className="text-xs text-blue-600">Mensajes</div>
         </div>
 
-        {/* Agent Breakdown */}
-        <div className="mb-6">
-          <h4 className="text-sm font-medium mb-3 flex items-center">
-            <Bot className="mr-2 h-4 w-4" />
-            Distribución por Agente
-          </h4>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <TrendingUp className="h-4 w-4 mr-2 text-blue-500" />
-                <span className="text-sm">Analytics AI</span>
-              </div>
-              <Badge variant="secondary">{metrics.agentBreakdown.analytics}</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Sparkles className="h-4 w-4 mr-2 text-purple-500" />
-                <span className="text-sm">Marketing AI</span>
-              </div>
-              <Badge variant="secondary">{metrics.agentBreakdown.marketing}</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <HeadphonesIcon className="h-4 w-4 mr-2 text-green-500" />
-                <span className="text-sm">Support AI</span>
-              </div>
-              <Badge variant="secondary">{metrics.agentBreakdown.customer_service}</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Bot className="h-4 w-4 mr-2 text-gray-500" />
-                <span className="text-sm">Orchestrator</span>
-              </div>
-              <Badge variant="secondary">{metrics.agentBreakdown.orchestrator}</Badge>
-            </div>
+        <div className="bg-green-50 p-2 rounded-lg text-center">
+          <Users className="h-3 w-3 text-green-600 mx-auto mb-1" />
+          <div className="text-sm font-bold text-green-700">{metrics.totalConversations}</div>
+          <div className="text-xs text-green-600">Conversaciones</div>
+        </div>
+      </div>
+
+      {/* Performance Stats */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-purple-50 p-2 rounded-lg text-center">
+          <Target className="h-3 w-3 text-purple-600 mx-auto mb-1" />
+          <div className="text-sm font-bold text-purple-700">
+            {Math.round(metrics.averageConfidence * 100)}%
           </div>
+          <div className="text-xs text-purple-600">Confianza</div>
         </div>
 
-        {/* WhatsApp Sync Status */}
-        <div className="mb-6">
-          <h4 className="text-sm font-medium mb-3 flex items-center">
-            <Smartphone className="mr-2 h-4 w-4" />
-            Sincronización WhatsApp
-          </h4>
-          <div className="bg-gray-50 p-3 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm">Estado</span>
-              <Badge variant={metrics.whatsappSync.enabled ? "default" : "secondary"}>
-                {metrics.whatsappSync.enabled ? "Activo" : "Inactivo"}
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm">Mensajes Sincronizados</span>
-              <span className="text-sm font-medium">{metrics.whatsappSync.messagesSynced}</span>
-            </div>
-            {metrics.whatsappSync.lastSync && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Última Sincronización</span>
-                <span className="text-xs text-gray-600">
-                  {new Date(metrics.whatsappSync.lastSync).toLocaleString()}
+        <div className="bg-orange-50 p-2 rounded-lg text-center">
+          <Clock className="h-3 w-3 text-orange-600 mx-auto mb-1" />
+          <div className="text-sm font-bold text-orange-700">
+            {Math.round(metrics.averageResponseTime)}ms
+          </div>
+          <div className="text-xs text-orange-600">Respuesta</div>
+        </div>
+      </div>
+
+      {/* Top Agents - Compact */}
+      <div className="bg-gray-50 p-2 rounded-lg">
+        <h5 className="text-xs font-medium text-gray-700 mb-2 flex items-center justify-center gap-1">
+          <Bot className="h-3 w-3" />
+          Top Agentes
+        </h5>
+        <div className="space-y-1">
+          {Object.entries(metrics.agentBreakdown)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 3)
+            .map(([agent, count]) => (
+            <div key={agent} className="flex items-center justify-between text-xs">
+              <div className="flex items-center space-x-1">
+                {agent === 'analytics' && <TrendingUp className="h-3 w-3 text-blue-500" />}
+                {agent === 'marketing' && <Sparkles className="h-3 w-3 text-purple-500" />}
+                {agent === 'customer_service' && <HeadphonesIcon className="h-3 w-3 text-green-500" />}
+                {agent === 'orchestrator' && <Bot className="h-3 w-3 text-gray-500" />}
+                <span className="text-gray-700 capitalize truncate">
+                  {agent === 'customer_service' ? 'Support' : 
+                   agent === 'analytics' ? 'Analytics' :
+                   agent === 'marketing' ? 'Marketing' :
+                   'Orchestrator'}
                 </span>
               </div>
-            )}
+              <span className="bg-white px-1.5 py-0.5 rounded text-xs font-medium">
+                {count}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Status Indicators */}
+      <div className="space-y-2">
+        {/* WhatsApp Status - Compact */}
+        <div className={`p-2 rounded border ${
+          metrics.whatsappSync.enabled 
+            ? 'bg-green-50 border-green-200' 
+            : 'bg-gray-50 border-gray-200'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <Smartphone className="h-3 w-3 text-green-600" />
+              <span className="text-xs font-medium text-gray-700">WhatsApp</span>
+            </div>
+            <div className={`w-2 h-2 rounded-full ${
+              metrics.whatsappSync.enabled ? 'bg-green-500' : 'bg-gray-300'
+            }`}></div>
+          </div>
+          <div className="text-xs text-gray-600 mt-1">
+            {metrics.whatsappSync.messagesSynced} sincronizados
           </div>
         </div>
 
-        {/* Namespace Usage */}
-        <div>
-          <h4 className="text-sm font-medium mb-3 flex items-center">
-            <Database className="mr-2 h-4 w-4" />
-            Datos Específicos del Cliente
-          </h4>
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm">Namespace</span>
-              <Badge variant="outline" className="text-xs">
-                {metrics.namespaceUsage.namespace}
-              </Badge>
+        {/* Database Status - Compact */}
+        <div className="bg-blue-50 p-2 rounded border border-blue-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <Database className="h-3 w-3 text-blue-600" />
+              <span className="text-xs font-medium text-gray-700">Base Datos</span>
             </div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm">Documentos Indexados</span>
-              <span className="text-sm font-medium">{metrics.namespaceUsage.documentsIndexed}</span>
-            </div>
-            <div className="text-xs text-blue-600 mt-2">
-              🔐 Todos tus datos están completamente aislados por tienda
-            </div>
+            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+          </div>
+          <div className="text-xs text-blue-600 mt-1">
+            {metrics.namespaceUsage.documentsIndexed} docs indexados
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

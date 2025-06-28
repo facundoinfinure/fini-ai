@@ -564,92 +564,175 @@ export function ChatPreview({
 
   // NUEVA INTERFAZ MODERNA CHATGPT/CLAUDE - Preservando funcionalidad existente
   if (messages.length === 0) {
-    // Empty State - Interfaz de bienvenida con TODOS los 10 agentes
+    // Empty State - Interfaz moderna estilo ChatGPT
     return (
-      <div className="flex-1 flex flex-col min-h-[600px]">
-        <div className="chat-empty-state">
-          <div className="empty-state-icon">
-            <MessageSquare className="w-10 h-10 text-[#6b7280]" />
+      <div className="flex-1 flex flex-col bg-gray-50/30">
+        {/* Empty State */}
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-6">
+            <MessageSquare className="w-8 h-8 text-gray-400" />
           </div>
-          <h3 className="empty-state-title">¡Hola! Soy Fini AI</h3>
-          <p className="empty-state-description">
-            Tu asistente inteligente multi-agente para tu tienda. Tengo 10 especialistas listos para ayudarte con análisis, marketing, atención al cliente, inventario, finanzas, consultoría, productos, operaciones, ventas y coordinación general.
+          
+          <h3 className="text-2xl font-semibold text-gray-900 mb-3">
+            ¡Hola! Soy Fini AI
+          </h3>
+          
+          <p className="text-gray-600 mb-8 max-w-lg leading-relaxed">
+            Tu asistente inteligente multi-agente. Pregúntame sobre analytics, ventas, productos, marketing, inventario y más.
           </p>
-          
-          {/* Agent Showcase - Mostrando TODOS los 10 agentes disponibles */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8 max-w-4xl">
-            <div className="agent-showcase-item">
-              <BarChart3 className="w-5 h-5 text-[#3b82f6]" />
-              <span>Analytics AI</span>
-            </div>
-            <div className="agent-showcase-item">
-              <Sparkles className="w-5 h-5 text-[#8b5cf6]" />
-              <span>Marketing AI</span>
-            </div>
-            <div className="agent-showcase-item">
-              <Users className="w-5 h-5 text-[#10b981]" />
-              <span>Support AI</span>
-            </div>
-            <div className="agent-showcase-item">
-              <Package className="w-5 h-5 text-[#f59e0b]" />
-              <span>Stock Manager</span>
-            </div>
-            <div className="agent-showcase-item">
-              <DollarSign className="w-5 h-5 text-[#059669]" />
-              <span>Financial AI</span>
-            </div>
-            <div className="agent-showcase-item">
-              <Briefcase className="w-5 h-5 text-[#7c3aed]" />
-              <span>Business AI</span>
-            </div>
-            <div className="agent-showcase-item">
-              <ShoppingCart className="w-5 h-5 text-[#dc2626]" />
-              <span>Product AI</span>
-            </div>
-            <div className="agent-showcase-item">
-              <Cog className="w-5 h-5 text-[#0891b2]" />
-              <span>Operations AI</span>
-            </div>
-            <div className="agent-showcase-item">
-              <Target className="w-5 h-5 text-[#ea580c]" />
-              <span>Sales Coach</span>
-            </div>
-            <div className="agent-showcase-item">
-              <Cog className="w-5 h-5 text-[#1a1a1a]" />
-              <span>Orchestrator</span>
-            </div>
-          </div>
-          
-          <div className="empty-state-suggestions">
-            {quickActions.map((action, index) => (
+
+          {/* Quick Suggestions - ChatGPT Style */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl w-full">
+            {quickActions.slice(0, 6).map((action, index) => (
               <button
                 key={index}
                 onClick={() => setInputValue(action.text)}
-                className="suggestion-chip"
+                className="p-4 bg-white border border-gray-200 rounded-xl text-left hover:bg-gray-50 transition-colors group"
               >
-                {action.text}
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
+                    <MessageSquare className="w-3 h-3" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{action.text}</p>
+                  </div>
+                </div>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Input Area */}
-        <div className="chat-input-area">
-          <div className="chat-input-container">
+        {/* Modern Input Area - Fixed at bottom */}
+        <div className="p-6 bg-white border-t border-gray-200">
+          <div className="max-w-4xl mx-auto">
+            <div className="relative">
+              <textarea
+                ref={textareaRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Envía un mensaje a Fini AI..."
+                className="w-full resize-none bg-white border border-gray-300 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent max-h-[120px] min-h-[48px]"
+                rows={1}
+                disabled={isLoading}
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={!inputValue.trim() || isLoading}
+                className="absolute right-2 bottom-2 w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Chat with Messages - Interfaz de conversación activa estilo ChatGPT
+  return (
+    <div className="flex-1 flex flex-col bg-gray-50/30">
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto">
+          {messages.map((message, index) => (
+            <div
+              key={message.id}
+              className={`group px-6 py-6 ${
+                message.direction === 'outbound' ? 'bg-gray-50/50' : ''
+              }`}
+            >
+              <div className="flex gap-4 max-w-none">
+                {/* Avatar */}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  message.direction === 'inbound' 
+                    ? 'bg-black text-white' 
+                    : 'bg-green-500 text-white'
+                }`}>
+                  {message.direction === 'inbound' ? (
+                    <User className="w-4 h-4" />
+                  ) : (
+                    <Bot className="w-4 h-4" />
+                  )}
+                </div>
+
+                {/* Message Content */}
+                <div className="flex-1 min-w-0">
+                  {/* Agent Badge for AI responses */}
+                  {message.direction === 'outbound' && message.agent && (
+                    <div className="mb-2">
+                      {getAgentBadge(message.agent)}
+                    </div>
+                  )}
+
+                  {/* Message Text */}
+                  <div className="prose prose-sm max-w-none">
+                    <p className="text-gray-900 leading-relaxed whitespace-pre-wrap m-0">
+                      {message.content}
+                    </p>
+                  </div>
+
+                  {/* Message metadata */}
+                  <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                    <span>
+                      {format(new Date(message.timestamp), 'HH:mm', { locale: es })}
+                    </span>
+                    {message.confidence && (
+                      <span>
+                        Confianza: {Math.round(message.confidence * 100)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Typing Indicator */}
+          {isTyping && (
+            <div className="px-6 py-6 bg-gray-50/50">
+              <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center">
+                  <Bot className="w-4 h-4" />
+                </div>
+                <div className="flex items-center">
+                  <div className="flex gap-1 bg-gray-200 rounded-full px-3 py-2">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* Modern Input Area - Fixed at bottom */}
+      <div className="p-6 bg-white border-t border-gray-200">
+        <div className="max-w-4xl mx-auto">
+          <div className="relative">
             <textarea
               ref={textareaRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Pregúntame sobre tu tienda, ventas, productos, marketing, finanzas, inventario..."
-              className="chat-input"
+              placeholder="Envía un mensaje a Fini AI..."
+              className="w-full resize-none bg-white border border-gray-300 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent max-h-[120px] min-h-[48px]"
               rows={1}
               disabled={isLoading}
             />
             <button
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || isLoading}
-              className="send-button"
+              className="absolute right-2 bottom-2 w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -658,95 +741,6 @@ export function ChatPreview({
               )}
             </button>
           </div>
-          <div className="chat-quick-actions">
-            {quickActions.slice(0, 4).map((action, index) => (
-              <button
-                key={index}
-                onClick={() => setInputValue(action.text)}
-                className="quick-action"
-              >
-                {action.text}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Chat with Messages - Interfaz de conversación activa
-  return (
-    <div className="flex-1 flex flex-col min-h-[600px]">
-      {/* Messages Area */}
-      <div className="chat-messages">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`message ${message.direction === 'inbound' ? 'user' : 'assistant'}`}
-          >
-            <div className="message-avatar">
-              {message.direction === 'inbound' ? (
-                <User className="w-4 h-4" />
-              ) : (
-                <Bot className="w-4 h-4" />
-              )}
-            </div>
-            <div className="message-content">
-              {message.direction === 'outbound' && message.agent && getAgentBadge(message.agent)}
-              <div className="message-text">{message.content}</div>
-              <div className="message-time">
-                {format(new Date(message.timestamp), 'HH:mm', { locale: es })}
-                {message.confidence && (
-                  <span className="ml-2 text-xs opacity-60">
-                    Confianza: {Math.round(message.confidence * 100)}%
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {/* Typing Indicator */}
-        {isTyping && (
-          <div className="typing-indicator">
-            <div className="message-avatar">
-              <Bot className="w-4 h-4" />
-            </div>
-            <div className="typing-dots">
-              <div className="typing-dot"></div>
-              <div className="typing-dot"></div>
-              <div className="typing-dot"></div>
-            </div>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input Area */}
-      <div className="chat-input-area">
-        <div className="chat-input-container">
-          <textarea
-            ref={textareaRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Escribe tu mensaje..."
-            className="chat-input"
-            rows={1}
-            disabled={isLoading}
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={!inputValue.trim() || isLoading}
-            className="send-button"
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-          </button>
         </div>
       </div>
 
