@@ -640,9 +640,22 @@ export class ConversationService {
 export class MessageService {
   static async createMessage(messageData: Partial<Message>): Promise<{ success: boolean; message?: Message; error?: string }> {
     try {
+      // Sanitize and validate data types to prevent database errors
+      const sanitizedData = {
+        ...messageData,
+        // Ensure processing_time_ms is always an integer
+        ...(messageData.processing_time_ms !== undefined && {
+          processing_time_ms: Math.round(Number(messageData.processing_time_ms) || 0)
+        }),
+        // Ensure confidence is a valid decimal between 0 and 1
+        ...(messageData.confidence !== undefined && {
+          confidence: Math.max(0, Math.min(1, Number(messageData.confidence) || 0))
+        })
+      };
+
       const { data, error } = await _supabaseAdmin
         .from('messages')
-        .insert([messageData])
+        .insert([sanitizedData])
         .select()
         .single();
 
@@ -651,6 +664,10 @@ export class MessageService {
       return { success: true, message: data };
     } catch (error) {
       console.warn('[ERROR] Create message failed:', error);
+      console.warn('[ERROR] Message data that failed:', {
+        ...messageData,
+        body: messageData.body ? `${messageData.body.substring(0, 50)}...` : undefined
+      });
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 

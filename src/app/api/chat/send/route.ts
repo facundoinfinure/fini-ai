@@ -164,13 +164,14 @@ export async function POST(request: NextRequest) {
     }
 
     // 7. Save agent response to database
+    const processingTimeMs = Math.round(agentResponse.metadata?.systemExecutionTime || Date.now() - startTime);
     const botMessageResult = await MessageService.createMessage({
       conversation_id: finalConversationId,
       direction: 'outbound',
       body: agentResponse.response || 'Error procesando respuesta',
       agent_type: agentResponse.agentType as 'orchestrator' | 'analytics' | 'customer_service' | 'marketing',
       confidence: agentResponse.confidence,
-      processing_time_ms: agentResponse.metadata?.systemExecutionTime || Date.now() - startTime,
+      processing_time_ms: processingTimeMs,
       created_at: new Date().toISOString()
     });
 
