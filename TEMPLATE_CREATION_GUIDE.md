@@ -1,4 +1,3 @@
-
 🚀 INSTRUCCIONES PARA CREAR TEMPLATES WHATSAPP BUSINESS
 📱 Ve a: https://console.twilio.com/us1/develop/sms/content-manager
 
@@ -9,24 +8,21 @@
 📝 TEMPLATE 1/24: fini_otp_verification_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_otp_verification_v4
+🔹 Content Type: 🛡️ Authentication
 🔹 Language: es
 🔹 Category: AUTHENTICATION
-🔹 Variables: 2
+🔹 Variables: ❌ NO DISPONIBLES (Twilio las maneja automáticamente)
 
-📋 Variables a definir:
-   {{1}} - Código OTP (6 dígitos)
-   {{2}} - Minutos de expiración
+📋 Configuración especial:
+   Footer → Code Expiration Time: 10 minutos
+   Button → Type: Copy Code, Text: "Copiar Código"
 
-📄 Body Template:
+📄 Body: 
 ──────────────────────────────
-🔐 *Código de Verificación Fini AI*
-
-Tu código es: {{1}}
-
-⏰ Expira en {{2}} minutos.
-
-⚠️ No compartas este código.
+(Twilio maneja automáticamente el formato)
 ──────────────────────────────
+
+🔄 Dynamic Fallback: ❌ NO configurar (security critical)
 
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_OTP_VERIFICATION_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -36,6 +32,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 2/24: fini_analytics_proactive_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_analytics_proactive_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 4
@@ -45,6 +42,12 @@ Tu código es: {{1}}
    {{2}} - Ventas del período
    {{3}} - Número de pedidos
    {{4}} - Tendencia (↗️ ↘️ ➡️)
+
+💡 Sample Data para variables:
+   {{1}} - "Tienda Ejemplo"
+   {{2}} - "$125.650"
+   {{3}} - "23"
+   {{4}} - "↗️ +15%"
 
 📄 Body Template:
 ──────────────────────────────
@@ -57,6 +60,8 @@ Tu código es: {{1}}
 ¿Querés un análisis más detallado de tu performance?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_daily_summary_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_ANALYTICS_PROACTIVE_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -65,6 +70,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 3/24: fini_analytics_notification_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_analytics_notification_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -73,6 +79,11 @@ Tu código es: {{1}}
    {{1}} - Métrica afectada
    {{2}} - Cambio detectado
    {{3}} - Recomendación
+
+💡 Sample Data para variables:
+   {{1}} - "Conversión"
+   {{2}} - "↘️ Bajó 12%"
+   {{3}} - "Optimizar checkout"
 
 📄 Body Template:
 ──────────────────────────────
@@ -84,6 +95,8 @@ Tu código es: {{1}}
 ¿Analizamos juntos qué está pasando?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_error_fallback_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_ANALYTICS_NOTIFICATION_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -92,6 +105,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 4/24: fini_customer_service_proactive_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_customer_service_proactive_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -100,6 +114,11 @@ Tu código es: {{1}}
    {{1}} - Nombre de la tienda
    {{2}} - Consultas pendientes
    {{3}} - Tiempo promedio de respuesta
+
+💡 Sample Data para variables:
+   {{1}} - "MiTienda.com"
+   {{2}} - "7"
+   {{3}} - "2 horas"
 
 📄 Body Template:
 ──────────────────────────────
@@ -111,6 +130,8 @@ Tu código es: {{1}}
 ¿Te ayudo a revisar las consultas de tus clientes?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_welcome_multi_agent_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_CUSTOMER_SERVICE_PROACTIVE_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -119,6 +140,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 5/24: fini_customer_service_notification_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_customer_service_notification_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -127,6 +149,11 @@ Tu código es: {{1}}
    {{1}} - Nombre del cliente
    {{2}} - Tipo de consulta
    {{3}} - Prioridad (URGENTE/NORMAL)
+
+💡 Sample Data para variables:
+   {{1}} - "María González"
+   {{2}} - "Problema con envío"
+   {{3}} - "URGENTE"
 
 📄 Body Template:
 ──────────────────────────────
@@ -138,6 +165,8 @@ Tu código es: {{1}}
 ¿La atendemos ahora para mantener la satisfacción?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_error_fallback_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_CUSTOMER_SERVICE_NOTIFICATION_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -146,6 +175,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 6/24: fini_marketing_proactive_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_marketing_proactive_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: MARKETING
 🔹 Variables: 3
@@ -154,6 +184,11 @@ Tu código es: {{1}}
    {{1}} - Nombre de la tienda
    {{2}} - Oportunidad detectada
    {{3}} - Potencial de impacto
+
+💡 Sample Data para variables:
+   {{1}} - "StyleShop"
+   {{2}} - "Black Friday anticipado"
+   {{3}} - "+40% ventas"
 
 📄 Body Template:
 ──────────────────────────────
@@ -165,6 +200,8 @@ Tu código es: {{1}}
 ¿Querés que te cuente cómo aprovechar esta oportunidad?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_welcome_multi_agent_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_MARKETING_PROACTIVE_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -173,6 +210,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 7/24: fini_marketing_notification_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_marketing_notification_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: MARKETING
 🔹 Variables: 3
@@ -181,6 +219,11 @@ Tu código es: {{1}}
    {{1}} - Tendencia detectada
    {{2}} - Acción recomendada
    {{3}} - Ventana de tiempo
+
+💡 Sample Data para variables:
+   {{1}} - "Ropa de verano viral"
+   {{2}} - "Crear campaña TikTok"
+   {{3}} - "48 horas"
 
 📄 Body Template:
 ──────────────────────────────
@@ -193,6 +236,8 @@ Tu código es: {{1}}
 ¿Aprovechamos esta tendencia YA?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_marketing_proactive_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_MARKETING_NOTIFICATION_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -201,6 +246,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 8/24: fini_stock_manager_proactive_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_stock_manager_proactive_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -209,6 +255,11 @@ Tu código es: {{1}}
    {{1}} - Nombre de la tienda
    {{2}} - Productos con stock bajo
    {{3}} - Productos de alto movimiento
+
+💡 Sample Data para variables:
+   {{1}} - "TechStore AR"
+   {{2}} - "5"
+   {{3}} - "Auriculares Bluetooth"
 
 📄 Body Template:
 ──────────────────────────────
@@ -220,6 +271,8 @@ Tu código es: {{1}}
 ¿Revisamos juntos tu estrategia de reposición?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_stock_critical_alert_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_STOCK_MANAGER_PROACTIVE_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -228,6 +281,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 9/24: fini_stock_critical_alert_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_stock_critical_alert_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -236,6 +290,11 @@ Tu código es: {{1}}
    {{1}} - Nombre del producto
    {{2}} - Stock restante
    {{3}} - Días hasta agotamiento
+
+💡 Sample Data para variables:
+   {{1}} - "iPhone 15 Pro"
+   {{2}} - "3"
+   {{3}} - "2"
 
 📄 Body Template:
 ──────────────────────────────
@@ -248,6 +307,8 @@ Tu código es: {{1}}
 ¿Hacemos el pedido AHORA para evitar quiebre?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: 🚨 OBLIGATORIO → fini_error_fallback_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_STOCK_CRITICAL_ALERT_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -256,6 +317,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 10/24: fini_financial_advisor_proactive_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_financial_advisor_proactive_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -264,6 +326,11 @@ Tu código es: {{1}}
    {{1}} - Nombre de la tienda
    {{2}} - Margen de ganancia actual
    {{3}} - Recomendación principal
+
+💡 Sample Data para variables:
+   {{1}} - "FashionBoutique"
+   {{2}} - "32%"
+   {{3}} - "Revisar precios de envío"
 
 📄 Body Template:
 ──────────────────────────────
@@ -275,6 +342,8 @@ Tu código es: {{1}}
 ¿Te ayudo a optimizar tu rentabilidad?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_daily_summary_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_FINANCIAL_ADVISOR_PROACTIVE_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -283,6 +352,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 11/24: fini_financial_advisor_notification_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_financial_advisor_notification_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -291,6 +361,11 @@ Tu código es: {{1}}
    {{1}} - Métrica financiera
    {{2}} - Cambio porcentual
    {{3}} - Acción recomendada
+
+💡 Sample Data para variables:
+   {{1}} - "Costo por adquisición"
+   {{2}} - "↗️ +25%"
+   {{3}} - "Optimizar campañas de Google"
 
 📄 Body Template:
 ──────────────────────────────
@@ -302,6 +377,8 @@ Tu código es: {{1}}
 ¿Revisamos tu estrategia financiera?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_error_fallback_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_FINANCIAL_ADVISOR_NOTIFICATION_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -310,6 +387,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 12/24: fini_business_consultant_proactive_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_business_consultant_proactive_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -318,6 +396,11 @@ Tu código es: {{1}}
    {{1}} - Nombre de la tienda
    {{2}} - Oportunidad estratégica
    {{3}} - Próximo paso sugerido
+
+💡 Sample Data para variables:
+   {{1}} - "ElectroMax"
+   {{2}} - "Expansión a Córdoba"
+   {{3}} - "Analizar mercado local"
 
 📄 Body Template:
 ──────────────────────────────
@@ -329,6 +412,8 @@ Tu código es: {{1}}
 ¿Planificamos juntos tu crecimiento?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_welcome_multi_agent_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_BUSINESS_CONSULTANT_PROACTIVE_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -337,6 +422,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 13/24: fini_business_consultant_notification_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_business_consultant_notification_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -345,6 +431,11 @@ Tu código es: {{1}}
    {{1}} - Insight estratégico
    {{2}} - Impacto en el negocio
    {{3}} - Urgencia (ALTA/MEDIA/BAJA)
+
+💡 Sample Data para variables:
+   {{1}} - "Competencia bajó precios 20%"
+   {{2}} - "Riesgo de perder market share"
+   {{3}} - "ALTA"
 
 📄 Body Template:
 ──────────────────────────────
@@ -357,6 +448,8 @@ Tu código es: {{1}}
 ¿Desarrollamos esta estrategia?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_error_fallback_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_BUSINESS_CONSULTANT_NOTIFICATION_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -365,6 +458,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 14/24: fini_product_manager_proactive_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_product_manager_proactive_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -373,6 +467,11 @@ Tu código es: {{1}}
    {{1}} - Nombre de la tienda
    {{2}} - Producto destacado
    {{3}} - Oportunidad de optimización
+
+💡 Sample Data para variables:
+   {{1}} - "HomeDecor Plus"
+   {{2}} - "Lámpara LED Smart"
+   {{3}} - "Bundle con otros productos"
 
 📄 Body Template:
 ──────────────────────────────
@@ -384,6 +483,8 @@ Tu código es: {{1}}
 ¿Analizamos juntos tu catálogo completo?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_daily_summary_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_PRODUCT_MANAGER_PROACTIVE_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -392,6 +493,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 15/24: fini_product_manager_notification_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_product_manager_notification_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -400,6 +502,11 @@ Tu código es: {{1}}
    {{1}} - Producto o categoría
    {{2}} - Cambio detectado
    {{3}} - Acción sugerida
+
+💡 Sample Data para variables:
+   {{1}} - "Zapatillas Running"
+   {{2}} - "↗️ Demanda +60% vs mes anterior"
+   {{3}} - "Aumentar stock y crear landing"
 
 📄 Body Template:
 ──────────────────────────────
@@ -411,6 +518,8 @@ Tu código es: {{1}}
 ¿Optimizamos tu estrategia de productos?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_error_fallback_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_PRODUCT_MANAGER_NOTIFICATION_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -419,6 +528,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 16/24: fini_operations_manager_proactive_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_operations_manager_proactive_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -427,6 +537,11 @@ Tu código es: {{1}}
    {{1}} - Nombre de la tienda
    {{2}} - Proceso a optimizar
    {{3}} - Ahorro potencial estimado
+
+💡 Sample Data para variables:
+   {{1}} - "SportGear Pro"
+   {{2}} - "Proceso de picking"
+   {{3}} - "$8.200/mes"
 
 📄 Body Template:
 ──────────────────────────────
@@ -438,6 +553,8 @@ Tu código es: {{1}}
 ¿Mejoramos juntos tu eficiencia operativa?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_welcome_multi_agent_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_OPERATIONS_MANAGER_PROACTIVE_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -446,6 +563,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 17/24: fini_operations_manager_notification_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_operations_manager_notification_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -454,6 +572,11 @@ Tu código es: {{1}}
    {{1}} - Proceso ineficiente detectado
    {{2}} - Impacto en costos
    {{3}} - Solución propuesta
+
+💡 Sample Data para variables:
+   {{1}} - "Múltiples proveedores de envío"
+   {{2}} - "↗️ +15% en costos logísticos"
+   {{3}} - "Centralizar con 1 proveedor principal"
 
 📄 Body Template:
 ──────────────────────────────
@@ -466,6 +589,8 @@ Tu código es: {{1}}
 ¿Implementamos la mejora?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_error_fallback_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_OPERATIONS_MANAGER_NOTIFICATION_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -474,6 +599,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 18/24: fini_sales_coach_proactive_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_sales_coach_proactive_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -482,6 +608,11 @@ Tu código es: {{1}}
    {{1}} - Nombre de la tienda
    {{2}} - Tasa de conversión actual
    {{3}} - Oportunidad de mejora
+
+💡 Sample Data para variables:
+   {{1}} - "BeautyZone"
+   {{2}} - "2.8%"
+   {{3}} - "Reviews sociales en producto"
 
 📄 Body Template:
 ──────────────────────────────
@@ -493,6 +624,8 @@ Tu código es: {{1}}
 ¿Te ayudo a aumentar tus ventas?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_daily_summary_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_SALES_COACH_PROACTIVE_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -501,6 +634,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 19/24: fini_sales_coach_notification_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_sales_coach_notification_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -509,6 +643,11 @@ Tu código es: {{1}}
    {{1}} - Oportunidad de venta detectada
    {{2}} - Potencial de ingresos
    {{3}} - Estrategia sugerida
+
+💡 Sample Data para variables:
+   {{1}} - "Clientes que abandonaron carrito"
+   {{2}} - "$12.400 en ventas perdidas"
+   {{3}} - "Email + WhatsApp recovery sequence"
 
 📄 Body Template:
 ──────────────────────────────
@@ -521,6 +660,8 @@ Tu código es: {{1}}
 ¿Aprovechamos esta oportunidad?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_error_fallback_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_SALES_COACH_NOTIFICATION_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -529,6 +670,7 @@ Tu código es: {{1}}
 📝 TEMPLATE 20/24: fini_context_switch_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_context_switch_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -537,6 +679,11 @@ Tu código es: {{1}}
    {{1}} - Agente anterior
    {{2}} - Nuevo agente especialista
    {{3}} - Resumen de transición
+
+💡 Sample Data para variables:
+   {{1}} - "Analytics"
+   {{2}} - "Marketing"
+   {{3}} - "Analizaremos estrategia de crecimiento"
 
 📄 Body Template:
 ──────────────────────────────
@@ -548,6 +695,8 @@ De: {{1}} → {{2}}
 ¿Continuamos con el nuevo enfoque?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: 🚨 OBLIGATORIO → fini_welcome_multi_agent_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_CONTEXT_SWITCH_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -556,6 +705,7 @@ De: {{1}} → {{2}}
 📝 TEMPLATE 21/24: fini_multi_agent_query_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_multi_agent_query_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 3
@@ -564,6 +714,11 @@ De: {{1}} → {{2}}
    {{1}} - Especialistas involucrados
    {{2}} - Tema principal de consulta
    {{3}} - Plan de coordinación
+
+💡 Sample Data para variables:
+   {{1}} - "Analytics + Marketing + Stock"
+   {{2}} - "Campaña Black Friday"
+   {{3}} - "1) Datos históricos 2) Estrategia 3) Inventario"
 
 📄 Body Template:
 ──────────────────────────────
@@ -576,6 +731,8 @@ Equipo: {{1}}
 ¿Coordinamos la respuesta integral?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: 🚨 OBLIGATORIO → fini_welcome_multi_agent_v4
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_MULTI_AGENT_QUERY_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -584,6 +741,7 @@ Equipo: {{1}}
 📝 TEMPLATE 22/24: fini_welcome_multi_agent_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_welcome_multi_agent_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: MARKETING
 🔹 Variables: 2
@@ -591,6 +749,10 @@ Equipo: {{1}}
 📋 Variables a definir:
    {{1}} - Nombre del usuario
    {{2}} - Nombre de la tienda
+
+💡 Sample Data para variables:
+   {{1}} - "Carlos"
+   {{2}} - "MiTiendaOnline"
 
 📄 Body Template:
 ──────────────────────────────
@@ -612,6 +774,8 @@ Equipo: {{1}}
 ¿En qué especialista necesitás ayuda hoy?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ❌ NO configurar (es fallback primario para otros)
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_WELCOME_MULTI_AGENT_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -620,6 +784,7 @@ Equipo: {{1}}
 📝 TEMPLATE 23/24: fini_error_fallback_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_error_fallback_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 2
@@ -627,6 +792,10 @@ Equipo: {{1}}
 📋 Variables a definir:
    {{1}} - Tipo de error o problema
    {{2}} - Alternativa sugerida
+
+💡 Sample Data para variables:
+   {{1}} - "Servicio temporalmente no disponible"
+   {{2}} - "Revisar métricas básicas manualmente"
 
 📄 Body Template:
 ──────────────────────────────
@@ -638,6 +807,8 @@ Equipo: {{1}}
 ¿Probamos de otra manera o preferís que te contacte un humano?
 ──────────────────────────────
 
+🔄 Dynamic Fallback: ❌ NO configurar (es fallback final del sistema)
+
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_ERROR_FALLBACK_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -646,6 +817,7 @@ Equipo: {{1}}
 📝 TEMPLATE 24/24: fini_daily_summary_v4
 ──────────────────────────────────────────────────
 🔹 Friendly Name: fini_daily_summary_v4
+🔹 Content Type: 📄 Text
 🔹 Language: es
 🔹 Category: UTILITY
 🔹 Variables: 4
@@ -655,6 +827,12 @@ Equipo: {{1}}
    {{2}} - Ventas del día
    {{3}} - Pedidos del día
    {{4}} - Producto más vendido
+
+💡 Sample Data para variables:
+   {{1}} - "TuTienda.com.ar"
+   {{2}} - "$89.750"
+   {{3}} - "18"
+   {{4}} - "Notebook Lenovo IdeaPad"
 
 📄 Body Template:
 ──────────────────────────────
@@ -666,6 +844,8 @@ Equipo: {{1}}
 
 ¿Querés el análisis completo del día o algún insight específico?
 ──────────────────────────────
+
+🔄 Dynamic Fallback: ✅ CONFIGURAR → fini_welcome_multi_agent_v4
 
 ✅ Después de crear, agrega esta variable a Vercel:
 🔑 TWILIO_DAILY_SUMMARY_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -705,14 +885,34 @@ TWILIO_DAILY_SUMMARY_CONTENTSID=MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 🚨 IMPORTANTE: Reemplaza "MMxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" con los Content SIDs reales
 
-📋 PASOS FINALES:
-1. ✅ Crear cada template en la consola de Twilio
-2. ✅ Copiar el Content SID de cada template creado  
-3. ✅ Agregar las 24 variables a Vercel
-4. ✅ Solicitar aprobación de WhatsApp Business para cada template
-5. ✅ Testear el sistema multi-agente
+📋 GUÍA RÁPIDA DE CONTENT TYPES:
+════════════════════════════════════════════════════════════
 
-⏱️  Tiempo estimado: 15-20 minutos para crear todos los templates
+🛡️ Authentication (1 template): fini_otp_verification_v4
+📄 Text (23 templates): Todos los demás templates
+
+🔄 GUÍA RÁPIDA DE DYNAMIC FALLBACK:
+════════════════════════════════════════════════════════════
+
+✅ CONFIGURAR FALLBACK:
+- Todos los templates de agentes especializados
+- Templates de notificaciones
+- Templates de coordinación del sistema
+
+❌ NO CONFIGURAR FALLBACK:
+- fini_otp_verification_v4 (Authentication)
+- fini_welcome_multi_agent_v4 (fallback primario)
+- fini_error_fallback_v4 (fallback final)
+
+📋 PASOS FINALES:
+1. ✅ Crear cada template en la consola de Twilio (Content Type correcto)
+2. ✅ Configurar Dynamic Fallback donde se indica
+3. ✅ Copiar el Content SID de cada template creado  
+4. ✅ Agregar las 24 variables a Vercel
+5. ✅ Solicitar aprobación de WhatsApp Business para cada template
+6. ✅ Testear el sistema multi-agente
+
+⏱️  Tiempo estimado: 20-25 minutos para crear todos los templates
 
 🎉 Una vez completado, tendrás el sistema multi-agente completo operativo!
 

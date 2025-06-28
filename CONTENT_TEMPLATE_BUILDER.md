@@ -55,87 +55,320 @@ TWILIO_ERROR_CONTENTSID=HXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_DAILY_SUMMARY_CONTENTSID=HXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-## Template Configurations
+## Template Configurations & Content Types
 
-### Available Templates
+### Content Type Selection Guide
 
-The system includes these predefined templates:
+Each template requires specific **Content Type** selection in Twilio console:
 
-#### 1. OTP Verification Template
-- **Name**: `fini_otp_verification_v3`
-- **Category**: `AUTHENTICATION`
+#### 🛡️ Authentication Templates (1 template)
+- **Content Type**: `Authentication`
+- **Use for**: OTP codes, verification messages
+- **Auto-approval**: Yes, fastest delivery
+- **Dynamic Fallback**: ❌ Not recommended (security critical)
+- **Variables**: ❌ Not available (Twilio managed)
+
+#### 📄 Text Templates (24 templates)  
+- **Content Type**: `Text`
+- **Use for**: Conversational messages with variables
+- **Auto-approval**: Depends on content
+- **Dynamic Fallback**: ✅ Recommended for better delivery
+- **Variables**: ✅ Full control with `{{1}}`, `{{2}}`, etc.
+
+### Multi-Agent System Templates (25 Total)
+
+#### 🔐 **AUTHENTICATION CATEGORY**
+
+**1. OTP Verification Template**
+- **Name**: `fini_otp_verification_v4`
+- **Content Type**: `🛡️ Authentication`
+- **Category**: `AUTHENTICATION`  
+- **Variables**: ❌ **Not available** (Twilio manages automatically)
+- **Configuration**: 
+  - Code Expiration Time: `10` minutes
+  - Button Text: `Copiar Código`
+- **Dynamic Fallback**: ❌ **Not needed** (security critical, direct delivery)
+- **Use Case**: User phone verification with maximum reliability
+
+**1b. OTP Custom Template (Alternative)**
+- **Name**: `fini_otp_custom_v4` 
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
 - **Variables**: `{{1}}` = OTP Code, `{{2}}` = Expiry minutes
-- **Use Case**: User phone verification
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_error_fallback_v4`
+- **Use Case**: Custom OTP messages with full control
 
-#### 2. Welcome Message Template
-- **Name**: `fini_welcome_v3`
+#### 📊 **ANALYTICS AGENT TEMPLATES**
+
+**2. Analytics Proactive Report**
+- **Name**: `fini_analytics_proactive_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Store name, `{{2}}` = Sales, `{{3}}` = Orders, `{{4}}` = Trend
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_daily_summary_v4`
+- **Use Case**: Proactive analytics reports
+
+**3. Analytics Notification Alert**
+- **Name**: `fini_analytics_notification_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Metric affected, `{{2}}` = Change detected, `{{3}}` = Recommendation
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_error_fallback_v4`
+- **Use Case**: Performance alerts and notifications
+
+#### 🎧 **CUSTOMER SERVICE AGENT TEMPLATES**
+
+**4. Customer Service Proactive**
+- **Name**: `fini_customer_service_proactive_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Store name, `{{2}}` = Pending queries, `{{3}}` = Avg response time
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_welcome_multi_agent_v4`
+- **Use Case**: Customer service status updates
+
+**5. Customer Service Notification**
+- **Name**: `fini_customer_service_notification_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Customer name, `{{2}}` = Query type, `{{3}}` = Priority
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_error_fallback_v4`
+- **Use Case**: Urgent customer support alerts
+
+#### 🚀 **MARKETING AGENT TEMPLATES**
+
+**6. Marketing Proactive Opportunities**
+- **Name**: `fini_marketing_proactive_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `MARKETING`
+- **Variables**: `{{1}}` = Store name, `{{2}}` = Opportunity detected, `{{3}}` = Impact potential
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_welcome_multi_agent_v4`
+- **Use Case**: Marketing opportunity alerts
+
+**7. Marketing Trend Notification**
+- **Name**: `fini_marketing_notification_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `MARKETING`
+- **Variables**: `{{1}}` = Trend detected, `{{2}}` = Recommended action, `{{3}}` = Time window
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_marketing_proactive_v4`
+- **Use Case**: Time-sensitive marketing trends
+
+#### 📦 **STOCK MANAGER AGENT TEMPLATES**
+
+**8. Stock Manager Proactive**
+- **Name**: `fini_stock_manager_proactive_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Store name, `{{2}}` = Low stock products, `{{3}}` = High movement products
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_stock_critical_alert_v4`
+- **Use Case**: Inventory management insights
+
+**9. Stock Critical Alert**
+- **Name**: `fini_stock_critical_alert_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Product name, `{{2}}` = Remaining stock, `{{3}}` = Days until stockout
+- **Dynamic Fallback**: ✅ **REQUIRED** → Fallback to `fini_error_fallback_v4`
+- **Use Case**: Critical stock shortage alerts
+
+#### 💰 **FINANCIAL ADVISOR AGENT TEMPLATES**
+
+**10. Financial Advisor Proactive**
+- **Name**: `fini_financial_advisor_proactive_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Store name, `{{2}}` = Current margin, `{{3}}` = Main recommendation
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_daily_summary_v4`
+- **Use Case**: Financial performance analysis
+
+**11. Financial Advisor Notification**
+- **Name**: `fini_financial_advisor_notification_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Financial metric, `{{2}}` = Percentage change, `{{3}}` = Recommended action
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_error_fallback_v4`
+- **Use Case**: Financial alerts and recommendations
+
+#### 🎯 **BUSINESS CONSULTANT AGENT TEMPLATES**
+
+**12. Business Consultant Proactive**
+- **Name**: `fini_business_consultant_proactive_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Store name, `{{2}}` = Strategic opportunity, `{{3}}` = Next suggested step
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_welcome_multi_agent_v4`
+- **Use Case**: Strategic business insights
+
+**13. Business Consultant Notification**
+- **Name**: `fini_business_consultant_notification_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Strategic insight, `{{2}}` = Business impact, `{{3}}` = Urgency level
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_error_fallback_v4`
+- **Use Case**: Strategic alerts and insights
+
+#### 🛍️ **PRODUCT MANAGER AGENT TEMPLATES**
+
+**14. Product Manager Proactive**
+- **Name**: `fini_product_manager_proactive_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Store name, `{{2}}` = Featured product, `{{3}}` = Optimization opportunity
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_daily_summary_v4`
+- **Use Case**: Product catalog optimization
+
+**15. Product Manager Notification**
+- **Name**: `fini_product_manager_notification_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Product or category, `{{2}}` = Change detected, `{{3}}` = Suggested action
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_error_fallback_v4`
+- **Use Case**: Product performance alerts
+
+#### ⚙️ **OPERATIONS MANAGER AGENT TEMPLATES**
+
+**16. Operations Manager Proactive**
+- **Name**: `fini_operations_manager_proactive_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Store name, `{{2}}` = Process to optimize, `{{3}}` = Estimated savings
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_welcome_multi_agent_v4`
+- **Use Case**: Operational efficiency insights
+
+**17. Operations Manager Notification**
+- **Name**: `fini_operations_manager_notification_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Inefficient process detected, `{{2}}` = Cost impact, `{{3}}` = Proposed solution
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_error_fallback_v4`
+- **Use Case**: Process optimization alerts
+
+#### 🏆 **SALES COACH AGENT TEMPLATES**
+
+**18. Sales Coach Proactive**
+- **Name**: `fini_sales_coach_proactive_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Store name, `{{2}}` = Current conversion rate, `{{3}}` = Improvement opportunity
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_daily_summary_v4`
+- **Use Case**: Sales performance coaching
+
+**19. Sales Coach Notification**
+- **Name**: `fini_sales_coach_notification_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Sales opportunity detected, `{{2}}` = Revenue potential, `{{3}}` = Suggested strategy
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_error_fallback_v4`
+- **Use Case**: Sales opportunity alerts
+
+#### 🔄 **SYSTEM COORDINATION TEMPLATES**
+
+**20. Context Switch**
+- **Name**: `fini_context_switch_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Previous agent, `{{2}}` = New specialist agent, `{{3}}` = Transition summary
+- **Dynamic Fallback**: ✅ **REQUIRED** → Fallback to `fini_welcome_multi_agent_v4`
+- **Use Case**: Agent-to-agent handoffs
+
+**21. Multi-Agent Query Coordination**
+- **Name**: `fini_multi_agent_query_v4`
+- **Content Type**: `📄 Text`
+- **Category**: `UTILITY`
+- **Variables**: `{{1}}` = Specialists involved, `{{2}}` = Main query topic, `{{3}}` = Coordination plan
+- **Dynamic Fallback**: ✅ **REQUIRED** → Fallback to `fini_welcome_multi_agent_v4`
+- **Use Case**: Complex multi-agent responses
+
+**22. Welcome Multi-Agent System**
+- **Name**: `fini_welcome_multi_agent_v4`
+- **Content Type**: `📄 Text`
 - **Category**: `MARKETING`
 - **Variables**: `{{1}}` = User name, `{{2}}` = Store name
-- **Use Case**: Post-verification welcome
+- **Dynamic Fallback**: ❌ **Not needed** (primary fallback for others)
+- **Use Case**: System introduction and agent overview
 
-#### 3. Analytics Report Template
-- **Name**: `fini_analytics_v3`
+**23. Error Fallback**
+- **Name**: `fini_error_fallback_v4`
+- **Content Type**: `📄 Text`
 - **Category**: `UTILITY`
-- **Variables**: `{{1}}` = Sales, `{{2}}` = Orders, `{{3}}` = Store name
-- **Use Case**: Daily/weekly analytics reports
+- **Variables**: `{{1}}` = Error type or problem, `{{2}}` = Suggested alternative
+- **Dynamic Fallback**: ❌ **Not needed** (final fallback template)
+- **Use Case**: Error handling and recovery
 
-#### 4. Marketing Ideas Template
-- **Name**: `fini_marketing_v3`
-- **Category**: `MARKETING`
-- **Variables**: `{{1}}` = Store name, `{{2}}` = Idea 1, `{{3}}` = Idea 2
-- **Use Case**: AI-generated marketing suggestions
-
-#### 5. Error Support Template
-- **Name**: `fini_error_v3`
+**24. Daily Summary**
+- **Name**: `fini_daily_summary_v4`
+- **Content Type**: `📄 Text`
 - **Category**: `UTILITY`
-- **Variables**: `{{1}}` = User name, `{{2}}` = Error type
-- **Use Case**: Error handling and support
-
-#### 6. Daily Summary Template
-- **Name**: `fini_daily_summary_v3`
-- **Category**: `UTILITY`
-- **Variables**: `{{1}}` = Store name, `{{2}}` = Sales, `{{3}}` = Orders, `{{4}}` = Top product
+- **Variables**: `{{1}}` = Store name, `{{2}}` = Daily sales, `{{3}}` = Daily orders, `{{4}}` = Top product
+- **Dynamic Fallback**: ✅ **Recommended** → Fallback to `fini_welcome_multi_agent_v4`
 - **Use Case**: Automated daily business summaries
 
-## API Usage
+## Dynamic Fallback Configuration Guide
 
-### Using the API Routes
+### 🎯 **When to Use Dynamic Fallback**
 
-#### List All Templates
-```bash
-curl -X GET http://localhost:3000/api/whatsapp/content-builder
+#### ✅ **RECOMMENDED for:**
+- **Marketing templates** → Better delivery rates
+- **Notification templates** → Critical alerts need backup
+- **Agent coordination** → System reliability
+- **Proactive messages** → User engagement
+
+#### ❌ **NOT RECOMMENDED for:**
+- **Authentication templates** → Security concerns
+- **Primary fallback templates** → Would create loops
+- **Error handling templates** → Final fallback point
+
+### 🛠️ **How to Configure Dynamic Fallback**
+
+When creating each template in Twilio console:
+
+1. **After template creation**, click "Edit"
+2. **Scroll to "Dynamic Fallback"** section
+3. **Select "Enable Dynamic Fallback"**
+4. **Choose fallback template** from the dropdown
+5. **Set priority ranking** (Rich ranking 1-8)
+
+### 📊 **Fallback Chain Strategy**
+
+```
+┌─────────────────────┐
+│ Specialist Agent    │
+│ Template            │
+└─────────┬───────────┘
+          │ FAILS
+          ▼
+┌─────────────────────┐
+│ General Purpose     │
+│ Template            │
+└─────────┬───────────┘
+          │ FAILS
+          ▼
+┌─────────────────────┐
+│ Welcome Multi-Agent │
+│ (Primary Fallback)  │
+└─────────┬───────────┘
+          │ FAILS
+          ▼
+┌─────────────────────┐
+│ Error Fallback      │
+│ (Final Fallback)    │
+└─────────────────────┘
 ```
 
-#### Create a Template
-```bash
-curl -X POST http://localhost:3000/api/whatsapp/content-builder \
-  -H "Content-Type: application/json" \
-  -d '{
-    "templateType": "WELCOME_MESSAGE",
-    "friendlyName": "fini_welcome_v3",
-    "content": "¡Hola {{1}}! 👋\n\n🎉 ¡Bienvenido a Fini AI para {{2}}!",
-    "variables": {
-      "1": "Nombre del usuario",
-      "2": "Nombre de la tienda"
-    }
-  }'
-```
+### 🎨 **Fallback Template Mappings**
 
-#### Delete a Template
-```bash
-curl -X DELETE "http://localhost:3000/api/whatsapp/content-builder?sid=HXxxxxx"
-```
-
-### Using the Management Script
-
-The management script provides a CLI interface:
-
-```bash
-# Available commands
-node scripts/manage-content-templates.js list        # List all templates
-node scripts/manage-content-templates.js create-all # Create all Fini templates
-node scripts/manage-content-templates.js env-vars   # Generate environment variables
-```
+| **Template Category** | **Primary Fallback** | **Secondary Fallback** |
+|----------------------|---------------------|----------------------|
+| Analytics Templates | `fini_daily_summary_v4` | `fini_welcome_multi_agent_v4` |
+| Customer Service | `fini_welcome_multi_agent_v4` | `fini_error_fallback_v4` |
+| Marketing Templates | `fini_welcome_multi_agent_v4` | `fini_marketing_proactive_v4` |
+| Stock Management | `fini_stock_critical_alert_v4` | `fini_error_fallback_v4` |
+| Financial Templates | `fini_daily_summary_v4` | `fini_error_fallback_v4` |
+| Business Consulting | `fini_welcome_multi_agent_v4` | `fini_error_fallback_v4` |
+| Product Management | `fini_daily_summary_v4` | `fini_error_fallback_v4` |
+| Operations | `fini_welcome_multi_agent_v4` | `fini_error_fallback_v4` |
+| Sales Coaching | `fini_daily_summary_v4` | `fini_error_fallback_v4` |
+| System Coordination | `fini_welcome_multi_agent_v4` | `fini_error_fallback_v4` |
+| OTP Custom | `fini_error_fallback_v4` | N/A |
 
 ## WhatsApp Template Approval Process
 
