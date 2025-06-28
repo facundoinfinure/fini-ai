@@ -8,6 +8,9 @@ import { AnalyticsAgent } from './analytics-agent';
 // import { AGENT_CONFIG } from './config';
 import { CustomerServiceAgent } from './customer-service-agent';
 import { MarketingAgent } from './marketing-agent';
+import { StockManagerAgent } from './stock-manager-agent';
+import { FinancialAdvisorAgent } from './financial-advisor-agent';
+import { BusinessConsultantAgent } from './business-consultant-agent';
 import { OrchestratorAgent } from './orchestrator-agent';
 import type { 
   MultiAgentSystem as IMultiAgentSystem,
@@ -42,6 +45,9 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
       this.agents.set('analytics', new AnalyticsAgent());
       this.agents.set('customer_service', new CustomerServiceAgent());
       this.agents.set('marketing', new MarketingAgent());
+      this.agents.set('stock_manager', new StockManagerAgent());
+      this.agents.set('financial_advisor', new FinancialAdvisorAgent());
+      this.agents.set('business_consultant', new BusinessConsultantAgent());
 
       this.logger.info('Agents registered', { agents: Array.from(this.agents.keys()) });
     } catch (error) {

@@ -16,6 +16,9 @@ export {
   ANALYTICS_CONFIG,
   CUSTOMER_SERVICE_CONFIG,
   MARKETING_CONFIG,
+  STOCK_MANAGER_CONFIG,
+  FINANCIAL_ADVISOR_CONFIG,
+  BUSINESS_CONSULTANT_CONFIG,
   ROUTING_KEYWORDS,
   ROUTING_THRESHOLDS,
   AGENT_PRIORITIES
@@ -29,6 +32,9 @@ export { OrchestratorAgent } from './orchestrator-agent';
 export { AnalyticsAgent } from './analytics-agent';
 export { CustomerServiceAgent } from './customer-service-agent';
 export { MarketingAgent } from './marketing-agent';
+export { StockManagerAgent } from './stock-manager-agent';
+export { FinancialAdvisorAgent } from './financial-advisor-agent';
+export { BusinessConsultantAgent } from './business-consultant-agent';
 
 // Multi-Agent System
 export { 
