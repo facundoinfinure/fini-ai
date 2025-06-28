@@ -5,7 +5,7 @@
 
 import type { RAGQuery, RAGResult } from '@/lib/rag/types';
 
-export type AgentType = 'orchestrator' | 'analytics' | 'customer_service' | 'marketing' | 'stock_manager' | 'financial_advisor' | 'business_consultant';
+export type AgentType = 'orchestrator' | 'analytics' | 'customer_service' | 'marketing' | 'stock_manager' | 'financial_advisor' | 'business_consultant' | 'product_manager' | 'operations_manager' | 'sales_coach';
 
 export interface AgentContext {
   storeId: string;
@@ -95,6 +95,9 @@ export interface OrchestratorDecision {
     stockManagerScore: number;
     financialAdvisorScore: number;
     businessConsultantScore: number;
+    productManagerScore: number;
+    operationsManagerScore: number;
+    salesCoachScore: number;
     generalScore: number;
   };
 }

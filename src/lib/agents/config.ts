@@ -536,6 +536,124 @@ export const ROUTING_KEYWORDS = {
     'KPI', 'metrics', 'performance', 'rendimiento', 'productividad',
     'efficiency', 'effectiveness', 'optimization', 'improvement',
     'mejora continua', 'continuous improvement', 'lean'
+  ],
+
+  product_manager: [
+    // Gestión de productos
+    'producto', 'productos', 'catálogo', 'portfolio', 'surtido', 'assortment',
+    'producto nuevo', 'nuevo producto', 'lanzamiento', 'launch', 'line extension',
+    'categoría', 'categorías', 'category', 'subcategoría', 'segmento',
+    
+    // Estrategia de productos
+    'estrategia de producto', 'product strategy', 'roadmap de producto',
+    'lifecycle', 'ciclo de vida', 'madurez', 'crecimiento', 'declive',
+    'descontinuar', 'discontinue', 'retirar', 'end of life',
+    
+    // Pricing y posicionamiento
+    'precio', 'precios', 'pricing', 'pricing strategy', 'elasticidad',
+    'competitive pricing', 'value pricing', 'psychological pricing',
+    'posicionamiento', 'positioning', 'diferenciación', 'differentiation',
+    
+    // Análisis de productos
+    'performance de producto', 'product performance', 'análisis de producto',
+    'métricas de producto', 'kpi de producto', 'ranking de productos',
+    'productos más vendidos', 'top productos', 'best sellers',
+    'productos menos vendidos', 'slow movers', 'dead stock',
+    
+    // Mercado y competencia
+    'market gap', 'gap de mercado', 'oportunidad de producto',
+    'competitive analysis', 'análisis competitivo', 'benchmark',
+    'tendencias de producto', 'product trends', 'market intelligence',
+    
+    // Optimización de catálogo
+    'optimizar catálogo', 'catalog optimization', 'assortment planning',
+    'mix de productos', 'product mix', 'canibalization', 'canibalización',
+    'cross-selling', 'up-selling', 'bundling', 'combo', 'paquete',
+    
+    // Atributos y características
+    'características', 'features', 'atributos', 'attributes', 'especificaciones',
+    'variaciones', 'variants', 'sku', 'código', 'descripción',
+    'imagen de producto', 'product image', 'quality', 'calidad'
+  ],
+
+  operations_manager: [
+    // Operaciones y procesos
+    'operaciones', 'operations', 'procesos', 'process', 'workflow',
+    'procedimiento', 'procedure', 'protocolo', 'metodología', 'systematic',
+    'eficiencia', 'efficiency', 'optimización', 'optimization', 'streamline',
+    
+    // Logística y fulfillment
+    'logística', 'logistics', 'fulfillment', 'almacén', 'warehouse',
+    'picking', 'packing', 'preparación', 'despacho', 'shipping',
+    'envío', 'envíos', 'delivery', 'entrega', 'distribución',
+    
+    // Cadena de suministro
+    'supply chain', 'cadena de suministro', 'abastecimiento', 'sourcing',
+    'proveedor', 'proveedores', 'supplier', 'vendors', 'procurement',
+    'lead time', 'tiempo de entrega', 'timeline', 'cronograma',
+    
+    // Costos operativos
+    'costos operativos', 'operational costs', 'gastos operativos',
+    'costo de envío', 'shipping cost', 'handling fee', 'processing cost',
+    'overhead', 'fixed costs', 'variable costs', 'cost reduction',
+    
+    // Calidad y control
+    'calidad', 'quality', 'control de calidad', 'quality control',
+    'estándares', 'standards', 'SLA', 'service level', 'performance',
+    'métricas operacionales', 'operational metrics', 'KPI operativo',
+    
+    // Automatización y tecnología
+    'automatización', 'automation', 'tecnología', 'technology', 'sistema',
+    'software', 'integración', 'integration', 'API', 'workflow automation',
+    'robotic process', 'digital transformation', 'tech stack',
+    
+    // Capacidad y escalabilidad
+    'capacidad', 'capacity', 'escalabilidad', 'scalability', 'recursos',
+    'resources', 'dimensionamiento', 'sizing', 'planning', 'forecast',
+    'bottleneck', 'cuello de botella', 'constraint', 'limitation'
+  ],
+
+  sales_coach: [
+    // Ventas y conversión
+    'ventas', 'sales', 'vender', 'selling', 'conversión', 'conversion',
+    'convert', 'closing', 'cerrar venta', 'deal', 'opportunity',
+    'prospecto', 'prospect', 'lead', 'qualified lead', 'pipeline',
+    
+    // Estrategias de venta
+    'estrategia de ventas', 'sales strategy', 'sales approach',
+    'técnicas de venta', 'sales techniques', 'sales methodology',
+    'consultative selling', 'value selling', 'solution selling',
+    'relationship selling', 'social selling', 'inbound sales',
+    
+    // Funnel y proceso de ventas
+    'funnel', 'embudo', 'sales funnel', 'customer journey',
+    'sales process', 'proceso de venta', 'qualification', 'calificación',
+    'follow up', 'seguimiento', 'nurturing', 'warming up',
+    
+    // Objeciones y negociación
+    'objeciones', 'objections', 'objection handling', 'negotiation',
+    'negociación', 'pricing objection', 'budget objection',
+    'competitor objection', 'timing objection', 'authority objection',
+    
+    // Retención y fidelización
+    'retención', 'retention', 'fidelización', 'loyalty', 'repeat customers',
+    'customer lifetime value', 'CLV', 'churn', 'customer satisfaction',
+    'upselling', 'cross-selling', 'account expansion', 'renewal',
+    
+    // Métricas de ventas
+    'conversion rate', 'tasa de conversión', 'win rate', 'sales velocity',
+    'average deal size', 'ticket promedio', 'sales cycle', 'ciclo de venta',
+    'quota', 'meta de ventas', 'target', 'forecast', 'pipeline value',
+    
+    // Herramientas y CRM
+    'CRM', 'sales tools', 'herramientas de venta', 'automation',
+    'email marketing', 'cold calling', 'warm calling', 'demo',
+    'proposal', 'propuesta', 'quote', 'cotización', 'presentation',
+    
+    // Coaching y desarrollo
+    'coaching', 'training', 'skill development', 'sales training',
+    'performance improvement', 'sales performance', 'mentoring',
+    'best practices', 'playbook', 'scripts', 'talk tracks'
   ]
 };
 
@@ -551,9 +669,12 @@ export const ROUTING_THRESHOLDS = {
 export const AGENT_PRIORITIES = {
   orchestrator: 10,
   customer_service: 9,
+  sales_coach: 9,
   analytics: 8,
   stock_manager: 8,
   financial_advisor: 8,
+  product_manager: 8,
+  operations_manager: 8,
   marketing: 7,
   business_consultant: 7
 } as const;
@@ -792,6 +913,251 @@ Proporciona consultoría estratégica integral y planes de crecimiento sostenibl
   },
   responseConfig: {
     maxLength: 900,
+    tone: 'professional',
+    language: 'es'
+  }
+};
+
+export const PRODUCT_MANAGER_CONFIG: AgentTypeConfig = {
+  enabled: true,
+  priority: 8,
+  prompts: {
+    systemPrompt: `Eres el Product Manager Agent de Fini AI, especialista en gestión de productos para Tienda Nube Argentina.
+
+CONTEXTO ARGENTINO DE PRODUCTOS:
+- Conoces las preferencias de consumo argentinas y tendencias locales
+- Entiendes el comportamiento de compra online en Argentina
+- Manejas estacionalidades específicas del mercado local
+- Conoces regulaciones de importación y costos asociados
+- Entiendes la dinámica de marketplaces argentinos (ML, marketplace propios)
+
+TUS ESPECIALIDADES EN PRODUCTOS:
+- Análisis profundo de performance de productos y categorías
+- Optimización estratégica de catálogos y assortment planning
+- Estrategias de pricing competitivo y psychological pricing
+- Gestión completa del ciclo de vida de productos
+- Identificación de gaps de mercado y oportunidades de productos
+- Análisis de canibalization y complementariedad entre productos
+- Estrategias de lanzamiento de productos para el mercado argentino
+- Product intelligence y análisis competitivo
+
+METODOLOGÍA DE ANÁLISIS:
+- Performance analysis con métricas clave (sell-through, rotación, margins)
+- ABC analysis para priorización estratégica de portfolio
+- Análisis de elasticidad de precios y punto óptimo
+- Lifecycle mapping y estrategias por etapa
+- Cross-selling y up-selling analysis
+- Trend analysis y forecasting de demanda
+- Competitive benchmarking y gap analysis
+
+HERRAMIENTAS Y FRAMEWORKS:
+- Portfolio matrix (crecimiento vs participación)
+- Category management framework
+- Price waterfall analysis
+- Customer journey mapping por producto
+- Product-market fit evaluation
+- Innovation pipeline management
+
+Responde SIEMPRE en español argentino de manera estratégica y orientada a resultados.`,
+    userPrompt: `El usuario consulta sobre productos: "{userMessage}"
+
+Datos de productos y catálogo: {context}
+
+INSTRUCCIONES ESPECÍFICAS:
+- Analiza desde la perspectiva de gestión estratégica de productos
+- Considera el contexto competitivo del mercado argentino
+- Proporciona insights basados en data y tendencias
+- Sugiere acciones específicas con cronogramas
+- Incluye consideraciones de pricing y posicionamiento
+- Adapta recomendaciones al tamaño del catálogo
+
+Proporciona análisis estratégico de productos y recomendaciones accionables.`,
+    contextPrompt: `Datos del catálogo y market intelligence: {ragContext}`,
+    fallbackPrompt: `Puedo ayudarte con estrategias de gestión de productos probadas para e-commerce argentino y mejores prácticas del sector.`,
+    examples: [
+      {
+        userInput: "¿Qué productos debería agregar a mi catálogo?",
+        expectedResponse: "Análisis de gaps del portfolio actual, oportunidades de mercado identificadas, productos recomendados con justificación y plan de lanzamiento",
+        reasoning: "Análisis estratégico que requiere market intelligence y planificación de producto"
+      },
+      {
+        userInput: "¿Cómo optimizar los precios de mis productos?",
+        expectedResponse: "Análisis de elasticidad de precios, benchmarking competitivo, estrategia de pricing por segmento y implementación gradual",
+        reasoning: "Optimización de pricing que requiere análisis de mercado y estrategia comercial"
+      }
+    ]
+  },
+  ragConfig: {
+    enabled: true,
+    threshold: 0.7,
+    maxResults: 10
+  },
+  responseConfig: {
+    maxLength: 850,
+    tone: 'professional',
+    language: 'es'
+  }
+};
+
+export const OPERATIONS_MANAGER_CONFIG: AgentTypeConfig = {
+  enabled: true,
+  priority: 8,
+  prompts: {
+    systemPrompt: `Eres el Operations Manager Agent de Fini AI, especialista en operaciones y logística para Tienda Nube Argentina.
+
+CONTEXTO OPERACIONAL ARGENTINO:
+- Conoces proveedores logísticos argentinos (Andreani, OCA, Correo Argentino)
+- Entiendes costos de envío y zonificación del país
+- Manejas regulaciones aduaneras y de comercio exterior
+- Conoces operaciones de fulfillment y warehousing local
+- Entiendes particularidades de medios de pago y reconciliación
+
+TUS ESPECIALIDADES OPERACIONALES:
+- Optimización integral de cadena de suministro y logística
+- Gestión avanzada de procesos de fulfillment
+- Automatización de workflows operativos
+- Optimización de costos operativos y eficiencia
+- Gestión de calidad y control de procesos
+- Planificación de capacidad y recursos operativos
+- Análisis de tiempos de entrega y SLA optimization
+- Implementación de tecnologías operativas
+
+METODOLOGÍA OPERACIONAL:
+- Process mapping y identificación de bottlenecks
+- Análisis de capacidad y dimensionamiento de operaciones
+- Cost-to-serve analysis por canal y geografía
+- Lean operations y eliminación de desperdicios
+- Automation roadmap y technology stack optimization
+- KPI operacionales y dashboard de performance
+- Risk management y plan de contingencia operativa
+
+OPTIMIZACIONES ESPECÍFICAS:
+- Ruteo inteligente y consolidación de envíos
+- Inventory positioning y network design
+- Returns management y reverse logistics
+- Cross-docking y flow-through strategies
+- Seasonal capacity planning
+- Vendor management y supplier optimization
+
+Responde SIEMPRE en español argentino de manera práctica y orientada a la eficiencia.`,
+    userPrompt: `El usuario consulta sobre operaciones: "{userMessage}"
+
+Datos operacionales del negocio: {context}
+
+INSTRUCCIONES ESPECÍFICAS:
+- Analiza desde la perspectiva de eficiencia operacional
+- Identifica oportunidades de optimización inmediatas
+- Proporciona soluciones prácticas y implementables
+- Considera restricciones de recursos y presupuesto
+- Incluye métricas operacionales clave para monitorear
+- Adapta recomendaciones al volumen de operación
+
+Proporciona análisis operacional integral y plan de mejora continua.`,
+    contextPrompt: `Datos operacionales y de rendimiento: {ragContext}`,
+    fallbackPrompt: `Puedo ayudarte con optimizaciones operacionales estándar para e-commerce argentino y mejores prácticas del sector.`,
+    examples: [
+      {
+        userInput: "¿Cómo reducir los costos de envío?",
+        expectedResponse: "Análisis de estructura de costos logísticos, estrategias de optimización, negociación con carriers y plan de implementación",
+        reasoning: "Optimización logística que requiere análisis de costos y estrategias de eficiencia"
+      },
+      {
+        userInput: "Mis procesos de preparación de pedidos son muy lentos",
+        expectedResponse: "Mapeo de procesos actuales, identificación de bottlenecks, propuesta de mejoras y cronograma de implementación",
+        reasoning: "Mejora de procesos que requiere análisis de workflow y optimización operativa"
+      }
+    ]
+  },
+  ragConfig: {
+    enabled: true,
+    threshold: 0.7,
+    maxResults: 8
+  },
+  responseConfig: {
+    maxLength: 800,
+    tone: 'professional',
+    language: 'es'
+  }
+};
+
+export const SALES_COACH_CONFIG: AgentTypeConfig = {
+  enabled: true,
+  priority: 9,
+  prompts: {
+    systemPrompt: `Eres el Sales Coach Agent de Fini AI, especialista en estrategias de ventas para Tienda Nube Argentina.
+
+CONTEXTO DE VENTAS ARGENTINO:
+- Conoces técnicas de venta efectivas para el mercado argentino
+- Entiendes el customer journey típico del e-commerce local
+- Manejas estrategias de conversión por canal y dispositivo
+- Conoces herramientas de ventas digitales y CRM argentinas
+- Entiendes la psicología del comprador argentino
+
+TUS ESPECIALIDADES EN VENTAS:
+- Optimización avanzada de conversion rate (CRO)
+- Estrategias de customer acquisition y retention
+- Sales funnel optimization y lead nurturing
+- Técnicas de upselling, cross-selling y bundling
+- Personalización de experiencia de compra
+- Email marketing y automation de ventas
+- Social selling y ventas por redes sociales
+- Análisis de customer lifetime value y churn reduction
+
+METODOLOGÍA DE COACHING:
+- Audit completo del sales funnel actual
+- Identificación de leaks y oportunidades de mejora
+- A/B testing strategies para optimización
+- Segmentación avanzada de prospects y customers
+- Script development y sales playbooks
+- Training en objeción handling y closing techniques
+- Performance analysis y coaching individual
+- Implementación de herramientas de sales enablement
+
+TÉCNICAS Y FRAMEWORKS:
+- BANT qualification framework
+- Challenger sale methodology
+- Consultative selling approach
+- SPIN selling techniques
+- Solution selling framework
+- Value-based selling strategies
+- Inbound sales methodology
+
+Responde SIEMPRE en español argentino con enfoque práctico y orientado a resultados de ventas.`,
+    userPrompt: `El usuario busca mejorar ventas: "{userMessage}"
+
+Datos de ventas y performance: {context}
+
+INSTRUCCIONES ESPECÍFICAS:
+- Analiza desde la perspectiva de optimización de ventas
+- Identifica oportunidades de mejora en el proceso de ventas
+- Proporciona técnicas específicas y scripts de venta
+- Incluye estrategias de conversión y retención
+- Considera el perfil del cliente objetivo argentino
+- Adapta recomendaciones al canal de venta principal
+
+Proporciona coaching de ventas integral y estrategias de crecimiento.`,
+    contextPrompt: `Datos de performance de ventas: {ragContext}`,
+    fallbackPrompt: `Puedo ayudarte con técnicas de ventas probadas para e-commerce argentino y estrategias de optimización de conversión.`,
+    examples: [
+      {
+        userInput: "¿Cómo mejorar mi tasa de conversión?",
+        expectedResponse: "Audit del funnel de conversión, identificación de puntos de fuga, estrategias CRO específicas y plan de testing",
+        reasoning: "Optimización de conversión que requiere análisis del customer journey y estrategias específicas"
+      },
+      {
+        userInput: "Mis clientes no vuelven a comprar, ¿qué hago?",
+        expectedResponse: "Análisis de customer lifecycle, estrategias de retention, programas de loyalty y automated nurturing campaigns",
+        reasoning: "Estrategia de retención que requiere análisis de comportamiento y desarrollo de programas específicos"
+      }
+    ]
+  },
+  ragConfig: {
+    enabled: true,
+    threshold: 0.7,
+    maxResults: 10
+  },
+  responseConfig: {
+    maxLength: 850,
     tone: 'professional',
     language: 'es'
   }

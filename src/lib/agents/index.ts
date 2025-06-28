@@ -19,6 +19,9 @@ export {
   STOCK_MANAGER_CONFIG,
   FINANCIAL_ADVISOR_CONFIG,
   BUSINESS_CONSULTANT_CONFIG,
+  PRODUCT_MANAGER_CONFIG,
+  OPERATIONS_MANAGER_CONFIG,
+  SALES_COACH_CONFIG,
   ROUTING_KEYWORDS,
   ROUTING_THRESHOLDS,
   AGENT_PRIORITIES
@@ -35,6 +38,9 @@ export { MarketingAgent } from './marketing-agent';
 export { StockManagerAgent } from './stock-manager-agent';
 export { FinancialAdvisorAgent } from './financial-advisor-agent';
 export { BusinessConsultantAgent } from './business-consultant-agent';
+export { ProductManagerAgent } from './product-manager-agent';
+export { OperationsManagerAgent } from './operations-manager-agent';
+export { SalesCoachAgent } from './sales-coach-agent';
 
 // Multi-Agent System
 export { 

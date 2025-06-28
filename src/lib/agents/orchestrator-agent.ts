@@ -103,6 +103,9 @@ En la implementación completa, esto se enrutaría automáticamente al agente es
       stockManagerScore: this.calculateStockManagerScore(_lowerMessage),
       financialAdvisorScore: this.calculateFinancialAdvisorScore(_lowerMessage),
       businessConsultantScore: this.calculateBusinessConsultantScore(_lowerMessage),
+      productManagerScore: this.calculateProductManagerScore(_lowerMessage),
+      operationsManagerScore: this.calculateOperationsManagerScore(_lowerMessage),
+      salesCoachScore: this.calculateSalesCoachScore(_lowerMessage),
       generalScore: this.calculateGeneralScore(_lowerMessage)
     };
 
@@ -115,7 +118,10 @@ En la implementación completa, esto se enrutaría automáticamente al agente es
       { agent: 'marketing' as const, score: _routingRules.marketingScore },
       { agent: 'stock_manager' as const, score: _routingRules.stockManagerScore },
       { agent: 'financial_advisor' as const, score: _routingRules.financialAdvisorScore },
-      { agent: 'business_consultant' as const, score: _routingRules.businessConsultantScore }
+      { agent: 'business_consultant' as const, score: _routingRules.businessConsultantScore },
+      { agent: 'product_manager' as const, score: _routingRules.productManagerScore },
+      { agent: 'operations_manager' as const, score: _routingRules.operationsManagerScore },
+      { agent: 'sales_coach' as const, score: _routingRules.salesCoachScore }
     ];
 
     // Sort by score (highest first)
@@ -146,7 +152,7 @@ En la implementación completa, esto se enrutaría automáticamente al agente es
       reasoning,
       routingRules: _routingRules,
       fallbackMessage: _confidence < ROUTING_THRESHOLDS.fallback_threshold ? 
-        'No pude entender tu consulta. ¿Podrías reformularla? Puedo ayudarte con datos de ventas, atención al cliente, estrategias de marketing, gestión de inventario, análisis financiero, o consultoría estratégica.' : 
+        'No pude entender tu consulta. ¿Podrías reformularla? Puedo ayudarte con datos de ventas, atención al cliente, estrategias de marketing, gestión de inventario, análisis financiero, consultoría estratégica, gestión de productos, operaciones, o coaching de ventas.' : 
         undefined
     };
 
@@ -300,6 +306,78 @@ En la implementación completa, esto se enrutaría automáticamente al agente es
     return Math.min(score, 1.0);
   }
 
+  private calculateProductManagerScore(message: string): number {
+    const _keywordCheck = this.hasKeywords(message, ROUTING_KEYWORDS.product_manager);
+    let score = _keywordCheck.score;
+
+    // Boost score for specific product management patterns
+    if (message.includes('producto') && (message.includes('análisis') || message.includes('performance'))) {
+      score += 0.3;
+    }
+    if (message.includes('precio') && (message.includes('estrategia') || message.includes('competencia'))) {
+      score += 0.3;
+    }
+    if (message.includes('catálogo') && (message.includes('optimizar') || message.includes('mejorar'))) {
+      score += 0.3;
+    }
+    if (message.includes('lanzamiento') || message.includes('nuevo producto')) {
+      score += 0.2;
+    }
+    if (message.includes('pricing') || message.includes('portfolio') || message.includes('surtido')) {
+      score += 0.2;
+    }
+
+    return Math.min(score, 1.0);
+  }
+
+  private calculateOperationsManagerScore(message: string): number {
+    const _keywordCheck = this.hasKeywords(message, ROUTING_KEYWORDS.operations_manager);
+    let score = _keywordCheck.score;
+
+    // Boost score for specific operations patterns
+    if (message.includes('proceso') && (message.includes('optimizar') || message.includes('mejorar'))) {
+      score += 0.3;
+    }
+    if (message.includes('envío') && (message.includes('costo') || message.includes('reducir'))) {
+      score += 0.3;
+    }
+    if (message.includes('operaciones') || message.includes('logística')) {
+      score += 0.3;
+    }
+    if (message.includes('automatizar') || message.includes('automation')) {
+      score += 0.2;
+    }
+    if (message.includes('proveedor') || message.includes('calidad') || message.includes('workflow')) {
+      score += 0.2;
+    }
+
+    return Math.min(score, 1.0);
+  }
+
+  private calculateSalesCoachScore(message: string): number {
+    const _keywordCheck = this.hasKeywords(message, ROUTING_KEYWORDS.sales_coach);
+    let score = _keywordCheck.score;
+
+    // Boost score for specific sales coaching patterns
+    if (message.includes('conversión') && (message.includes('mejorar') || message.includes('aumentar'))) {
+      score += 0.3;
+    }
+    if (message.includes('ventas') && (message.includes('estrategia') || message.includes('técnica'))) {
+      score += 0.3;
+    }
+    if (message.includes('clientes') && (message.includes('retener') || message.includes('fidelizar'))) {
+      score += 0.3;
+    }
+    if (message.includes('cerrar venta') || message.includes('closing')) {
+      score += 0.2;
+    }
+    if (message.includes('funnel') || message.includes('leads') || message.includes('objeciones')) {
+      score += 0.2;
+    }
+
+    return Math.min(score, 1.0);
+  }
+
   private calculateGeneralScore(message: string): number {
     // General score for messages that don't fit specific categories
     const _totalLength = message.length;
@@ -327,6 +405,9 @@ En la implementación completa, esto se enrutaría automáticamente al agente es
       stock_manager: 'Stock Manager (gestión de inventario)',
       financial_advisor: 'Financial Advisor (análisis financiero)',
       business_consultant: 'Business Consultant (consultoría estratégica)',
+      product_manager: 'Product Manager (gestión de productos)',
+      operations_manager: 'Operations Manager (operaciones y logística)',
+      sales_coach: 'Sales Coach (coaching de ventas)',
       orchestrator: 'Orchestrator (coordinador)'
     };
     

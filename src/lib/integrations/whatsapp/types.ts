@@ -64,7 +64,7 @@ export interface WhatsAppConversation {
   status: 'active' | 'paused' | 'ended';
   lastMessageAt: string;
   messageCount: number;
-  currentAgentType?: 'orchestrator' | 'analytics' | 'customer_service' | 'marketing' | 'stock_manager' | 'financial_advisor' | 'business_consultant';
+  currentAgentType?: 'orchestrator' | 'analytics' | 'customer_service' | 'marketing' | 'stock_manager' | 'financial_advisor' | 'business_consultant' | 'product_manager' | 'operations_manager' | 'sales_coach';
   context: {
     customerInfo?: {
       name?: string;
