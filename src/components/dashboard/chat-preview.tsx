@@ -73,11 +73,24 @@ interface Store {
 }
 
 interface ChatPreviewProps {
-  selectedStore?: Store;
+  selectedStore?: {
+    id: string;
+    name: string;
+    domain?: string;
+  };
+  // Nuevas props para coordinar con el sidebar
+  conversations?: Conversation[];
+  selectedConversationId?: string | null;
+  onConversationUpdate?: () => void;
 }
 
-export function ChatPreview({ selectedStore }: ChatPreviewProps) {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+export function ChatPreview({ 
+  selectedStore,
+  conversations: propConversations,
+  selectedConversationId,
+  onConversationUpdate
+}: ChatPreviewProps) {
+  const [conversations, setConversations] = useState<Conversation[]>(propConversations || []);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,11 +106,62 @@ export function ChatPreview({ selectedStore }: ChatPreviewProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Sincronizar conversaciones desde props
   useEffect(() => {
-    fetchChatData();
-  }, []);
+    if (propConversations) {
+      setConversations(propConversations);
+      setLoading(false);
+    } else {
+      fetchChatData();
+    }
+  }, [propConversations]);
+
+  // Sincronizar conversación seleccionada desde props
+  useEffect(() => {
+    if (selectedConversationId && conversations.length > 0) {
+      const selected = conversations.find(c => c.id === selectedConversationId);
+      if (selected) {
+        setSelectedConversation(selected);
+        loadConversationMessages(selected);
+      }
+    } else if (!selectedConversationId && conversations.length > 0) {
+      // Si no hay conversación seleccionada, seleccionar la primera
+      const first = conversations[0];
+      setSelectedConversation(first);
+      loadConversationMessages(first);
+    }
+  }, [selectedConversationId, conversations]);
+
+  const loadConversationMessages = async (conversation: Conversation) => {
+    try {
+      // Cargar mensajes específicos de esta conversación
+      const response = await fetch(`/api/conversations/${conversation.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data.messages) {
+          const loadedMessages = data.data.messages.map((msg: any) => ({
+            id: msg.id,
+            content: msg.body,
+            timestamp: msg.created_at,
+            direction: msg.direction,
+            type: 'text',
+            status: 'read',
+            agent: msg.agent_type,
+            confidence: msg.confidence
+          }));
+          setMessages(loadedMessages);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading conversation messages:', error);
+      setMessages([]);
+    }
+  };
 
   const fetchChatData = async () => {
+    // Solo ejecutar si no se pasan conversaciones como props
+    if (propConversations) return;
+    
     try {
       setLoading(true);
       setError(null);
@@ -120,15 +184,16 @@ export function ChatPreview({ selectedStore }: ChatPreviewProps) {
         // Set first conversation as selected if available
         if (conversationsData.data && conversationsData.data.length > 0) {
           setSelectedConversation(conversationsData.data[0]);
+          loadConversationMessages(conversationsData.data[0]);
         }
-              } else {
-          throw new Error(conversationsData.error || 'Failed to load chat data');
-        }
+      } else {
+        throw new Error(conversationsData.error || 'Failed to load chat data');
+      }
         
-      } catch (err) {
-        // Show empty state instead of error for now since conversations feature is not fully implemented
-        setConversations([]);
-        setError(null); // Don't show error, just empty state
+    } catch (err) {
+      // Show empty state instead of error for now since conversations feature is not fully implemented
+      setConversations([]);
+      setError(null); // Don't show error, just empty state
       console.log('Chat data not available yet:', err);
     } finally {
       setLoading(false);

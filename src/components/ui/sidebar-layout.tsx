@@ -19,12 +19,17 @@ import { Button } from '@/components/ui/button';
 
 interface SidebarLayoutProps {
   children: React.ReactNode;
-  user?: any;
+  user: any;
   activeTab?: string;
   onTabChange?: (tab: string) => void;
   onSignOut?: () => void;
   onRefresh?: () => void;
   className?: string;
+  conversations?: Conversation[];
+  selectedConversationId?: string | null;
+  onConversationSelect?: (conversationId: string) => void;
+  onNewConversation?: () => void;
+  onConversationUpdate?: () => void;
 }
 
 interface NavigationItem {
@@ -71,21 +76,46 @@ export function SidebarLayout({
   onTabChange, 
   onSignOut,
   onRefresh,
-  className 
+  className,
+  conversations: propConversations,
+  selectedConversationId,
+  onConversationSelect,
+  onNewConversation,
+  onConversationUpdate
 }: SidebarLayoutProps) {
   const [chatExpanded, setChatExpanded] = useState(activeTab === 'chat');
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>(propConversations || []);
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(selectedConversationId || null);
+
+  // Sincronizar conversaciones desde props
+  useEffect(() => {
+    if (propConversations) {
+      setConversations(propConversations);
+    }
+  }, [propConversations]);
+
+  // Sincronizar conversación seleccionada desde props
+  useEffect(() => {
+    if (selectedConversationId !== undefined) {
+      setSelectedConversation(selectedConversationId);
+    }
+  }, [selectedConversationId]);
 
   // Expand chat submenu when chat tab is active
   useEffect(() => {
     if (activeTab === 'chat') {
       setChatExpanded(true);
-      loadConversations();
+      // Solo cargar conversaciones si no se pasan como props
+      if (!propConversations) {
+        loadConversations();
+      }
     }
-  }, [activeTab]);
+  }, [activeTab, propConversations]);
 
   const loadConversations = async () => {
+    // Solo cargar si no se pasan conversaciones como props
+    if (propConversations) return;
+    
     try {
       const response = await fetch('/api/conversations');
       const data = await response.json();
@@ -101,40 +131,55 @@ export function SidebarLayout({
         setConversations(conversationsData);
       }
     } catch (error) {
-      // Fallback to mock data if API not available
-      setConversations([
-        { id: 'new', title: 'Nueva conversación', unreadCount: 0 }
-      ]);
+      // Fallback to empty array if API not available
+      setConversations([]);
     }
   };
 
   const handleChatToggle = () => {
     setChatExpanded(!chatExpanded);
-    if (!chatExpanded) {
+    if (!chatExpanded && !propConversations) {
       loadConversations();
     }
   };
 
   const handleNewConversation = async () => {
-    try {
-      const response = await fetch('/api/conversations/new', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        setSelectedConversation(data.data.id);
-        loadConversations();
+    if (onNewConversation) {
+      // Usar callback del padre si está disponible
+      onNewConversation();
+    } else {
+      // Fallback a lógica original
+      try {
+        const response = await fetch('/api/conversations/new', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+          setSelectedConversation(data.data.id);
+          if (!propConversations) {
+            loadConversations();
+          }
+          if (onConversationUpdate) {
+            onConversationUpdate();
+          }
+        }
+      } catch (error) {
+        console.error('Error creating conversation:', error);
       }
-    } catch (error) {
-      console.error('Error creating conversation:', error);
     }
   };
 
   const handleConversationSelect = (conversationId: string) => {
     setSelectedConversation(conversationId);
+    
+    if (onConversationSelect) {
+      // Usar callback del padre si está disponible
+      onConversationSelect(conversationId);
+    }
+    
     // Trigger conversation change event if needed
     if (onTabChange) {
       onTabChange('chat');

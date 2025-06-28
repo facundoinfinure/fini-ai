@@ -13,9 +13,9 @@ import { createLogger, PerformanceTimer } from '@/lib/logger';
 import { 
   AnalyticsOverview,
   ConfigurationManagement,
-  SubscriptionManagement,
-  ChatPreview 
+  SubscriptionManagement
 } from '@/lib/lazy-imports';
+import { ChatPreview } from '@/components/dashboard/chat-preview';
 import { DashboardSummary } from '@/components/dashboard/dashboard-summary';
 import { Store as StoreType } from "@/types/db";
 import { SidebarLayout } from '@/components/ui/sidebar-layout';
@@ -71,6 +71,10 @@ function DashboardContent() {
   const [notification, setNotification] = useState<Notification | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("chat");
+  
+  // Conversations state for coordinating between sidebar and chat
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
 
   // Handle OAuth callback results
   useEffect(() => {
@@ -187,6 +191,67 @@ function DashboardContent() {
     fetchDashboardData();
   };
 
+  // Conversations management
+  const loadConversations = async () => {
+    try {
+      const response = await fetch('/api/conversations');
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        setConversations(data.data);
+        
+        // Auto-seleccionar primera conversación si no hay una seleccionada
+        if (!selectedConversationId && data.data.length > 0) {
+          setSelectedConversationId(data.data[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+      setConversations([]);
+    }
+  };
+
+  const handleNewConversation = async () => {
+    try {
+      // Necesitamos obtener el primer store disponible
+      if (stores.length === 0) {
+        console.error('No stores available for new conversation');
+        return;
+      }
+
+      const response = await fetch('/api/conversations/new', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          storeId: stores[0].id // Usar primera tienda disponible
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setSelectedConversationId(data.data.id);
+        await loadConversations(); // Recargar conversaciones
+      }
+    } catch (error) {
+      console.error('Error creating new conversation:', error);
+    }
+  };
+
+  const handleConversationSelect = (conversationId: string) => {
+    setSelectedConversationId(conversationId);
+  };
+
+  const handleConversationUpdate = () => {
+    loadConversations();
+  };
+
+  // Load conversations when chat tab is active
+  useEffect(() => {
+    if (activeTab === 'chat' && user) {
+      loadConversations();
+    }
+  }, [activeTab, user]);
+
   // Show loading while checking auth
   if (loading) {
     return <DashboardSkeleton />;
@@ -222,6 +287,11 @@ function DashboardContent() {
       onTabChange={setActiveTab}
       onSignOut={handleSignOut}
       onRefresh={handleRefresh}
+      conversations={conversations}
+      selectedConversationId={selectedConversationId}
+      onConversationSelect={handleConversationSelect}
+      onNewConversation={handleNewConversation}
+      onConversationUpdate={handleConversationUpdate}
     >
       {/* Refresh Button */}
       <div className="flex justify-end mb-6">
@@ -291,7 +361,12 @@ function DashboardContent() {
         {activeTab === "chat" && (
           <DashboardErrorBoundary>
             <Suspense fallback={<ChatSkeleton />}>
-              <ChatPreview />
+              <ChatPreview 
+                selectedStore={stores.length > 0 ? stores[0] : undefined}
+                conversations={conversations}
+                selectedConversationId={selectedConversationId}
+                onConversationUpdate={handleConversationUpdate}
+              />
             </Suspense>
           </DashboardErrorBoundary>
         )}

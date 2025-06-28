@@ -4,6 +4,101 @@ import { createClient } from '@/lib/supabase/server';
 export const dynamic = 'force-dynamic';
 
 /**
+ * GET /api/conversations/[id]
+ * Obtener una conversación específica con sus mensajes
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    console.log(`[INFO] Fetching conversation: ${params.id}`);
+    
+    const supabase = createClient();
+    
+    // Obtener el usuario actual
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      console.error('[ERROR] Authentication failed:', userError?.message);
+      return NextResponse.json(
+        { success: false, error: 'Usuario no autenticado' },
+        { status: 401 }
+      );
+    }
+
+    // Obtener la conversación con sus mensajes
+    const { data: conversation, error: conversationError } = await supabase
+      .from('conversations')
+      .select(`
+        id,
+        whatsapp_number,
+        customer_number,
+        conversation_id,
+        title,
+        status,
+        last_message_at,
+        message_count,
+        created_at,
+        messages (
+          id,
+          body,
+          direction,
+          agent_type,
+          confidence,
+          created_at
+        )
+      `)
+      .eq('id', params.id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (conversationError || !conversation) {
+      console.error('[ERROR] Conversation not found or unauthorized:', conversationError?.message);
+      return NextResponse.json(
+        { success: false, error: 'Conversación no encontrada' },
+        { status: 404 }
+      );
+    }
+
+    // Formatear los mensajes
+    const messages = (conversation.messages || []).map((msg: any) => ({
+      id: msg.id,
+      body: msg.body,
+      direction: msg.direction,
+      agent_type: msg.agent_type,
+      confidence: msg.confidence,
+      created_at: msg.created_at
+    }));
+
+    const formattedConversation = {
+      id: conversation.id,
+      title: conversation.title || `Cliente ${conversation.customer_number.slice(-4)}`,
+      customerName: `Cliente ${conversation.customer_number.slice(-4)}`,
+      customerPhone: conversation.customer_number,
+      status: conversation.status,
+      lastMessageTime: conversation.last_message_at,
+      messageCount: conversation.message_count,
+      messages
+    };
+
+    console.log(`[INFO] Successfully fetched conversation: ${params.id} with ${messages.length} messages`);
+
+    return NextResponse.json({
+      success: true,
+      data: formattedConversation
+    });
+
+  } catch (error) {
+    console.error('[ERROR] Failed to fetch conversation:', error);
+    return NextResponse.json(
+      { success: false, error: 'Error interno del servidor' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * DELETE /api/conversations/[id]
  * Eliminar una conversación específica
  */
