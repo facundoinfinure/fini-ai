@@ -36,18 +36,9 @@ interface Conversation {
   messages: Message[];
 }
 
-interface ChatStats {
-  totalConversations: number;
-  activeChats: number;
-  avgResponseTime: number;
-  satisfactionRate: number;
-  automatedResponses: number;
-}
-
 export function ChatPreview() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [stats, setStats] = useState<ChatStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creatingConversation, setCreatingConversation] = useState(false);
@@ -75,37 +66,21 @@ export function ChatPreview() {
       
       const conversationsData = await conversationsResponse.json();
       
-      // Fetch chat stats from API
-      const statsResponse = await fetch('/api/conversations/stats');
-      if (!statsResponse.ok) {
-        throw new Error('Failed to fetch chat stats');
-      }
-      
-      const statsData = await statsResponse.json();
-      
-      if (conversationsData.success && statsData.success) {
+      if (conversationsData.success) {
         setConversations(conversationsData.data || []);
-        setStats(statsData.data);
         
         // Set first conversation as selected if available
         if (conversationsData.data && conversationsData.data.length > 0) {
           setSelectedConversation(conversationsData.data[0]);
         }
-      } else {
-        throw new Error(conversationsData.error || statsData.error || 'Failed to load chat data');
-      }
-      
-    } catch (err) {
-      // Show empty state instead of error for now since conversations feature is not fully implemented
-      setConversations([]);
-      setStats({
-        totalConversations: 0,
-        activeChats: 0,
-        avgResponseTime: 0,
-        satisfactionRate: 0,
-        automatedResponses: 0
-      });
-      setError(null); // Don't show error, just empty state
+              } else {
+          throw new Error(conversationsData.error || 'Failed to load chat data');
+        }
+        
+      } catch (err) {
+        // Show empty state instead of error for now since conversations feature is not fully implemented
+        setConversations([]);
+        setError(null); // Don't show error, just empty state
       console.log('Chat data not available yet:', err);
     } finally {
       setLoading(false);
@@ -271,49 +246,6 @@ export function ChatPreview() {
 
   return (
     <div className="space-y-6">
-      {/* Chat Stats */}
-      {stats && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <MessageSquare className="mr-2 h-5 w-5" />
-              WhatsApp Analytics
-            </CardTitle>
-            <CardDescription>
-              Métricas de conversaciones y respuesta automatizada
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-3 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">
-                  {stats.totalConversations}
-                </div>
-                <div className="text-xs text-blue-700">Total Conversaciones</div>
-              </div>
-              <div className="text-center p-3 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">
-                  {stats.activeChats}
-                </div>
-                <div className="text-xs text-green-700">Chats Activos</div>
-              </div>
-              <div className="text-center p-3 bg-orange-50 rounded-lg">
-                <div className="text-2xl font-bold text-orange-600">
-                  {stats.avgResponseTime}s
-                </div>
-                <div className="text-xs text-orange-700">Tiempo Respuesta</div>
-              </div>
-              <div className="text-center p-3 bg-purple-50 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">
-                  {stats.satisfactionRate}%
-                </div>
-                <div className="text-xs text-purple-700">Satisfacción</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Chat Interface */}
       <Card className="h-96">
         <CardHeader className="pb-3">
