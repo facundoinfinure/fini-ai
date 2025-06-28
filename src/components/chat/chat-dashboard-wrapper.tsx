@@ -71,6 +71,8 @@ export function ChatDashboardWrapper() {
           name: store.name || store.domain || 'Sin nombre',
           domain: store.domain,
           whatsapp_number: store.whatsapp_number,
+          whatsapp_display_name: store.whatsapp_display_name,
+          whatsapp_verified: store.whatsapp_verified,
           status: store.status || 'disconnected'
         }));
 
