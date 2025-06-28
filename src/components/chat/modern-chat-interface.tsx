@@ -1,26 +1,22 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   MessageSquare, 
-  MoreHorizontal, 
+  Send, 
   Bot, 
   User, 
-  CheckCheck, 
-  Check, 
-  Send, 
-  RefreshCw, 
-  AlertCircle, 
-  Plus, 
-  Trash2, 
-  Edit3, 
-  Sparkles,
-  Loader2,
+  AlertCircle,
+  CheckCircle,
   BarChart3,
+  Sparkles,
+  Smartphone,
+  Loader2,
+  TrendingUp,
   DollarSign,
   Package,
   Users,
@@ -31,13 +27,6 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger,
-  DropdownMenuSeparator 
-} from '@/components/ui/dropdown-menu';
 
 interface Message {
   id: string;
@@ -45,33 +34,24 @@ interface Message {
   timestamp: string;
   direction: 'inbound' | 'outbound';
   type: 'text' | 'analytics' | 'system';
-  status: 'sent' | 'delivered' | 'read';
   agent?: 'orchestrator' | 'analytics' | 'customer_service' | 'marketing' | 'stock_manager' | 'financial_advisor' | 'business_consultant' | 'product_manager' | 'operations_manager' | 'sales_coach';
   confidence?: number;
 }
 
-interface Conversation {
+interface Store {
   id: string;
-  title?: string; // Título auto-generado o personalizado
-  customerName: string;
-  customerPhone: string;
-  lastMessage: string;
-  lastMessageTime: string;
-  status: 'active' | 'waiting' | 'closed';
-  unreadCount: number;
-  messages: Message[];
+  name: string;
+  whatsapp_verified?: boolean;
+  whatsapp_number?: string;
+  status: 'connected' | 'disconnected' | 'pending';
 }
 
-export function ChatPreview() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [creatingConversation, setCreatingConversation] = useState(false);
-  const [deletingConversation, setDeletingConversation] = useState<string | null>(null);
-  const [generatingTitle, setGeneratingTitle] = useState<string | null>(null);
-  
-  // Estados para la nueva interfaz moderna
+interface ModernChatInterfaceProps {
+  selectedStore?: Store;
+  onStoreUpdate?: () => void;
+}
+
+export function ModernChatInterface({ selectedStore, onStoreUpdate }: ModernChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -79,49 +59,6 @@ export function ChatPreview() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    fetchChatData();
-  }, []);
-
-  const fetchChatData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Fetch conversations from API
-      const conversationsResponse = await fetch('/api/conversations');
-      if (!conversationsResponse.ok) {
-        if (conversationsResponse.status === 401) {
-          setError('Debes iniciar sesión para ver las conversaciones');
-          return;
-        }
-        throw new Error('Failed to fetch conversations');
-      }
-      
-      const conversationsData = await conversationsResponse.json();
-      
-      if (conversationsData.success) {
-        setConversations(conversationsData.data || []);
-        
-        // Set first conversation as selected if available
-        if (conversationsData.data && conversationsData.data.length > 0) {
-          setSelectedConversation(conversationsData.data[0]);
-        }
-              } else {
-          throw new Error(conversationsData.error || 'Failed to load chat data');
-        }
-        
-      } catch (err) {
-        // Show empty state instead of error for now since conversations feature is not fully implemented
-        setConversations([]);
-        setError(null); // Don't show error, just empty state
-      console.log('Chat data not available yet:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Funciones para la nueva interfaz moderna
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -146,8 +83,7 @@ export function ChatPreview() {
       content: inputValue,
       timestamp: new Date().toISOString(),
       direction: 'inbound',
-      type: 'text',
-      status: 'sent'
+      type: 'text'
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -161,8 +97,8 @@ export function ChatPreview() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: inputValue,
-          storeId: 'current-store', // TODO: Get from props
-          conversationId: selectedConversation?.id || 'current'
+          storeId: selectedStore?.id,
+          conversationId: 'current' // Simplificado por ahora
         })
       });
 
@@ -175,7 +111,6 @@ export function ChatPreview() {
           timestamp: new Date().toISOString(),
           direction: 'outbound',
           type: 'analytics',
-          status: 'sent',
           agent: result.data.agentType || 'orchestrator',
           confidence: result.data.confidence
         };
@@ -189,8 +124,7 @@ export function ChatPreview() {
           content: 'Lo siento, ha ocurrido un error. Por favor intenta nuevamente.',
           timestamp: new Date().toISOString(),
           direction: 'outbound',
-          type: 'system',
-          status: 'sent'
+          type: 'system'
         };
         setMessages(prev => [...prev, errorMessage]);
       }
@@ -302,218 +236,62 @@ export function ChatPreview() {
     { text: "Optimizar operaciones", category: "operations" }
   ];
 
-  const getStatusColor = (status: Conversation['status']) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'waiting': return 'bg-yellow-100 text-yellow-800';
-      case 'closed': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusText = (status: Conversation['status']) => {
-    switch (status) {
-      case 'active': return 'Activo';
-      case 'waiting': return 'Esperando';
-      case 'closed': return 'Cerrado';
-      default: return 'Desconocido';
-    }
-  };
-
-  const getMessageIcon = (message: Message) => {
-    if (message.direction === 'outbound') {
-      switch (message.status) {
-        case 'sent': return <Check className="h-3 w-3 text-gray-400" />;
-        case 'delivered': return <CheckCheck className="h-3 w-3 text-gray-400" />;
-        case 'read': return <CheckCheck className="h-3 w-3 text-blue-500" />;
-      }
-    }
-    return null;
-  };
-
-  // 🆕 Crear nueva conversación
-  const handleCreateNewConversation = async () => {
-    try {
-      setCreatingConversation(true);
-      
-      // Obtener primer store disponible (simplificado, se puede mejorar)
-      const storeId = 'default-store-id'; // TODO: Obtener store ID real
-      
-      const response = await fetch('/api/conversations/new', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storeId })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        await fetchChatData(); // Refrescar lista
-        setSelectedConversation(result.data);
-        console.log('Nueva conversación creada:', result.data.id);
-      } else {
-        console.error('Error creando conversación:', result.error);
-      }
-    } catch (error) {
-      console.error('Error creando conversación:', error);
-    } finally {
-      setCreatingConversation(false);
-    }
-  };
-
-  // 🗑️ Eliminar conversación
-  const handleDeleteConversation = async (conversationId: string) => {
-    try {
-      setDeletingConversation(conversationId);
-      
-      const response = await fetch(`/api/conversations/${conversationId}`, {
-        method: 'DELETE'
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        // Remover de la lista local
-        setConversations(prev => prev.filter(c => c.id !== conversationId));
-        
-        // Si era la conversación seleccionada, limpiar selección
-        if (selectedConversation?.id === conversationId) {
-          setSelectedConversation(null);
-        }
-        
-        console.log('Conversación eliminada:', conversationId);
-      } else {
-        console.error('Error eliminando conversación:', result.error);
-      }
-    } catch (error) {
-      console.error('Error eliminando conversación:', error);
-    } finally {
-      setDeletingConversation(null);
-    }
-  };
-
-  // ✨ Generar título automáticamente
-  const handleGenerateTitle = async (conversationId: string) => {
-    try {
-      setGeneratingTitle(conversationId);
-      
-      const response = await fetch(`/api/conversations/${conversationId}/generate-title`, {
-        method: 'POST'
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        // Actualizar título en la lista local
-        setConversations(prev => prev.map(c => 
-          c.id === conversationId 
-            ? { ...c, title: result.data.title }
-            : c
-        ));
-        
-        // Actualizar conversación seleccionada si es la misma
-        if (selectedConversation?.id === conversationId) {
-          setSelectedConversation(prev => prev ? { ...prev, title: result.data.title } : null);
-        }
-        
-        console.log('Título generado:', result.data.title);
-      } else {
-        console.error('Error generando título:', result.error);
-      }
-    } catch (error) {
-      console.error('Error generando título:', error);
-    } finally {
-      setGeneratingTitle(null);
-    }
-  };
-
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <MessageSquare className="mr-2 h-5 w-5" />
-            Chat Preview
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center p-10">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <MessageSquare className="mr-2 h-5 w-5" />
-            Chat Preview
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-red-600 text-center">{error}</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // NUEVA INTERFAZ MODERNA CHATGPT/CLAUDE - Preservando funcionalidad existente
+  // Empty State
   if (messages.length === 0) {
-    // Empty State - Interfaz de bienvenida con TODOS los 10 agentes
     return (
-      <div className="flex-1 flex flex-col min-h-[600px]">
+      <div className="flex-1 flex flex-col">
+        {/* WhatsApp Status Notification */}
+        {selectedStore && !selectedStore.whatsapp_verified && (
+          <div className="whatsapp-status-notification">
+            <AlertCircle className="status-icon" />
+            <div className="status-message">
+              <strong>WhatsApp no configurado</strong> - Solo funciona en dashboard. 
+              <button 
+                className="configure-whatsapp-link"
+                onClick={() => window.location.href = '/dashboard?tab=configuracion'}
+              >
+                Configurar WhatsApp
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
         <div className="chat-empty-state">
           <div className="empty-state-icon">
             <MessageSquare className="w-10 h-10 text-[#6b7280]" />
           </div>
           <h3 className="empty-state-title">¡Hola! Soy Fini AI</h3>
           <p className="empty-state-description">
-            Tu asistente inteligente multi-agente para tu tienda. Tengo 10 especialistas listos para ayudarte con análisis, marketing, atención al cliente, inventario, finanzas, consultoría, productos, operaciones, ventas y coordinación general.
+            Tu asistente inteligente multi-agente para tu tienda. Tengo 10 especialistas listos para ayudarte:
+            Analytics, Marketing, Atención al Cliente, Inventario, Finanzas, Consultoría, Productos, Operaciones, Ventas y más.
           </p>
           
-          {/* Agent Showcase - Mostrando TODOS los 10 agentes disponibles */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8 max-w-4xl">
+          {/* Agent Showcase */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8 max-w-2xl">
             <div className="agent-showcase-item">
               <BarChart3 className="w-5 h-5 text-[#3b82f6]" />
-              <span>Analytics AI</span>
+              <span>Analytics</span>
             </div>
             <div className="agent-showcase-item">
               <Sparkles className="w-5 h-5 text-[#8b5cf6]" />
-              <span>Marketing AI</span>
+              <span>Marketing</span>
             </div>
             <div className="agent-showcase-item">
               <Users className="w-5 h-5 text-[#10b981]" />
-              <span>Support AI</span>
+              <span>Support</span>
             </div>
             <div className="agent-showcase-item">
               <Package className="w-5 h-5 text-[#f59e0b]" />
-              <span>Stock Manager</span>
+              <span>Inventario</span>
             </div>
             <div className="agent-showcase-item">
               <DollarSign className="w-5 h-5 text-[#059669]" />
-              <span>Financial AI</span>
-            </div>
-            <div className="agent-showcase-item">
-              <Briefcase className="w-5 h-5 text-[#7c3aed]" />
-              <span>Business AI</span>
-            </div>
-            <div className="agent-showcase-item">
-              <ShoppingCart className="w-5 h-5 text-[#dc2626]" />
-              <span>Product AI</span>
-            </div>
-            <div className="agent-showcase-item">
-              <Cog className="w-5 h-5 text-[#0891b2]" />
-              <span>Operations AI</span>
+              <span>Finanzas</span>
             </div>
             <div className="agent-showcase-item">
               <Target className="w-5 h-5 text-[#ea580c]" />
-              <span>Sales Coach</span>
-            </div>
-            <div className="agent-showcase-item">
-              <Cog className="w-5 h-5 text-[#1a1a1a]" />
-              <span>Orchestrator</span>
+              <span>Ventas</span>
             </div>
           </div>
           
@@ -538,7 +316,7 @@ export function ChatPreview() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Pregúntame sobre tu tienda, ventas, productos, marketing, finanzas, inventario..."
+              placeholder="Pregúntame sobre tu tienda, ventas, productos, marketing, finanzas..."
               className="chat-input"
               rows={1}
               disabled={isLoading}
@@ -571,9 +349,25 @@ export function ChatPreview() {
     );
   }
 
-  // Chat with Messages - Interfaz de conversación activa
+  // Chat with Messages
   return (
-    <div className="flex-1 flex flex-col min-h-[600px]">
+    <div className="flex-1 flex flex-col">
+      {/* WhatsApp Status Notification */}
+      {selectedStore && !selectedStore.whatsapp_verified && (
+        <div className="whatsapp-status-notification">
+          <AlertCircle className="status-icon" />
+          <div className="status-message">
+            <strong>WhatsApp no configurado</strong> - Solo funciona en dashboard. 
+            <button 
+              className="configure-whatsapp-link"
+              onClick={() => window.location.href = '/dashboard?tab=configuracion'}
+            >
+              Configurar WhatsApp
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Messages Area */}
       <div className="chat-messages">
         {messages.map((message) => (
@@ -645,29 +439,6 @@ export function ChatPreview() {
             )}
           </button>
         </div>
-      </div>
-
-      {/* Hidden: Preservar funcionalidad de conversaciones sin mostrar elementos duplicados */}
-      <div className="technical-info hidden">
-        {conversations.map((conversation) => (
-          <div key={conversation.id} data-conversation-id={conversation.id}>
-            {/* Funcionalidad de conversaciones preservada pero oculta para evitar elementos duplicados */}
-            <div className="hidden">
-              <button 
-                onClick={handleCreateNewConversation}
-                disabled={creatingConversation}
-              />
-              <button 
-                onClick={() => handleGenerateTitle(conversation.id)}
-                disabled={generatingTitle === conversation.id}
-              />
-              <button 
-                onClick={() => handleDeleteConversation(conversation.id)}
-                disabled={deletingConversation === conversation.id}
-              />
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );
