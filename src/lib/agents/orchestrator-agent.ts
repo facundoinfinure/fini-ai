@@ -5,7 +5,7 @@
 
 import { BaseAgent } from './base-agent';
 import { ORCHESTRATOR_CONFIG, ROUTING_KEYWORDS, ROUTING_THRESHOLDS } from './config';
-import type { AgentContext, AgentResponse, OrchestratorDecision } from './types';
+import type { AgentContext, AgentResponse, OrchestratorDecision, AgentType } from './types';
 
 export class OrchestratorAgent extends BaseAgent {
   constructor() {
@@ -87,13 +87,107 @@ En la implementación completa, esto se enrutaría automáticamente al agente es
   }
 
   /**
-   * Route message to appropriate agent
+   * Route message to appropriate agent using intelligent analysis
    */
   async routeMessage(context: AgentContext): Promise<OrchestratorDecision> {
     const { userMessage } = context;
-    const _lowerMessage = userMessage.toLowerCase();
-
+    
     this.log('debug', `Routing message: "${userMessage}"`);
+
+    try {
+      // First try intelligent routing with OpenAI
+      const intelligentDecision = await this.analyzeIntentWithOpenAI(userMessage);
+      
+      if (intelligentDecision.confidence >= 0.7) {
+        this.log('info', `Intelligent routing: ${intelligentDecision.selectedAgent} (${Math.round(intelligentDecision.confidence * 100)}%)`);
+        return intelligentDecision;
+      }
+      
+      this.log('debug', 'Intelligent routing confidence too low, falling back to keyword-based routing');
+    } catch (error) {
+      this.log('error', 'Intelligent routing failed, using keyword fallback:', error);
+    }
+
+    // Fallback to keyword-based routing
+    return await this.keywordBasedRouting(userMessage);
+  }
+
+  /**
+   * Analyze user intent using OpenAI for intelligent routing
+   */
+  private async analyzeIntentWithOpenAI(userMessage: string): Promise<OrchestratorDecision> {
+    const systemPrompt = `Eres un experto en análisis de intención para un sistema multi-agente de e-commerce argentino.
+
+AGENTES DISPONIBLES:
+- analytics: Métricas, ventas, reportes, estadísticas, performance (¿Cuánto vendí? ¿Cuáles productos más vendidos?)
+- product_manager: Gestión de catálogo, qué productos tengo, portfolio (¿Qué productos tengo? ¿Debería agregar productos?)
+- stock_manager: Inventario, stock, reposición (¿Qué está sin stock? ¿Qué reponer?)
+- financial_advisor: Rentabilidad, márgenes, costos, ROI (¿Productos más rentables? ¿Márgenes?)
+- marketing: Estrategias, campañas, promociones (¿Cómo aumentar ventas? ¿Qué promoción?)
+- customer_service: Atención al cliente, problemas, soporte (Quejas, devoluciones, problemas)
+- business_consultant: Estrategia empresarial, planes, análisis FODA (Estrategia de negocio)
+- operations_manager: Procesos, logística, automatización (Optimizar procesos, envíos)
+- sales_coach: Técnicas de venta, conversión, coaching (Mejorar conversión, técnicas)
+
+RESPONDE SOLO EN JSON:
+{
+  "agent": "nombre_del_agente",
+  "confidence": 0.95,
+  "reasoning": "Explicación de por qué este agente"
+}
+
+Confidence: 0.9+ (muy seguro), 0.7+ (seguro), 0.5+ (moderado), <0.5 (inseguro)`;
+
+    const userPrompt = `Analiza esta consulta de un dueño de tienda e-commerce argentina:
+
+"${userMessage}"
+
+¿Qué agente debe manejar esta consulta?`;
+
+    try {
+      const response = await this.generateResponse(systemPrompt, userPrompt, '');
+      const analysis = JSON.parse(response);
+      
+      const selectedAgent = analysis.agent as AgentType;
+      const confidence = Math.min(Math.max(analysis.confidence, 0), 1);
+      const reasoning = `Análisis inteligente: ${analysis.reasoning}`;
+
+      // Calculate keyword scores for metadata
+      const _lowerMessage = userMessage.toLowerCase();
+      const _routingRules = {
+        analyticsScore: this.calculateAnalyticsScore(_lowerMessage),
+        customerServiceScore: this.calculateCustomerServiceScore(_lowerMessage),
+        marketingScore: this.calculateMarketingScore(_lowerMessage),
+        stockManagerScore: this.calculateStockManagerScore(_lowerMessage),
+        financialAdvisorScore: this.calculateFinancialAdvisorScore(_lowerMessage),
+        businessConsultantScore: this.calculateBusinessConsultantScore(_lowerMessage),
+        productManagerScore: this.calculateProductManagerScore(_lowerMessage),
+        operationsManagerScore: this.calculateOperationsManagerScore(_lowerMessage),
+        salesCoachScore: this.calculateSalesCoachScore(_lowerMessage),
+        generalScore: this.calculateGeneralScore(_lowerMessage)
+      };
+
+      return {
+        selectedAgent,
+        confidence,
+        reasoning,
+        routingRules: _routingRules,
+        fallbackMessage: confidence < 0.5 ? 
+          'No pude determinar con certeza cómo ayudarte. ¿Podrías ser más específico sobre lo que necesitas?' : 
+          undefined
+      };
+
+    } catch (error) {
+      this.log('error', 'OpenAI analysis failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fallback keyword-based routing (original method)
+   */
+  private async keywordBasedRouting(userMessage: string): Promise<OrchestratorDecision> {
+    const _lowerMessage = userMessage.toLowerCase();
 
     // Calculate scores for each agent type
     const _routingRules = {
@@ -109,7 +203,7 @@ En la implementación completa, esto se enrutaría automáticamente al agente es
       generalScore: this.calculateGeneralScore(_lowerMessage)
     };
 
-    this.log('debug', 'Routing scores:', _routingRules);
+    this.log('debug', 'Keyword routing scores:', _routingRules);
 
     // Determine best agent
     const _scores = [
@@ -135,15 +229,15 @@ En la implementación completa, esto se enrutaría automáticamente al agente es
 
     if (_confidence >= ROUTING_THRESHOLDS.high_confidence) {
       selectedAgent = _bestScore.agent;
-      reasoning = `Alta confianza (${Math.round(_confidence * 100)}%) para ${this.getAgentDisplayName(_bestScore.agent)}`;
+      reasoning = `Keyword routing - Alta confianza (${Math.round(_confidence * 100)}%) para ${this.getAgentDisplayName(_bestScore.agent)}`;
     } else if (_confidence >= ROUTING_THRESHOLDS.medium_confidence) {
       selectedAgent = _bestScore.agent;
-      reasoning = `Confianza media (${Math.round(_confidence * 100)}%) para ${this.getAgentDisplayName(_bestScore.agent)}`;
+      reasoning = `Keyword routing - Confianza media (${Math.round(_confidence * 100)}%) para ${this.getAgentDisplayName(_bestScore.agent)}`;
     } else if (_confidence >= ROUTING_THRESHOLDS.low_confidence) {
       selectedAgent = _bestScore.agent;
-      reasoning = `Confianza baja (${Math.round(_confidence * 100)}%) para ${this.getAgentDisplayName(_bestScore.agent)} - puede requerir clarificación`;
+      reasoning = `Keyword routing - Confianza baja (${Math.round(_confidence * 100)}%) para ${this.getAgentDisplayName(_bestScore.agent)}`;
     } else {
-      reasoning = `Confianza muy baja (${Math.round(_confidence * 100)}%) - consulta poco clara o fuera del alcance`;
+      reasoning = `Keyword routing - Confianza muy baja (${Math.round(_confidence * 100)}%) - consulta poco clara`;
     }
 
     const decision: OrchestratorDecision = {
@@ -156,7 +250,7 @@ En la implementación completa, esto se enrutaría automáticamente al agente es
         undefined
     };
 
-    this.log('info', `Routing decision: ${selectedAgent || 'fallback'} (confidence: ${Math.round(_confidence * 100)}%)`);
+    this.log('info', `Keyword routing: ${selectedAgent || 'fallback'} (confidence: ${Math.round(_confidence * 100)}%)`);
     return decision;
   }
 
@@ -182,30 +276,37 @@ En la implementación completa, esto se enrutaría automáticamente al agente es
     if (message.includes('reporte') || message.includes('estadística') || message.includes('métrica')) {
       score += 0.3;
     }
-    if (message.includes('producto') && message.includes('más')) {
-      score += 0.3;
-    }
     if (message.includes('comparar') || message.includes('vs') || message.includes('anterior')) {
       score += 0.3;
     }
     
-    // NUEVO: Boost para consultas de productos/inventario
+    // ANALYTICS: Solo para PERFORMANCE/MÉTRICAS de productos
     if (message.includes('producto') || message.includes('productos')) {
-      if (message.includes('tengo') || message.includes('cargados') || message.includes('hay')) {
-        score += 0.4; // "que productos tengo" -> consulta de inventario analytics
+      // Performance queries (analytics domain) - ALTA PRIORIDAD
+      if (message.includes('más vendidos') || message.includes('mas vendidos') || 
+          message.includes('top') || message.includes('mejores') ||
+          message.includes('vendidos') || message.includes('populares')) {
+        score += 0.7; // "productos más vendidos" -> analytics (ALTA PRIORIDAD)
       }
-      if (message.includes('vendidos') || message.includes('populares') || message.includes('top')) {
-        score += 0.4; // consulta de performance de productos
+      if (message.includes('performance') || message.includes('estadísticas') || 
+          message.includes('métricas') || message.includes('análisis de ventas')) {
+        score += 0.5;
+      }
+      
+      // REDUCE score para consultas de catálogo (van a Product Manager)
+      if (message.includes('tengo') || message.includes('cargados') || 
+          message.includes('hay') || message.includes('catálogo')) {
+        score -= 0.3; // Estas van a Product Manager
       }
     }
     
-    // Boost para consultas de inventario/stock que son analytics
-    if ((message.includes('cuántos') || message.includes('qué')) && 
-        (message.includes('productos') || message.includes('stock') || message.includes('inventario'))) {
-      score += 0.4;
+    // Ventas y métricas específicas
+    if ((message.includes('cuánto') || message.includes('cuántas')) && 
+        (message.includes('ventas') || message.includes('vendí') || message.includes('facturé'))) {
+      score += 0.5;
     }
 
-    return Math.min(score, 1.0);
+    return Math.min(Math.max(score, 0), 1.0);
   }
 
   private calculateCustomerServiceScore(message: string): number {
@@ -326,37 +427,56 @@ En la implementación completa, esto se enrutaría automáticamente al agente es
     const _keywordCheck = this.hasKeywords(message, ROUTING_KEYWORDS.product_manager);
     let score = _keywordCheck.score;
 
-    // Boost score for specific product management patterns
-    if (message.includes('producto') && (message.includes('análisis') || message.includes('performance'))) {
-      score += 0.4;
+    // PRODUCT MANAGER: Gestión de catálogo y portfolio
+    
+    // ALTA PRIORIDAD: Consultas de catálogo actual
+    if (message.includes('producto') || message.includes('productos')) {
+      // "¿Qué productos tengo?" es 100% Product Manager
+      if (message.includes('tengo') || message.includes('cargados') || message.includes('hay')) {
+        score += 0.6; // ALTA prioridad para gestión de catálogo
+      }
+      
+      // Gestión de portfolio
+      if (message.includes('agregar') || message.includes('añadir') || message.includes('incorporar')) {
+        score += 0.5;
+      }
+      if (message.includes('quitar') || message.includes('eliminar') || message.includes('descontinuar')) {
+        score += 0.5;
+      }
+      
+      // Estrategia de productos (NO métricas)
+      if (message.includes('estrategia') || message.includes('plan') || message.includes('roadmap')) {
+        score += 0.4;
+      }
     }
+    
+    // Consultas específicas de catálogo
+    if ((message.includes('qué') || message.includes('cuáles') || message.includes('cuántos')) && 
+        (message.includes('productos') || message.includes('catálogo'))) {
+      score += 0.5; // "¿qué productos..." -> Product Manager
+    }
+    
+    // Gestión de catálogo
+    if (message.includes('catálogo')) {
+      score += 0.4;
+      if (message.includes('optimizar') || message.includes('mejorar')) {
+        score += 0.3;
+      }
+    }
+    
+    // Pricing strategy (diferente de análisis de precios)
     if (message.includes('precio') && (message.includes('estrategia') || message.includes('competencia'))) {
       score += 0.4;
     }
-    if (message.includes('catálogo') && (message.includes('optimizar') || message.includes('mejorar'))) {
+    
+    // Portfolio management
+    if (message.includes('portfolio') || message.includes('surtido') || message.includes('mix')) {
       score += 0.4;
     }
+    
+    // Lanzamientos
     if (message.includes('lanzamiento') || message.includes('nuevo producto')) {
-      score += 0.3;
-    }
-    if (message.includes('pricing') || message.includes('portfolio') || message.includes('surtido')) {
-      score += 0.3;
-    }
-    
-    // NUEVO: Boost para consultas de gestión de catálogo/productos
-    if (message.includes('producto') || message.includes('productos')) {
-      if (message.includes('tengo') || message.includes('cargados') || message.includes('catálogo')) {
-        score += 0.3; // "que productos tengo" -> gestión de catálogo
-      }
-      if (message.includes('agregar') || message.includes('añadir') || message.includes('incorporar')) {
-        score += 0.4; // gestión de portfolio
-      }
-    }
-    
-    // Boost para consultas de catálogo
-    if ((message.includes('qué') || message.includes('cuáles')) && 
-        (message.includes('productos') || message.includes('catálogo'))) {
-      score += 0.3;
+      score += 0.4;
     }
 
     return Math.min(score, 1.0);
