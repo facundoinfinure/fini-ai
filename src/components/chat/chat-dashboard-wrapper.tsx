@@ -16,12 +16,10 @@ import {
   CheckCircle, 
   Smartphone,
   Monitor,
-  Database,
-  Sparkles,
-  User,
   Bot,
   Settings,
-  RefreshCw
+  Sparkles,
+  User
 } from 'lucide-react';
 
 interface Store {
@@ -138,97 +136,101 @@ export function ChatDashboardWrapper() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <MessageSquare className="mr-2 h-5 w-5" />
-            Chat con Fini AI
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <Bot className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-            <p className="text-gray-600">Cargando sistema de chat...</p>
+      <div className="modern-chat-container">
+        <div className="modern-chat-header">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              <span className="font-medium">Chat con Fini AI</span>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="modern-chat-empty">
+          <Bot className="modern-chat-empty-icon animate-pulse" />
+          <h3 className="modern-chat-empty-title">Inicializando chat...</h3>
+          <p className="modern-chat-empty-description">
+            Cargando tu sistema de chat inteligente
+          </p>
+        </div>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <MessageSquare className="mr-2 h-5 w-5" />
-            Chat con Fini AI
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert className="border-red-200 bg-red-50">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="text-red-800">
-              {error}
-            </AlertDescription>
-          </Alert>
+      <div className="modern-chat-container">
+        <div className="modern-chat-header">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              <span className="font-medium">Chat con Fini AI</span>
+            </div>
+          </div>
+        </div>
+        <div className="modern-chat-empty">
+          <AlertCircle className="modern-chat-empty-icon text-red-500" />
+          <h3 className="modern-chat-empty-title">Error de conexión</h3>
+          <p className="modern-chat-empty-description">
+            {error}
+          </p>
           <Button onClick={loadStores} className="mt-4">
             Reintentar
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   if (stores.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <MessageSquare className="mr-2 h-5 w-5" />
-            Chat con Fini AI
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <Bot className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <p className="text-lg font-medium mb-2">¡Conecta tu primera tienda!</p>
-            <p className="text-gray-600 mb-4">
-              Para usar el chat con IA necesitas conectar una tienda de Tienda Nube
-            </p>
-            <Button onClick={() => window.location.href = '/dashboard?tab=configuracion'}>
-              <Settings className="mr-2 h-4 w-4" />
-              Conectar Tienda
-            </Button>
+      <div className="modern-chat-container">
+        <div className="modern-chat-header">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              <span className="font-medium">Chat con Fini AI</span>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="modern-chat-empty">
+          <Bot className="modern-chat-empty-icon" />
+          <h3 className="modern-chat-empty-title">¡Conecta tu primera tienda!</h3>
+          <p className="modern-chat-empty-description">
+            Para usar el chat con IA necesitas conectar una tienda de Tienda Nube
+          </p>
+          <Button onClick={() => window.location.href = '/dashboard?tab=configuracion'}>
+            <Settings className="mr-2 h-4 w-4" />
+            Conectar Tienda
+          </Button>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Store Selection & Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center">
-              <MessageSquare className="mr-2 h-5 w-5" />
-              Chat Inteligente - Fini AI
-              <Badge variant="default" className="ml-2">
-                🚀 Agentes Multi-AI
+    <div className="space-y-4">
+      {/* Simplified Status Header */}
+      <div className="bg-white rounded-lg border border-[#e5e7eb] p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-[#1a1a1a]" />
+              <span className="font-medium text-[#1a1a1a]">Chat Inteligente</span>
+              <Badge variant="default" className="bg-[#1a1a1a] text-white">
+                🚀 Multi-AI
               </Badge>
             </div>
             
-            {/* Store Selector & Refresh */}
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">Tienda:</span>
+            {/* Store Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-[#6b7280]">Tienda:</span>
               <select
                 value={selectedStore?.id || ''}
                 onChange={(e) => {
                   const store = stores.find(s => s.id === e.target.value);
                   if (store) handleStoreSelect(store);
                 }}
-                className="text-sm border rounded px-2 py-1"
+                className="text-sm border border-[#e5e7eb] rounded px-2 py-1 bg-white"
               >
                 {stores.map(store => (
                   <option key={store.id} value={store.id}>
@@ -236,120 +238,115 @@ export function ChatDashboardWrapper() {
                   </option>
                 ))}
               </select>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadStores}
-                disabled={isLoading}
-                className="flex items-center space-x-1"
-              >
-                <RefreshCw className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
-                <span className="text-xs">Actualizar</span>
-              </Button>
             </div>
-          </CardTitle>
+          </div>
           
-          {/* Status Indicators */}
-          <div className="flex items-center space-x-4 text-sm">
-            <div className="flex items-center space-x-2">
-              <Monitor className="h-4 w-4" />
-              <span>Dashboard</span>
+          {/* Simplified Status Indicators */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Monitor className="h-4 w-4 text-[#6b7280]" />
               <CheckCircle className="h-4 w-4 text-green-500" />
+              <span className="text-sm text-[#6b7280]">Sistema activo</span>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <Smartphone className="h-4 w-4" />
-              <span>WhatsApp</span>
-              {whatsappStatus.connected ? (
-                <CheckCircle className="h-4 w-4 text-green-500" />
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-4 w-4 text-[#6b7280]" />
+              {whatsappStatus.verified ? (
+                <>
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="text-sm text-[#6b7280]">WhatsApp verificado</span>
+                </>
               ) : (
-                <AlertCircle className="h-4 w-4 text-orange-500" />
-              )}
-              {whatsappStatus.number && (
-                <Badge variant="outline" className="text-xs">
-                  {whatsappStatus.number}
-                </Badge>
+                <>
+                  <AlertCircle className="h-4 w-4 text-orange-500" />
+                  <span className="text-sm text-[#6b7280]">WhatsApp pendiente</span>
+                </>
               )}
             </div>
-            
-            <div className="flex items-center space-x-2">
-              <Database className="h-4 w-4" />
-              <span>Namespace: store-{selectedStore?.id}</span>
-              <Badge variant="secondary" className="text-xs">
-                Datos específicos
-              </Badge>
-            </div>
           </div>
-        </CardHeader>
-        
-        <CardContent>
-          {!whatsappStatus.verified && (
-            <Alert className="mb-4 border-orange-200 bg-orange-50">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-orange-800">
-                <strong>WhatsApp no configurado</strong> - Solo funciona en dashboard. 
-                <Button 
-                  variant="link" 
-                  className="p-0 h-auto text-orange-800 underline"
-                  onClick={() => window.location.href = '/dashboard?tab=configuracion'}
-                >
-                  Configurar WhatsApp
-                </Button>
-                {whatsappStatus.connected && !whatsappStatus.verified && (
-                  <span className="block mt-1 text-sm">
-                    ⏳ WhatsApp conectado pero pendiente de verificación
-                  </span>
-                )}
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          <div className="text-sm text-gray-600 mb-4">
-            💡 <strong>Chat Unificado:</strong> Habla con tus agentes de IA especializados:
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Badge variant="outline" className="flex items-center space-x-1">
-                <BarChart3 className="h-3 w-3" />
-                <span>Analytics AI</span>
-              </Badge>
-              <Badge variant="outline" className="flex items-center space-x-1">
-                <Sparkles className="h-3 w-3" />
-                <span>Marketing AI</span>
-              </Badge>
-              <Badge variant="outline" className="flex items-center space-x-1">
-                <User className="h-3 w-3" />
-                <span>Support AI</span>
-              </Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Chat Interface with Full Conversation Management */}
+        {/* WhatsApp Configuration Alert */}
+        {!whatsappStatus.verified && (
+          <Alert className="mt-4 border-orange-200 bg-orange-50">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-orange-800">
+              <strong>WhatsApp no configurado</strong> - El chat funciona solo en dashboard. 
+              <Button 
+                variant="link" 
+                className="p-0 h-auto text-orange-800 underline ml-1"
+                onClick={() => window.location.href = '/dashboard?tab=configuracion'}
+              >
+                Configurar WhatsApp
+              </Button>
+              {whatsappStatus.connected && !whatsappStatus.verified && (
+                <span className="block mt-1 text-sm">
+                  ⏳ WhatsApp conectado, pendiente de verificación
+                </span>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Agent Overview */}
+        <div className="mt-4 p-3 bg-[#f8f9fa] rounded-lg">
+          <div className="text-sm text-[#6b7280] mb-2">
+            <strong>🎯 Sistema Multi-Agente Disponible:</strong>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="flex items-center gap-1">
+              <BarChart3 className="h-3 w-3" />
+              <span>Analytics AI</span>
+            </Badge>
+            <Badge variant="outline" className="flex items-center gap-1">
+              <Sparkles className="h-3 w-3" />
+              <span>Marketing AI</span>
+            </Badge>
+            <Badge variant="outline" className="flex items-center gap-1">
+              <User className="h-3 w-3" />
+              <span>Support AI</span>
+            </Badge>
+            <Badge variant="outline" className="text-xs text-[#6b7280]">
+              +7 agentes más
+            </Badge>
+          </div>
+        </div>
+      </div>
+
+      {/* Modern Chat Interface */}
       {selectedStore && (
         <Tabs defaultValue="chat" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="chat" className="flex items-center space-x-2">
+            <TabsTrigger value="chat" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
-              <span>Chat + Conversaciones</span>
+              <span>Chat Inteligente</span>
               <Badge variant="secondary" className="ml-1 text-xs">
-                ✨ GPT Style
+                ✨ Estilo ChatGPT
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="metrics" className="flex items-center space-x-2">
+            <TabsTrigger value="metrics" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               <span>Métricas</span>
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="chat" className="mt-6">
+          <TabsContent value="chat" className="mt-4">
             <ChatPreview selectedStore={selectedStore} />
           </TabsContent>
           
-          <TabsContent value="metrics" className="mt-6">
+          <TabsContent value="metrics" className="mt-4">
             <ChatMetrics storeId={selectedStore.id} />
           </TabsContent>
         </Tabs>
       )}
+
+      {/* Hidden technical elements for maintaining functionality */}
+      <div className="technical-namespace" style={{ display: 'none' }}>
+        <span>Namespace: store-{selectedStore?.id}</span>
+      </div>
+      <div className="technical-database-info" style={{ display: 'none' }}>
+        <span>Database info preserved for backend</span>
+      </div>
     </div>
   );
 }
