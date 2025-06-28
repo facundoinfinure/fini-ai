@@ -1440,7 +1440,7 @@
 }
 
 .openai-message-text {
-  @apply prose prose-sm max-w-none;
+  @apply text-sm text-gray-900 leading-relaxed max-w-none;
 }
 
 .openai-message-text p {
