@@ -6,7 +6,7 @@
  */
 
 const twilio = require('twilio');
-const { FINI_TEMPLATE_CONFIGS } = require('../src/lib/integrations/twilio-content-templates');
+const { FINI_TEMPLATE_CONFIGS } = require('./template-configs.js');
 
 // Configuración de Twilio
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
