@@ -21,9 +21,7 @@ import {
   User,
   Bot,
   Settings,
-  RefreshCw,
-  Plus,
-  Trash2
+  RefreshCw
 } from 'lucide-react';
 
 interface Store {
@@ -332,37 +330,7 @@ export function ChatDashboardWrapper() {
           </TabsList>
           
           <TabsContent value="chat" className="mt-6">
-            {/* 🎉 ChatPreview with full conversation management features */}
-            <div className="space-y-4">
-              {/* Feature highlight banner */}
-              <Alert className="border-blue-200 bg-blue-50">
-                <Sparkles className="h-4 w-4" />
-                <AlertDescription className="text-blue-800">
-                  <strong>🎉 Funcionalidades ChatGPT/Claude disponibles:</strong>
-                  <div className="mt-2 flex flex-wrap gap-2 text-sm">
-                    <Badge variant="outline" className="flex items-center space-x-1">
-                      <Plus className="h-3 w-3" />
-                      <span>Nueva conversación</span>
-                    </Badge>
-                    <Badge variant="outline" className="flex items-center space-x-1">
-                      <Trash2 className="h-3 w-3" />
-                      <span>Eliminar conversación</span>
-                    </Badge>
-                    <Badge variant="outline" className="flex items-center space-x-1">
-                      <Sparkles className="h-3 w-3" />
-                      <span>Títulos automáticos IA</span>
-                    </Badge>
-                    <Badge variant="outline" className="flex items-center space-x-1">
-                      <MessageSquare className="h-3 w-3" />
-                      <span>Lista de conversaciones</span>
-                    </Badge>
-                  </div>
-                </AlertDescription>
-              </Alert>
-              
-              {/* Full ChatPreview component with all conversation management */}
-              <ChatPreview />
-            </div>
+            <ChatPreview />
           </TabsContent>
           
           <TabsContent value="metrics" className="mt-6">
