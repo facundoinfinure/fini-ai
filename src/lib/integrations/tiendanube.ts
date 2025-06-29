@@ -77,6 +77,7 @@ export class TiendaNubeAPI {
 
   /**
    * Get all products with optional filters
+   * 🔧 FIXED: Include draft products by default to show actual catalog
    */
   async getProducts(params?: {
     since_id?: number;
@@ -90,16 +91,31 @@ export class TiendaNubeAPI {
     page?: number;
   }): Promise<TiendaNubeProduct[]> {
     const searchParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) {
-          searchParams.append(key, value.toString());
-        }
-      });
+    
+    // Set default parameters to include ALL products (published + draft)
+    const defaultParams = {
+      limit: 250, // Higher limit to get more products
+      ...params // Allow override of defaults
+    };
+    
+    // If published is not explicitly set, try to get ALL products
+    if (defaultParams.published === undefined) {
+      delete defaultParams.published; // Don't filter by published status
     }
     
+    Object.entries(defaultParams).forEach(([key, value]) => {
+      if (value !== undefined) {
+        searchParams.append(key, value.toString());
+      }
+    });
+    
     const endpoint = `/products${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-    return this.makeRequest<TiendaNubeProduct[]>(endpoint);
+    console.warn(`[DEBUG] Getting products with endpoint: ${endpoint}`);
+    
+    const products = await this.makeRequest<TiendaNubeProduct[]>(endpoint);
+    console.warn(`[DEBUG] Retrieved ${products.length} products from API`);
+    
+    return products;
   }
 
   /**

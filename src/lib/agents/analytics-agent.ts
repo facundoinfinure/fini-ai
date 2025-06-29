@@ -205,9 +205,53 @@ Formato de respuesta profesional en español.`;
 
   private async generateProductAnalysis(context: AgentContext, ragContext: string): Promise<string> {
     const systemPrompt = this.config.prompts.systemPrompt;
+    
+    // Check if we have actual product data
+    const hasData = ragContext && ragContext.length > 50 && !ragContext.includes('No hay datos');
+    
+    if (!hasData) {
+      return `📊 **Análisis de Productos - Configuración Inicial Requerida**
+
+**🔍 Estado Actual:**
+No encuentro productos en tu catálogo para analizar. Esto es normal si:
+- Es una tienda nueva
+- Los productos están en borrador (no publicados)
+- Hay productos demo que no son reales
+
+**📈 Una vez que agregues productos reales, podré hacer:**
+
+**Análisis de Performance:**
+- 🏆 Ranking de productos más vendidos
+- 📉 Identificación de productos con bajo rendimiento  
+- 💰 Análisis de rentabilidad por producto
+- 📊 Performance por categorías
+
+**Métricas Detalladas:**
+- Tasa de conversión por producto
+- Ticket promedio por categoría
+- Velocidad de rotación de inventario
+- Análisis estacional de demanda
+
+**Recomendaciones Estratégicas:**
+- Optimización de precios
+- Estrategias de cross-selling y up-selling
+- Identificación de productos estrella
+- Detección de oportunidades de mejora
+
+**🚀 Para comenzar:**
+1. **Agrega productos reales** en tu panel de Tienda Nube
+2. **Publícalos** (importante: no dejarlos en borrador)
+3. **Incluye información completa:** precios, descripciones, stock
+4. **Regresa aquí** y pregunta: "¿cuáles son mis productos más vendidos?"
+
+**💡 Tip Profesional:** Empieza con 3-5 productos bien configurados. Es mejor tener pocos productos completos que muchos incompletos.
+
+¿Te ayudo con estrategias específicas para tu tipo de negocio mientras preparas tu catálogo?`;
+    }
+
     const userPrompt = this.formatPrompt(this.config.prompts.userPrompt, {
       userMessage: context.userMessage,
-      context: ragContext || 'No hay datos de productos disponibles'
+      context: ragContext
     });
 
     const enhancedPrompt = `${userPrompt}

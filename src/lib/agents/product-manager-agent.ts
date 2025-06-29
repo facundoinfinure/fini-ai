@@ -205,6 +205,50 @@ export class ProductManagerAgent extends BaseAgent {
 
   private async generateCatalogAnalysis(context: AgentContext, ragContext: string): Promise<string> {
     const systemPrompt = this.config.prompts.systemPrompt;
+    
+    // Check if we have actual product data
+    const hasProductData = ragContext && ragContext.length > 50 && !ragContext.includes('No hay datos específicos');
+    
+    if (!hasProductData) {
+      // No product data available - provide helpful guidance
+      return `🛍️ **Análisis de Catálogo - Tienda Vacía**
+
+**Estado Actual:**
+No se encontraron productos en tu catálogo. Esto puede ser porque:
+- Es una tienda nueva sin productos agregados
+- Los productos están en borrador y no publicados
+- Hay problemas de sincronización con la API
+
+**🚀 Próximos Pasos Recomendados:**
+
+**1. Agregar Productos:**
+- Ve a tu panel de Tienda Nube
+- Crea productos con descripciones completas
+- Asegúrate de **publicarlos** (no dejarlos en borrador)
+- Incluye imágenes y precios
+
+**2. Configuración Esencial:**
+- ✅ Nombre del producto claro
+- ✅ Descripción detallada
+- ✅ Precio definido
+- ✅ Stock disponible
+- ✅ Estado: **Publicado**
+
+**3. Categorización:**
+- Organiza productos en categorías
+- Usa tags relevantes
+- Optimiza para búsqueda
+
+**4. Una vez agregues productos:**
+- Vuelve aquí y pregunta: "¿qué productos tengo?"
+- El sistema se sincronizará automáticamente
+- Podrás obtener análisis detallados
+
+**💡 Tip:** Empieza con 3-5 productos bien configurados antes que muchos productos incompletos.
+
+¿Te ayudo con estrategias específicas para tu tipo de negocio?`;
+    }
+
     const enhancedPrompt = `${this.config.prompts.userPrompt}
 
 ENFOQUE: ANÁLISIS DE CATÁLOGO
@@ -213,7 +257,7 @@ ENFOQUE: ANÁLISIS DE CATÁLOGO
 - Da recomendaciones directas y accionables
 
 Consulta: ${context.userMessage}
-Datos: ${ragContext || 'No hay datos específicos del catálogo disponibles'}`;
+Datos: ${ragContext}`;
 
     return await this.generateResponse(systemPrompt, enhancedPrompt, ragContext);
   }
