@@ -265,13 +265,13 @@ export function ChatPreview({
       if (result.success) {
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
-          content: result.data.response,
+          content: result.response?.message || result.response || 'Respuesta recibida',
           timestamp: new Date().toISOString(),
           direction: 'outbound',
           type: 'analytics',
           status: 'sent',
-          agent: result.data.agentType || 'orchestrator',
-          confidence: result.data.confidence
+          agent: result.response?.agentType || 'orchestrator',
+          confidence: result.response?.confidence
         };
 
         setMessages(prev => [...prev, assistantMessage]);

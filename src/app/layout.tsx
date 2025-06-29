@@ -12,6 +12,11 @@ export const metadata: Metadata = {
   description: 'Conecta tu tienda de Tienda Nube con WhatsApp y obtén analytics en tiempo real con IA. Sistema multi-agente con RAG para tu ecommerce.',
   keywords: 'WhatsApp, Tienda Nube, Analytics, IA, Ecommerce, Chatbot, RAG, Multi-agente',
   authors: [{ name: 'Fini AI' }],
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
   openGraph: {
     title: 'Fini AI - Analytics WhatsApp para Tienda Nube',
     description: 'Conecta tu tienda con WhatsApp y obtén analytics en tiempo real con IA.',
