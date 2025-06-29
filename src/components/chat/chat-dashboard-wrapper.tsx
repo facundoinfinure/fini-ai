@@ -21,17 +21,19 @@ import {
   Sparkles,
   User,
   Package,
-  DollarSign
+  DollarSign,
+  RefreshCw,
+  CheckCircle2
 } from 'lucide-react';
+import { Store } from '@/types/db';
+import { createLogger } from '@/lib/logger';
 
-interface Store {
-  id: string;
-  name: string;
-  domain?: string;
-  whatsapp_number?: string;
-  whatsapp_display_name?: string;
-  whatsapp_verified?: boolean;
-  status: 'connected' | 'disconnected' | 'pending';
+const logger = createLogger('ChatWrapper');
+
+interface WhatsAppStatus {
+  connected: boolean;
+  number: string;
+  verified: boolean;
 }
 
 export function ChatDashboardWrapper() {
@@ -45,6 +47,8 @@ export function ChatDashboardWrapper() {
     number: '',
     verified: false
   });
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncCheck, setLastSyncCheck] = useState<Date | null>(null);
 
   useEffect(() => {
     loadStores();
@@ -65,94 +69,105 @@ export function ChatDashboardWrapper() {
       const response = await fetch('/api/stores');
       const data = await response.json();
 
-      if (data.success && Array.isArray(data.data)) {
-        const storesArray = data.data.map((store: any) => ({
-          id: store.id,
-          name: store.name || store.domain || 'Sin nombre',
-          domain: store.domain,
-          whatsapp_number: store.whatsapp_number,
-          whatsapp_display_name: store.whatsapp_display_name,
-          whatsapp_verified: store.whatsapp_verified,
-          status: store.status || 'disconnected'
-        }));
-
+      if (data.success && data.data && Array.isArray(data.data)) {
+        const storesArray = data.data;
         setStores(storesArray);
         
-        console.log('[CHAT-WRAPPER] Stores loaded with WhatsApp info:', storesArray.map(s => ({
-          id: s.id,
-          name: s.name,
-          whatsapp_number: s.whatsapp_number,
-          whatsapp_verified: s.whatsapp_verified,
-          status: s.status
-        })));
-        
-        // Update selected store if it exists in new data
-        if (selectedStore) {
-          const updatedSelectedStore = storesArray.find(s => s.id === selectedStore.id);
-          if (updatedSelectedStore) {
-            setSelectedStore(updatedSelectedStore);
-            setWhatsappStatus({
-              connected: !!updatedSelectedStore.whatsapp_number,
-              number: updatedSelectedStore.whatsapp_number || '',
-              verified: updatedSelectedStore.whatsapp_verified || false
-            });
-          }
-        } else {
-          // Auto-select first connected store
-          const firstConnected = storesArray.find(s => s.status === 'connected');
-          if (firstConnected) {
-            setSelectedStore(firstConnected);
-            setWhatsappStatus({
-              connected: !!firstConnected.whatsapp_number,
-              number: firstConnected.whatsapp_number || '',
-              verified: firstConnected.whatsapp_verified || false
-            });
-          } else if (storesArray.length > 0) {
-            setSelectedStore(storesArray[0]);
-            setWhatsappStatus({
-              connected: !!storesArray[0].whatsapp_number,
-              number: storesArray[0].whatsapp_number || '',
-              verified: storesArray[0].whatsapp_verified || false
-            });
-          }
+        if (storesArray.length > 0) {
+          await syncStoresIntelligentlyForChat(storesArray);
+        }
+
+        if (!selectedStore && storesArray.length > 0) {
+          const activeStore = storesArray.find((store: Store) => store.is_active && store.access_token) || storesArray[0];
+          setSelectedStore(activeStore);
         }
       } else {
-        setError('Error cargando tiendas: ' + (data.error || 'Error desconocido'));
+        setError('No se pudieron cargar las tiendas');
       }
     } catch (err) {
+      setError('Error al cargar las tiendas');
       console.error('Error loading stores:', err);
-      setError('Error conectando con el servidor');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const syncStoresIntelligentlyForChat = async (storesList: Store[]) => {
+    try {
+      const now = new Date();
+      
+      if (lastSyncCheck && (now.getTime() - lastSyncCheck.getTime()) < 2 * 60 * 1000) {
+        logger.info('Skipping sync check - too recent', { 
+          lastCheck: lastSyncCheck.toISOString() 
+        });
+        return;
+      }
+      
+      setLastSyncCheck(now);
+      logger.info('Starting intelligent chat sync check', { storeCount: storesList.length });
+      
+      let syncTriggered = false;
+      const fourHoursAgo = new Date(now.getTime() - (4 * 60 * 60 * 1000)); // 4 horas para chat
+      
+      for (const store of storesList) {
+        if (!store.access_token) {
+          logger.info('Skipping sync - no access token', { storeId: store.id });
+          continue;
+        }
+        
+        const lastSync = store.last_sync_at ? new Date(store.last_sync_at) : null;
+        const needsSync = !lastSync || lastSync < fourHoursAgo;
+        
+        if (needsSync) {
+          logger.info('Triggering chat RAG sync', { 
+            storeId: store.id, 
+            storeName: store.name,
+            lastSync: lastSync?.toISOString() || 'never'
+          });
+          
+          if (!syncTriggered) {
+            setIsSyncing(true);
+            syncTriggered = true;
+          }
+          
+          fetch(`/api/stores/${store.id}/sync-rag`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          }).catch(error => {
+            logger.error('Chat RAG sync failed', { storeId: store.id, error });
+          });
+        }
+      }
+      
+      if (syncTriggered) {
+        setTimeout(() => {
+          setIsSyncing(false);
+          logger.info('Chat sync process completed');
+        }, 10000); // 10 segundos
+      }
+      
+    } catch (error) {
+      logger.error('Chat intelligent sync failed', { error });
+      setIsSyncing(false);
+    }
+  };
+
   const handleStoreSelect = (store: Store) => {
     setSelectedStore(store);
+    // WhatsApp status will be fetched from separate API endpoint
     setWhatsappStatus({
-      connected: !!store.whatsapp_number,
-      number: store.whatsapp_number || '',
-      verified: store.whatsapp_verified || false
+      connected: false,
+      number: '',
+      verified: false
     });
   };
 
   if (isLoading) {
     return (
-      <div className="modern-chat-container">
-        <div className="modern-chat-header">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              <span className="font-medium">Chat con Fini AI</span>
-            </div>
-          </div>
-        </div>
-        <div className="modern-chat-empty">
-          <Bot className="modern-chat-empty-icon animate-pulse" />
-          <h3 className="modern-chat-empty-title">Inicializando chat...</h3>
-          <p className="modern-chat-empty-description">
-            Cargando tu sistema de chat inteligente
-          </p>
+      <div className="flex items-center justify-center p-8">
+        <div className="flex items-center space-x-3">
+          <RefreshCw className="h-5 w-5 animate-spin" />
+          <span>Cargando tiendas...</span>
         </div>
       </div>
     );
@@ -160,63 +175,80 @@ export function ChatDashboardWrapper() {
 
   if (error) {
     return (
-      <div className="modern-chat-container">
-        <div className="modern-chat-header">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              <span className="font-medium">Chat con Fini AI</span>
-            </div>
-          </div>
-        </div>
-        <div className="modern-chat-empty">
-          <AlertCircle className="modern-chat-empty-icon text-red-500" />
-          <h3 className="modern-chat-empty-title">Error de conexión</h3>
-          <p className="modern-chat-empty-description">
-            {error}
-          </p>
-          <Button onClick={loadStores} className="mt-4">
+      <Alert className="m-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          {error}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => loadStores()} 
+            className="ml-2"
+          >
             Reintentar
           </Button>
-        </div>
-      </div>
+        </AlertDescription>
+      </Alert>
     );
   }
 
   if (stores.length === 0) {
     return (
-      <div className="modern-chat-container">
-        <div className="modern-chat-header">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              <span className="font-medium">Chat con Fini AI</span>
+      <Alert className="m-4">
+        <Bot className="h-4 w-4" />
+        <AlertDescription>
+                     No tienes tiendas conectadas. Ve a la pestaña &ldquo;Gestión de Tiendas&rdquo; para conectar tu primera tienda.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (!whatsappStatus.verified) {
+    return (
+      <div className="p-6 max-w-2xl mx-auto">
+        <Alert className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <div>
+              <div className="font-medium mb-1">WhatsApp no configurado</div>
+              <div>Configura WhatsApp para comenzar a chatear con tu tienda.</div>
             </div>
-          </div>
-        </div>
-        <div className="modern-chat-empty">
-          <Bot className="modern-chat-empty-icon" />
-          <h3 className="modern-chat-empty-title">¡Conecta tu primera tienda!</h3>
-          <p className="modern-chat-empty-description">
-            Para usar el chat con IA necesitas conectar una tienda de Tienda Nube
-          </p>
-          <Button onClick={() => window.location.href = '/dashboard?tab=configuracion'}>
-            <Settings className="mr-2 h-4 w-4" />
-            Conectar Tienda
-          </Button>
-        </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => loadStores()}
+              className="ml-4 flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Actualizar Estado
+            </Button>
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
   return (
     <div className="h-full">
-      {/* Modern OpenAI-style Chat Interface */}
+      {isSyncing && (
+        <Alert className="m-4 mb-2">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          <AlertDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">Sincronizando datos de productos...</div>
+                <div className="text-sm text-muted-foreground">
+                  Los agentes tendrán acceso completo a tu catálogo en unos momentos.
+                </div>
+              </div>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      
       {selectedStore && (
         <div className="h-[700px] bg-white rounded-xl border border-gray-200 shadow-sm flex">
-          {/* Main Chat Area - Full Width */}
           <div className="flex-1 flex flex-col">
-            {/* Chat Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
@@ -242,7 +274,6 @@ export function ChatDashboardWrapper() {
               </div>
             </div>
 
-            {/* WhatsApp Alert */}
             {!whatsappStatus.verified && (
               <div className="mx-4 mt-4">
                 <Alert className="border-orange-200 bg-orange-50">
@@ -261,15 +292,13 @@ export function ChatDashboardWrapper() {
               </div>
             )}
 
-                         {/* Enhanced Chat Preview with Modern UI */}
-             <div className="flex-1 flex flex-col">
+                         <div className="flex-1 flex flex-col">
                <ChatPreview 
                  selectedStore={selectedStore}
                />
              </div>
           </div>
 
-          {/* Agent Panel - Right Sidebar */}
           <div className="w-80 border-l border-gray-200 bg-gray-50/30">
             <div className="p-4 border-b border-gray-200">
               <h3 className="font-medium text-gray-900 mb-3">Agentes Disponibles</h3>
@@ -309,14 +338,13 @@ export function ChatDashboardWrapper() {
               </div>
             </div>
 
-                         <div className="px-4 pb-4">
-               <ChatMetrics storeId={selectedStore.id} />
-             </div>
+            <div className="px-4 pb-4">
+              <ChatMetrics storeId={selectedStore.id} />
+            </div>
           </div>
         </div>
       )}
 
-      {/* Hidden technical elements for maintaining functionality */}
       <div className="technical-namespace" style={{ display: 'none' }}>
         <span>Namespace: store-{selectedStore?.id}</span>
       </div>

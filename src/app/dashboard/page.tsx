@@ -128,6 +128,11 @@ function DashboardContent() {
           const storesArray = Array.isArray(storesData.data) ? storesData.data : [];
           setStores(storesArray);
           logger.info('Stores loaded', { count: storesArray.length });
+          
+          // 🚀 SYNC INTELIGENTE: Sincronizar datos RAG automáticamente
+          if (storesArray.length > 0) {
+            syncStoreDataIntelligently(storesArray);
+          }
         } else {
           logger.error('Failed to fetch stores', { error: storesData.error });
           setError('Error al cargar las tiendas: ' + storesData.error);
@@ -160,6 +165,53 @@ function DashboardContent() {
       logger.info('Dashboard data fetch completed', { executionTime });
     }
   }, []);
+
+  // 🎯 SYNC INTELIGENTE: Solo sincroniza cuando es necesario
+  const syncStoreDataIntelligently = async (storesList: StoreType[]) => {
+    try {
+      logger.info('Starting intelligent RAG sync', { storeCount: storesList.length });
+      
+      for (const store of storesList) {
+        // Solo sincronizar si:
+        // 1. La tienda tiene access token (está conectada)
+        // 2. No se ha sincronizado nunca O han pasado más de 6 horas
+        if (!store.access_token) {
+          logger.info('Skipping sync - no access token', { storeId: store.id, storeName: store.name });
+          continue;
+        }
+        
+        const now = new Date();
+        const sixHoursAgo = new Date(now.getTime() - (6 * 60 * 60 * 1000));
+        const lastSync = store.last_sync_at ? new Date(store.last_sync_at) : null;
+        
+        const needsSync = !lastSync || lastSync < sixHoursAgo;
+        
+        if (needsSync) {
+          logger.info('Triggering RAG sync for store', { 
+            storeId: store.id, 
+            storeName: store.name,
+            lastSync: lastSync?.toISOString() || 'never'
+          });
+          
+          // Trigger async sync (fire-and-forget)
+          fetch(`/api/stores/${store.id}/sync-rag`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          }).catch(error => {
+            logger.error('RAG sync request failed', { storeId: store.id, error });
+          });
+        } else {
+          logger.info('Skipping sync - recently synced', { 
+            storeId: store.id, 
+            storeName: store.name,
+            lastSync: lastSync.toISOString()
+          });
+        }
+      }
+    } catch (error) {
+      logger.error('Intelligent sync failed', { error });
+    }
+  };
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -213,27 +265,68 @@ function DashboardContent() {
 
   const handleNewConversation = async () => {
     try {
-      // Necesitamos obtener el primer store disponible
-      if (stores.length === 0) {
-        console.error('No stores available for new conversation');
-        return;
+      logger.info('Creating new conversation');
+      
+      // 🚀 SYNC ANTES DE CONVERSACIÓN: Asegurar datos frescos antes de chat
+      if (stores.length > 0) {
+        logger.info('Pre-conversation sync check');
+        await ensureFreshDataForConversation();
       }
-
+      
       const response = await fetch('/api/conversations/new', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          storeId: stores[0].id // Usar primera tienda disponible
-        })
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
-      
-      const data = await response.json();
-      if (data.success) {
-        setSelectedConversationId(data.data.id);
-        await loadConversations(); // Recargar conversaciones
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.conversation) {
+          // Reload conversations to include the new one
+          await loadConversations();
+          // Select the new conversation
+          setSelectedConversationId(data.conversation.id);
+          logger.info('New conversation created and selected', { id: data.conversation.id });
+        }
+      } else {
+        logger.error('Failed to create conversation', { status: response.status });
       }
     } catch (error) {
-      console.error('Error creating new conversation:', error);
+      logger.error('Error creating new conversation:', error);
+    }
+  };
+
+  // 🎯 ENSURE FRESH DATA: Verificar y sincronizar si es necesario antes de conversar
+  const ensureFreshDataForConversation = async () => {
+    try {
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - (60 * 60 * 1000)); // 1 hora
+      
+      for (const store of stores) {
+        if (!store.access_token) continue;
+        
+        const lastSync = store.last_sync_at ? new Date(store.last_sync_at) : null;
+        const needsSync = !lastSync || lastSync < oneHourAgo;
+        
+        if (needsSync) {
+          logger.info('Pre-conversation sync needed', { 
+            storeId: store.id, 
+            storeName: store.name,
+            lastSync: lastSync?.toISOString() || 'never'
+          });
+          
+          // Quick sync (don't wait for response)
+          fetch(`/api/stores/${store.id}/sync-rag`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          }).catch(error => {
+            logger.error('Pre-conversation sync failed', { storeId: store.id, error });
+          });
+        }
+      }
+    } catch (error) {
+      logger.error('Pre-conversation data check failed', { error });
     }
   };
 

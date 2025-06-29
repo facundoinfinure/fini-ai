@@ -72,6 +72,18 @@ export class ProductManagerAgent extends BaseAgent {
         console.warn(`[PRODUCT-MANAGER] Found ${ragContext.length} chars of catalog data`);
       } else {
         console.warn(`[PRODUCT-MANAGER] No catalog data found for store ${context.storeId}`);
+        
+        // 🚀 CHECK: Verificar si hay sincronización en progreso
+        try {
+          const syncStatus = await this.checkSyncStatus(context.storeId);
+          if (syncStatus?.needsSync) {
+            console.warn(`[PRODUCT-MANAGER] Store needs sync - triggering intelligent sync`);
+            // Trigger sync asynchronously
+            this.triggerIntelligentSync(context.storeId);
+          }
+        } catch (error) {
+          console.warn(`[PRODUCT-MANAGER] Sync status check failed:`, error);
+        }
       }
 
       // Identify the type of query to provide focused response
@@ -354,5 +366,46 @@ Consulta del usuario: ${context.userMessage}
 Contexto: ${ragContext || 'No hay datos específicos disponibles'}`;
 
     return await this.generateResponse(systemPrompt, enhancedPrompt, ragContext);
+  }
+
+  /**
+   * 🚀 Check sync status for a store
+   */
+  private async checkSyncStatus(storeId: string): Promise<{ needsSync: boolean; lastSync?: string } | null> {
+    try {
+      const response = await fetch(`/api/stores/sync-status`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data.stores) {
+          const storeStatus = data.data.stores.find((s: any) => s.storeId === storeId);
+          return storeStatus ? {
+            needsSync: storeStatus.needsSync,
+            lastSync: storeStatus.lastSyncAt
+          } : null;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.warn('[PRODUCT-MANAGER] Sync status check failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 🚀 Trigger intelligent sync for a store
+   */
+  private triggerIntelligentSync(storeId: string): void {
+    // Fire-and-forget sync trigger
+    fetch(`/api/stores/sync-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storeIds: [storeId] })
+    }).catch(error => {
+      console.warn('[PRODUCT-MANAGER] Intelligent sync trigger failed:', error);
+    });
   }
 } 
