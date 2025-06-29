@@ -64,45 +64,44 @@ export class ProductManagerAgent extends BaseAgent {
     this.log('info', `Processing product management query: "${context.userMessage}"`);
 
     try {
-      // Get relevant context from RAG
+      // 🔍 CRITICAL FIX: Get RAG context for products and catalog
+      console.warn(`[PRODUCT-MANAGER] Getting catalog context for store: ${context.storeId}`);
       const ragContext = await this.getRelevantContext(context.userMessage, context);
       
-      // Identify the type of product management request
+      if (ragContext.trim().length > 0) {
+        console.warn(`[PRODUCT-MANAGER] Found ${ragContext.length} chars of catalog data`);
+      } else {
+        console.warn(`[PRODUCT-MANAGER] No catalog data found for store ${context.storeId}`);
+      }
+
+      // Identify the type of query to provide focused response
       const queryType = this.identifyQueryType(context.userMessage);
-      this.log('debug', `Identified query type: ${queryType.type}`);
+      this.log('debug', `Query classified as: ${queryType.type} (confidence: ${queryType.confidence})`);
 
-      // Generate appropriate response based on query type
       let response: string;
-      let confidence: number;
 
+      // Route to specific handler based on query type
       switch (queryType.type) {
         case 'catalog_analysis':
           response = await this.generateCatalogAnalysis(context, ragContext);
-          confidence = 0.9;
           break;
         case 'pricing_strategy':
           response = await this.generatePricingStrategy(context, ragContext);
-          confidence = 0.85;
           break;
         case 'product_recommendations':
           response = await this.generateProductRecommendations(context, ragContext);
-          confidence = 0.8;
           break;
         case 'lifecycle_management':
           response = await this.generateLifecycleManagement(context, ragContext);
-          confidence = 0.85;
           break;
         case 'competitive_analysis':
           response = await this.generateCompetitiveAnalysis(context, ragContext);
-          confidence = 0.8;
           break;
         case 'trend_analysis':
           response = await this.generateTrendAnalysis(context, ragContext);
-          confidence = 0.75;
           break;
         default:
           response = await this.generateGeneralProductManagement(context, ragContext);
-          confidence = 0.6;
       }
 
       const executionTime = Date.now() - startTime;
@@ -111,12 +110,11 @@ export class ProductManagerAgent extends BaseAgent {
       return this.createResponse(
         true,
         response,
-        confidence,
-        `Product management query processed: ${queryType.reasoning}`,
+        queryType.confidence,
+        queryType.reasoning,
         ragContext,
         executionTime
       );
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.log('error', `Product management processing failed: ${errorMessage}`);
@@ -209,14 +207,13 @@ export class ProductManagerAgent extends BaseAgent {
     const systemPrompt = this.config.prompts.systemPrompt;
     const enhancedPrompt = `${this.config.prompts.userPrompt}
 
-Enfoque específico: ANÁLISIS DE CATÁLOGO
-- Evalúa la estructura y organización del catálogo
-- Identifica oportunidades de optimización
-- Analiza la performance de categorías y productos
-- Proporciona recomendaciones específicas de mejora
+ENFOQUE: ANÁLISIS DE CATÁLOGO
+- Lista los productos principales que encontraste
+- Identifica 2-3 oportunidades específicas
+- Da recomendaciones directas y accionables
 
-Consulta del usuario: ${context.userMessage}
-Contexto: ${ragContext || 'No hay datos específicos disponibles'}`;
+Consulta: ${context.userMessage}
+Datos: ${ragContext || 'No hay datos específicos del catálogo disponibles'}`;
 
     return await this.generateResponse(systemPrompt, enhancedPrompt, ragContext);
   }
@@ -225,14 +222,13 @@ Contexto: ${ragContext || 'No hay datos específicos disponibles'}`;
     const systemPrompt = this.config.prompts.systemPrompt;
     const enhancedPrompt = `${this.config.prompts.userPrompt}
 
-Enfoque específico: ESTRATEGIA DE PRECIOS
-- Analiza la competitividad de los precios actuales
-- Identifica oportunidades de optimización de márgenes
-- Considera factores del mercado argentino
-- Proporciona estrategias de pricing específicas
+ENFOQUE: ESTRATEGIA DE PRECIOS
+- Analiza precios actuales si los hay
+- Compara con mercado argentino
+- Da 2-3 acciones específicas para optimizar
 
-Consulta del usuario: ${context.userMessage}
-Contexto: ${ragContext || 'No hay datos específicos disponibles'}`;
+Consulta: ${context.userMessage}
+Datos: ${ragContext || 'No hay datos específicos de precios disponibles'}`;
 
     return await this.generateResponse(systemPrompt, enhancedPrompt, ragContext);
   }
@@ -241,14 +237,13 @@ Contexto: ${ragContext || 'No hay datos específicos disponibles'}`;
     const systemPrompt = this.config.prompts.systemPrompt;
     const enhancedPrompt = `${this.config.prompts.userPrompt}
 
-Enfoque específico: RECOMENDACIONES DE PRODUCTOS
-- Identifica gaps en el portfolio actual
-- Analiza tendencias del mercado argentino
-- Recomienda productos con alto potencial
-- Considera viabilidad y recursos necesarios
+ENFOQUE: RECOMENDACIONES DE PRODUCTOS
+- Analiza qué productos ya tiene
+- Identifica gaps específicos en el catálogo
+- Recomienda 3 productos o categorías específicas
 
-Consulta del usuario: ${context.userMessage}
-Contexto: ${ragContext || 'No hay datos específicos disponibles'}`;
+Consulta: ${context.userMessage}
+Datos: ${ragContext || 'No hay datos específicos del catálogo disponibles'}`;
 
     return await this.generateResponse(systemPrompt, enhancedPrompt, ragContext);
   }
