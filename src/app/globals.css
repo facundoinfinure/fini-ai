@@ -1485,12 +1485,16 @@
 
 .openai-suggestion-card {
   @apply p-4 bg-white border border-gray-200 rounded-xl text-left 
-         hover:bg-gray-50 transition-colors group cursor-pointer;
+         hover:bg-gray-50 transition-colors cursor-pointer;
 }
 
-.openai-suggestion-icon {
+.openai-suggestion-card .openai-suggestion-icon {
   @apply w-6 h-6 bg-gray-100 rounded-lg flex items-center justify-center 
-         group-hover:bg-black group-hover:text-white transition-colors;
+         transition-colors;
+}
+
+.openai-suggestion-card:hover .openai-suggestion-icon {
+  @apply bg-black text-white;
 }
 
 /* Agent Panel Styles */
