@@ -13,7 +13,8 @@ import {
   ChevronDown,
   ChevronRight,
   Plus,
-  MessageCircle
+  MessageCircle,
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -30,6 +31,7 @@ interface SidebarLayoutProps {
   onConversationSelect?: (conversationId: string) => void;
   onNewConversation?: () => void;
   onConversationUpdate?: () => void;
+  onConversationDelete?: (conversationId: string) => void;
 }
 
 interface NavigationItem {
@@ -81,7 +83,8 @@ export function SidebarLayout({
   selectedConversationId,
   onConversationSelect,
   onNewConversation,
-  onConversationUpdate
+  onConversationUpdate,
+  onConversationDelete
 }: SidebarLayoutProps) {
   const [chatExpanded, setChatExpanded] = useState(activeTab === 'chat');
   const [conversations, setConversations] = useState<Conversation[]>(propConversations || []);
@@ -186,6 +189,38 @@ export function SidebarLayout({
     }
   };
 
+  const handleConversationDelete = async (conversationId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevenir que se seleccione la conversación al hacer click en eliminar
+    
+    if (onConversationDelete) {
+      onConversationDelete(conversationId);
+    } else {
+      // Fallback - eliminar localmente si no hay callback del padre
+      try {
+        const response = await fetch(`/api/conversations/${conversationId}`, {
+          method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+          // Remover de la lista local
+          setConversations(prev => prev.filter(c => c.id !== conversationId));
+          
+          // Si era la conversación seleccionada, limpiar selección
+          if (selectedConversation === conversationId) {
+            setSelectedConversation(null);
+          }
+          
+          if (onConversationUpdate) {
+            onConversationUpdate();
+          }
+        }
+      } catch (error) {
+        console.error('Error deleting conversation:', error);
+      }
+    }
+  };
+
   return (
     <div className={cn("min-h-screen bg-[#f8f9fa] flex", className)}>
       {/* Sidebar - Origin Style */}
@@ -260,21 +295,37 @@ export function SidebarLayout({
                       {conversations.map((conversation) => (
                         <div
                           key={conversation.id}
-                          onClick={() => handleConversationSelect(conversation.id)}
                           className={cn(
-                            "sidebar-conversation-item",
+                            "sidebar-conversation-item group",
                             selectedConversation === conversation.id && "active"
                           )}
                         >
-                          <MessageCircle className="w-3 h-3 flex-shrink-0" />
-                          <span className="sidebar-conversation-title">
-                            {conversation.title}
-                          </span>
-                          {conversation.unreadCount && conversation.unreadCount > 0 && (
-                            <span className="sidebar-conversation-badge">
-                              {conversation.unreadCount}
+                          {/* Conversation Content - Clickable area */}
+                          <div 
+                            onClick={() => handleConversationSelect(conversation.id)}
+                            className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
+                          >
+                            <MessageCircle className="w-3 h-3 flex-shrink-0" />
+                            <span className="sidebar-conversation-title">
+                              {conversation.title}
                             </span>
-                          )}
+                            {conversation.unreadCount && conversation.unreadCount > 0 && (
+                              <span className="sidebar-conversation-badge">
+                                {conversation.unreadCount}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Delete Button - Only visible on hover */}
+                          <button
+                            onClick={(e) => handleConversationDelete(conversation.id, e)}
+                            className="delete-conversation-btn opacity-0 group-hover:opacity-100 
+                                     transition-opacity duration-200 flex-shrink-0 
+                                     p-1 rounded hover:bg-red-100 hover:text-red-600"
+                            title="Eliminar conversación"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
                         </div>
                       ))}
                     </div>

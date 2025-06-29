@@ -245,6 +245,31 @@ function DashboardContent() {
     loadConversations();
   };
 
+  const handleConversationDelete = async (conversationId: string) => {
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}`, {
+        method: 'DELETE'
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        // Remover de la lista local
+        setConversations(prev => prev.filter(c => c.id !== conversationId));
+        
+        // Si era la conversación seleccionada, limpiar selección
+        if (selectedConversationId === conversationId) {
+          setSelectedConversationId(null);
+        }
+        
+        console.log('Conversación eliminada:', conversationId);
+      } else {
+        console.error('Error eliminando conversación:', data.error);
+      }
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+    }
+  };
+
   // Load conversations when chat tab is active
   useEffect(() => {
     if (activeTab === 'chat' && user) {
@@ -292,6 +317,7 @@ function DashboardContent() {
       onConversationSelect={handleConversationSelect}
       onNewConversation={handleNewConversation}
       onConversationUpdate={handleConversationUpdate}
+      onConversationDelete={handleConversationDelete}
     >
       {/* Refresh Button */}
       <div className="flex justify-end mb-6">

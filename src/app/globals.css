@@ -1565,9 +1565,9 @@
 }
 
 .sidebar-conversation-item {
-  @apply flex items-center gap-2 px-6 py-2 text-sm 
+  @apply flex items-center justify-between gap-2 px-6 py-2 text-sm 
          text-[#6b7280] hover:text-[#1a1a1a] hover:bg-[#f9fafb]
-         cursor-pointer transition-colors duration-200;
+         transition-colors duration-200;
 }
 
 .sidebar-conversation-item.active {
@@ -1580,6 +1580,25 @@
 
 .sidebar-conversation-badge {
   @apply bg-[#ef4444] text-white text-xs px-1.5 py-0.5 rounded-full min-w-[18px] text-center;
+}
+
+/* Delete conversation button styles */
+.delete-conversation-btn {
+  @apply flex items-center justify-center text-[#9ca3af] hover:text-[#dc2626] 
+         transition-all duration-200 ease-in-out;
+}
+
+.delete-conversation-btn:hover {
+  @apply bg-[#fee2e2] text-[#dc2626] transform scale-105;
+}
+
+/* Smooth hover animations for conversation items */
+.sidebar-conversation-item:hover .delete-conversation-btn {
+  @apply opacity-100;
+}
+
+.sidebar-conversation-item .delete-conversation-btn {
+  @apply opacity-0 transition-opacity duration-200 ease-in-out;
 }
 
 /* Modern Chat Interface Styles */
