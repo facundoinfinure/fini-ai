@@ -15,6 +15,8 @@ export default function OnboardingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [hasStores, setHasStores] = useState(false);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 
   // Form data
   const [storeUrl, setStoreUrl] = useState("");
@@ -31,7 +33,7 @@ export default function OnboardingPage() {
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [businessProfile, setBusinessProfile] = useState<any>(null);
 
-  // Check if user is authenticated and has completed onboarding
+  // Check if user is authenticated and handle onboarding state
   useEffect(() => {
     if (loading) return;
     
@@ -40,12 +42,34 @@ export default function OnboardingPage() {
       return;
     }
 
-    // Check if user has already completed onboarding
-    checkExistingOnboarding();
+    // Handle URL parameters first
+    const searchParams = new URLSearchParams(window.location.search);
+    const stepParam = searchParams.get('step');
+    const successParam = searchParams.get('success');
+    const errorParam = searchParams.get('error');
+    const messageParam = searchParams.get('message');
+
+    // Set success/error messages from URL
+    if (successParam === 'store_connected') {
+      const storeName = searchParams.get('store_name');
+      setSuccess(`¡Tienda "${storeName}" conectada exitosamente!`);
+    }
+    if (errorParam) {
+      setError(messageParam || 'Error en el proceso de configuración');
+    }
+
+    // Check existing onboarding status and set appropriate step
+    checkExistingOnboarding(stepParam);
+    
+    // Clean URL parameters after processing them
+    if (stepParam || successParam || errorParam) {
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, loading, router]);
 
-  const checkExistingOnboarding = async () => {
+  const checkExistingOnboarding = async (stepParam?: string | null) => {
     try {
       console.log('[INFO] Checking onboarding status for user:', user?.id);
       
@@ -81,16 +105,31 @@ export default function OnboardingPage() {
         }
       }
       
-      // Redirect logic:
-      // - If user has completed onboarding AND has stores -> dashboard
-      // - Otherwise -> stay on onboarding
-      if (hasCompletedOnboarding && hasStores) {
+      // Set state variables
+      setHasStores(hasStores);
+      setOnboardingCompleted(hasCompletedOnboarding);
+
+      // Determine appropriate step
+      let targetStep = 0; // Default to welcome
+      
+      // If URL has specific step parameter, use it (from OAuth callback)
+      if (stepParam && !isNaN(parseInt(stepParam))) {
+        targetStep = parseInt(stepParam);
+      }
+      // Otherwise, determine step based on user's progress
+      else if (hasStores && !hasCompletedOnboarding) {
+        // User has connected store but hasn't completed onboarding
+        targetStep = 2; // Go to analysis step
+      }
+      else if (hasCompletedOnboarding && hasStores) {
+        // User has completed everything -> redirect to dashboard
         console.log('[INFO] User has completed onboarding and has stores, redirecting to dashboard');
         router.push("/dashboard");
         return;
       }
       
-      console.log('[INFO] User needs to complete onboarding setup');
+      console.log('[INFO] Setting onboarding step to:', targetStep);
+      setCurrentStep(targetStep);
       
     } catch (error) {
       console.error('[ERROR] Error checking onboarding status:', error);
@@ -264,10 +303,7 @@ export default function OnboardingPage() {
       setAnalysisComplete(true);
       setSuccess('¡Análisis completado! Revisa el perfil de tu negocio.');
       
-      // Auto-advance to review step
-      setTimeout(() => {
-        handleNextStep();
-      }, 2000);
+      // Let user manually advance to review step
 
     } catch (error) {
       console.error('[STORE-ANALYSIS] Error analyzing store:', error);
@@ -290,10 +326,7 @@ export default function OnboardingPage() {
       // In the future, this could save to database
       setSuccess('Perfil guardado correctamente');
       
-      // Continue to next step
-      setTimeout(() => {
-        handleNextStep();
-      }, 1500);
+      // User can manually continue to next step
 
     } catch (error) {
       console.error('[PROFILE-SAVE] Error saving profile:', error);
@@ -475,8 +508,8 @@ export default function OnboardingPage() {
         <div className="bg-white border-b border-gray-200">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center py-4">
-              <div className="flex-1">
-                <div className="flex items-center">
+              <div className="w-full max-w-2xl mx-auto">
+                <div className="flex items-center justify-center">
                   {[1, 2, 3, 4, 5].map((step) => (
                     <div key={step} className="flex items-center">
                       <div
@@ -490,7 +523,7 @@ export default function OnboardingPage() {
                       </div>
                       {step < 5 && (
                         <div
-                          className={`flex-1 h-1 mx-2 rounded-full ${
+                          className={`w-16 h-1 mx-2 rounded-full ${
                             currentStep > step ? 'bg-blue-600' : 'bg-gray-200'
                           }`}
                         />
@@ -498,7 +531,7 @@ export default function OnboardingPage() {
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-between mt-2">
+                <div className="grid grid-cols-5 mt-2 text-center">
                   <span className="text-xs text-gray-600">Tienda</span>
                   <span className="text-xs text-gray-600">Análisis</span>
                   <span className="text-xs text-gray-600">Perfil</span>
@@ -545,6 +578,33 @@ export default function OnboardingPage() {
         )}
 
         {/* Step Content */}
+        
+        {/* Show store connected message if user is on step 1 but already has stores */}
+        {currentStep === 1 && hasStores && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
+            <div className="flex">
+              <div className="text-green-400">
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-green-800">
+                  <strong>¡Tu tienda ya está conectada!</strong> Puedes continuar al siguiente paso para completar la configuración.
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setCurrentStep(2)}
+                  className="mt-2"
+                >
+                  Ir al Análisis →
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Step 0: Welcome (similar to Origin) */}
         {currentStep === 0 && (
           <div className="max-w-2xl mx-auto text-center">
@@ -552,7 +612,7 @@ export default function OnboardingPage() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => setCurrentStep(1)}
+                onClick={() => setCurrentStep(hasStores ? 2 : 1)}
                 className="text-gray-600 hover:text-gray-900"
               >
                 SALTAR
@@ -560,10 +620,13 @@ export default function OnboardingPage() {
             </div>
             
             <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              ¡Bienvenido a Fini AI! ¿Por dónde te gustaría empezar?
+              {hasStores ? "¡Bienvenido de vuelta!" : "¡Bienvenido a Fini AI!"} ¿Por dónde te gustaría empezar?
             </h1>
             <p className="text-lg text-gray-600 mb-12">
-              Selecciona lo que más te interesa en este momento
+              {hasStores 
+                ? "Tu tienda ya está conectada. Terminemos de configurar tu perfil."
+                : "Selecciona lo que más te interesa en este momento"
+              }
             </p>
 
             <div className="space-y-4 mb-12">
@@ -818,6 +881,12 @@ export default function OnboardingPage() {
                       <div>💡 <strong>Generado por:</strong> {businessProfile.generatedBy === 'ai' ? 'IA' : 'Análisis básico'}</div>
                     </div>
                   </div>
+                  <Button 
+                    onClick={handleNextStep}
+                    className="mt-4"
+                  >
+                    Continuar al Siguiente Paso →
+                  </Button>
                 </div>
               )}
 

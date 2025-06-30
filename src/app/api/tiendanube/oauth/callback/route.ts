@@ -35,12 +35,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('[ERROR] OAuth error from Tienda Nube:', error);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=oauth_failed&message=${encodeURIComponent(error)}&debug=oauth_error_from_tn`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=${encodeURIComponent(error)}&debug=oauth_error_from_tn`);
     }
 
     if (!code || !state) {
       console.error('[ERROR] Missing code or state in OAuth callback');
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=oauth_failed&message=missing_parameters&debug=missing_code_or_state`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=missing_parameters&debug=missing_code_or_state`);
     }
 
     // Decode state parameter to get user ID and store information
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
       
     } catch (stateError) {
       console.error('[ERROR] Failed to decode state parameter:', stateError);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=oauth_failed&message=invalid_state&debug=state_decode_error`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=invalid_state&debug=state_decode_error`);
     }
 
     const userId = stateData.userId;
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
         expectedUserId: userId,
         actualUserId: session?.user?.id
       });
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=oauth_failed&message=session_mismatch&debug=session_verification_failed`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=session_mismatch&debug=session_verification_failed`);
     }
 
     try {
@@ -181,7 +181,8 @@ export async function GET(request: NextRequest) {
         totalTime: `${totalTime}ms`
       });
 
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?success=store_connected&store_name=${encodeURIComponent(storeName)}&store_id=${storeInfo.id}`);
+      // Redirect back to onboarding to continue the flow
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=2&success=store_connected&store_name=${encodeURIComponent(storeName)}&store_id=${storeInfo.id}`);
 
     } catch (oauthError) {
       const totalTime = Date.now() - startTime;
@@ -196,7 +197,7 @@ export async function GET(request: NextRequest) {
       const errorMessage = oauthError instanceof Error ? oauthError.message : 'Unknown error';
       const debugInfo = encodeURIComponent(`${errorMessage}|time:${totalTime}ms`);
       
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=token_exchange_failed&message=token_exchange_failed&debug=${debugInfo}`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=token_exchange_failed&message=token_exchange_failed&debug=${debugInfo}`);
     }
 
   } catch (error) {
