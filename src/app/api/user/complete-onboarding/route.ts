@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { UserService, StoreService, WhatsAppConfigService, UserSettingsService } from '@/lib/database/client';
-import { segmentServerAnalytics } from '@/lib/analytics';
+// import { segmentServerAnalytics } from '@/lib/analytics';
 
 interface OnboardingData {
   storeUrl: string;
@@ -51,7 +51,8 @@ export async function POST(_request: NextRequest) {
 
     console.log('[INFO] User onboarding completed successfully');
 
-    // Track onboarding completion
+    // Track onboarding completion - DISABLED TEMPORARILY FOR VERCEL BUILD
+    /*
     try {
       // Get user's stores and WhatsApp status for tracking
       const storesResult = await StoreService.getStoresByUserId(userId);
@@ -68,6 +69,7 @@ export async function POST(_request: NextRequest) {
       console.error('[WARNING] Failed to track onboarding completion:', trackingError);
       // Don't fail the main request if tracking fails
     }
+    */
 
     return NextResponse.json({
       success: true,

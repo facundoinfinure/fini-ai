@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, ReactNode, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { segmentClientAnalytics } from '@/lib/analytics';
+// import { segmentClientAnalytics } from '@/lib/analytics';
 
 // Analytics Context
 const AnalyticsContext = createContext<{
@@ -44,13 +44,13 @@ function AnalyticsTracker() {
       const page = pathname || '/';
       const section = getPageSection(page);
       
-      segmentClientAnalytics.trackPageView({
-        page: document.title || page,
-        url: window.location.href,
-        referrer: document.referrer || '',
-        section: section as "home" | "dashboard" | "onboarding" | "auth" | "chat",
-        userAgent: navigator.userAgent,
-      });
+      // segmentClientAnalytics.trackPageView({
+      //   page: document.title || page,
+      //   url: window.location.href,
+      //   referrer: document.referrer || '',
+      //   section: section as "home" | "dashboard" | "onboarding" | "auth" | "chat",
+      //   userAgent: navigator.userAgent,
+      // });
     };
 
     // Small delay to ensure page is fully loaded
@@ -63,13 +63,13 @@ function AnalyticsTracker() {
   useEffect(() => {
     if (!user?.id) return;
 
-    segmentClientAnalytics.identify(user.id, {
-      email: user.email,
-      firstName: user.user_metadata?.firstName,
-      lastName: user.user_metadata?.lastName,
-      createdAt: user.created_at,
-      lastSeen: new Date().toISOString(),
-    });
+    // segmentClientAnalytics.identify(user.id, {
+    //   email: user.email,
+    //   firstName: user.user_metadata?.firstName,
+    //   lastName: user.user_metadata?.lastName,
+    //   createdAt: user.created_at,
+    //   lastSeen: new Date().toISOString(),
+    // });
 
     console.log('[ANALYTICS] User identified:', user.id);
   }, [user]);
@@ -77,21 +77,21 @@ function AnalyticsTracker() {
   // Track errors globally
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
-      segmentClientAnalytics.trackClientError(new Error(event.message), {
-        filename: event.filename,
-        lineno: event.lineno,
-        colno: event.colno,
-        type: 'javascript_error',
-      });
+      // segmentClientAnalytics.trackClientError(new Error(event.message), {
+      //   filename: event.filename,
+      //   lineno: event.lineno,
+      //   colno: event.colno,
+      //   type: 'javascript_error',
+      // });
     };
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      segmentClientAnalytics.trackClientError(
-        new Error(`Unhandled Promise Rejection: ${event.reason}`),
-        {
-          type: 'promise_rejection',
-        }
-      );
+      // segmentClientAnalytics.trackClientError(
+      //   new Error(`Unhandled Promise Rejection: ${event.reason}`),
+      //   {
+      //     type: 'promise_rejection',
+      //   }
+      // );
     };
 
     window.addEventListener('error', handleError);

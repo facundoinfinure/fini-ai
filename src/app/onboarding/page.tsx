@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { useAnalytics } from "@/lib/analytics";
+// import { useAnalytics } from "@/lib/analytics";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,11 @@ import { Input } from "@/components/ui/input";
 export default function OnboardingPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { trackOnboardingStep, trackButtonClick, trackError, trackFeature } = useAnalytics();
+  // const { trackOnboardingStep, trackButtonClick, trackError, trackFeature } = useAnalytics();
+  const trackOnboardingStep = (...args: any[]) => {};
+  const trackButtonClick = (...args: any[]) => {};
+  const trackError = (...args: any[]) => {};
+  const trackFeature = (...args: any[]) => {};
   const [currentStep, setCurrentStep] = useState(0); // Start with welcome step
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
