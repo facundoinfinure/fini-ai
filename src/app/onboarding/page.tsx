@@ -1465,45 +1465,10 @@ export default function OnboardingPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Stripe Pricing Table - Always shown */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
-                  Tabla de Precios Stripe
-                </h3>
-                <StripePricingTable 
-                  onPlanSelected={handleStripePlanSelected}
-                  showCustomPricing={false}
-                  className="border rounded-lg p-4 bg-gray-50"
-                />
-                <div className="mt-4 text-center">
-                  <p className="text-sm text-gray-600">
-                    Después de seleccionar un plan serás redirigido a Stripe para completar el pago.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex justify-between">
-                <Button 
-                  variant="outline"
-                  onClick={handlePreviousStep}
-                >
-                  Anterior
-                </Button>
-                <Button 
-                  onClick={handleCompleteOnboarding}
-                  disabled={isLoading}
-                  className="min-w-[140px]"
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Completando...
-                    </>
-                  ) : (
-                    'Proceder con Stripe'
-                  )}
-                </Button>
-              </div>
+              <StripePricingTable 
+                onPlanSelected={handleStripePlanSelected}
+                showCustomPricing={false}
+              />
             </CardContent>
           </Card>
         )}
