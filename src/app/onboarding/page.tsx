@@ -34,10 +34,13 @@ export default function OnboardingPage() {
   const [selectedGoal, setSelectedGoal] = useState<string>("");
   
   // 🤖 NEW: Store Analysis state
-  const [storeId, setStoreId] = useState<string>("");
+  const [storeId, setStoreId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [businessProfile, setBusinessProfile] = useState<any>(null);
+
+  // Add flag to prevent multiple checkExistingOnboarding calls
+  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
 
   // Check if user is authenticated and handle onboarding state
   useEffect(() => {
@@ -48,12 +51,17 @@ export default function OnboardingPage() {
       return;
     }
 
+    // Prevent multiple executions
+    if (hasCheckedOnboarding) return;
+
     // Handle URL parameters first
     const searchParams = new URLSearchParams(window.location.search);
     const stepParam = searchParams.get('step');
     const successParam = searchParams.get('success');
     const errorParam = searchParams.get('error');
     const messageParam = searchParams.get('message');
+
+    console.log('[INFO] Onboarding page loaded with params:', { stepParam, successParam, errorParam });
 
     // Set success/error messages from URL
     if (successParam === 'store_connected') {
@@ -72,12 +80,16 @@ export default function OnboardingPage() {
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
+
+    // Mark as checked to prevent re-execution
+    setHasCheckedOnboarding(true);
+    
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, loading, router]);
+  }, [user, loading, router, hasCheckedOnboarding]);
 
   const checkExistingOnboarding = async (stepParam?: string | null) => {
     try {
-      console.log('[INFO] Checking onboarding status for user:', user?.id);
+      console.log('[INFO] Checking onboarding status for user:', user?.id, 'stepParam:', stepParam);
       
       // Check user's onboarding status and stores in parallel
       const [onboardingResponse, storesResponse] = await Promise.all([
@@ -85,8 +97,10 @@ export default function OnboardingPage() {
         fetch("/api/stores")
       ]);
       
-      console.log('[INFO] Onboarding response status:', onboardingResponse.status);
-      console.log('[INFO] Stores response status:', storesResponse.status);
+      console.log('[INFO] API responses:', {
+        onboarding: onboardingResponse.status,
+        stores: storesResponse.status
+      });
       
       let hasCompletedOnboarding = false;
       let hasStores = false;
@@ -121,17 +135,22 @@ export default function OnboardingPage() {
       // If URL has specific step parameter, use it (from OAuth callback)
       if (stepParam && !isNaN(parseInt(stepParam))) {
         targetStep = parseInt(stepParam);
+        console.log('[INFO] Using step from URL parameter:', targetStep);
       }
       // Otherwise, determine step based on user's progress
       else if (hasStores && !hasCompletedOnboarding) {
         // User has connected store but hasn't completed onboarding
         targetStep = 2; // Go to analysis step
+        console.log('[INFO] User has stores but onboarding not completed, going to step 2');
       }
       else if (hasCompletedOnboarding && hasStores) {
         // User has completed everything -> redirect to dashboard
         console.log('[INFO] User has completed onboarding and has stores, redirecting to dashboard');
         router.push("/dashboard");
         return;
+      }
+      else {
+        console.log('[INFO] Using default welcome step');
       }
       
       console.log('[INFO] Setting onboarding step to:', targetStep);
@@ -140,6 +159,7 @@ export default function OnboardingPage() {
     } catch (error) {
       console.error('[ERROR] Error checking onboarding status:', error);
       // Don't redirect on error, let user stay on onboarding page
+      setCurrentStep(0); // Default to welcome step on error
     }
   };
 
