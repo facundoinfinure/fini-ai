@@ -66,13 +66,12 @@ export interface BusinessProfile {
     brandCount: number;
   };
   
-  // Sugerencias de AI
-  aiSuggestions: {
-    marketingFocus: string[];
-    competitiveAdvantages: string[];
-    growthOpportunities: string[];
-    audienceInsights: string[];
-  };
+  // Competidores
+  competitors?: Array<{
+    name?: string;
+    website?: string;
+    instagram?: string;
+  }>;
   
   // Metadata
   generatedBy: 'ai' | 'user' | 'hybrid';
@@ -297,12 +296,7 @@ export class StoreAnalysisService {
         hasVariants: analysis.hasVariants,
         brandCount: analysis.brandCount
       },
-      aiSuggestions: {
-        marketingFocus: aiData.marketingFocus || [],
-        competitiveAdvantages: aiData.competitiveAdvantages || [],
-        growthOpportunities: aiData.growthOpportunities || [],
-        audienceInsights: aiData.audienceInsights || []
-      },
+      competitors: [],
       generatedBy: 'ai',
       confidence: 0.9,
       analysisDate: new Date().toISOString()
@@ -324,8 +318,7 @@ export class StoreAnalysisService {
     // Inferir audiencia
     const audience = this.inferAudience(mainCategory);
     
-    // Generar insights básicos
-    const insights = this.generateBasicInsights(analysis);
+    // No longer generating AI insights - focusing on competitors
 
     return {
       businessName: store.name,
@@ -346,7 +339,7 @@ export class StoreAnalysisService {
         hasVariants: analysis.hasVariants,
         brandCount: analysis.brandCount
       },
-      aiSuggestions: insights,
+      competitors: [],
       generatedBy: 'user',
       confidence: 0.7,
       analysisDate: new Date().toISOString()
@@ -432,27 +425,7 @@ ${sampleProducts.map(p => `- ${p.name} (${p.price} ${store.currency})`).join('\n
     return features.length > 0 ? features : ['Productos de calidad', 'Fácil navegación'];
   }
 
-  private generateBasicInsights(analysis: any) {
-    return {
-      marketingFocus: [
-        'Destacar variedad de productos',
-        'Comunicar valor del catálogo',
-        'Optimizar para móvil'
-      ],
-      competitiveAdvantages: [
-        'Catálogo organizado',
-        'Múltiples opciones'
-      ],
-      growthOpportunities: [
-        'Expandir categorías populares',
-        'Optimizar descripción de productos'
-      ],
-      audienceInsights: [
-        'Buscan variedad de opciones',
-        'Valoran la organización del catálogo'
-      ]
-    };
-  }
+
 
   private getEmptyProfile(): BusinessProfile {
     return {
@@ -470,12 +443,7 @@ ${sampleProducts.map(p => `- ${p.name} (${p.price} ${store.currency})`).join('\n
         hasVariants: false,
         brandCount: 0
       },
-      aiSuggestions: {
-        marketingFocus: [],
-        competitiveAdvantages: [],
-        growthOpportunities: [],
-        audienceInsights: []
-      },
+      competitors: [],
       generatedBy: 'user',
       confidence: 0,
       analysisDate: new Date().toISOString()

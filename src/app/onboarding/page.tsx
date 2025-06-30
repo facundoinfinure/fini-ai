@@ -38,6 +38,9 @@ export default function OnboardingPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [businessProfile, setBusinessProfile] = useState<any>(null);
+  
+  // 🏢 NEW: Competitors state
+  const [competitors, setCompetitors] = useState<Array<{website?: string, instagram?: string, name?: string}>>([{}, {}, {}]);
 
   // Add flag to prevent multiple checkExistingOnboarding calls
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
@@ -378,7 +381,10 @@ export default function OnboardingPage() {
       // In the future, this could save to database
       setSuccess('Perfil guardado correctamente');
       
-      // User can manually continue to next step
+      // Auto-advance to next step after short delay
+      setTimeout(() => {
+        handleNextStep();
+      }, 1000);
 
     } catch (error) {
       console.error('[PROFILE-SAVE] Error saving profile:', error);
@@ -1055,21 +1061,68 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              {businessProfile.aiSuggestions?.marketingFocus && businessProfile.aiSuggestions.marketingFocus.length > 0 && (
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <h4 className="font-medium text-blue-900 mb-3">💡 Sugerencias de IA</h4>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="font-medium text-blue-800">Enfoque de marketing:</span>
-                      <ul className="ml-4 mt-1 list-disc">
-                        {businessProfile.aiSuggestions.marketingFocus.map((focus: string, index: number) => (
-                          <li key={index} className="text-blue-700">{focus}</li>
-                        ))}
-                      </ul>
+              <div className="bg-orange-50 rounded-lg p-4">
+                <h4 className="font-medium text-orange-900 mb-3">🏢 Competidores Principales</h4>
+                <p className="text-sm text-orange-700 mb-4">
+                  Agrega hasta 3 competidores para obtener mejores insights y estrategias de marketing.
+                </p>
+                
+                <div className="space-y-4">
+                  {competitors.map((competitor, index) => (
+                    <div key={index} className="grid md:grid-cols-3 gap-3 items-center p-3 bg-white rounded border">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Nombre (opcional)
+                        </label>
+                        <Input
+                          placeholder="Ej: MercadoLibre"
+                          value={competitor.name || ''}
+                          onChange={(e) => {
+                            const newCompetitors = [...competitors];
+                            newCompetitors[index] = { ...newCompetitors[index], name: e.target.value };
+                            setCompetitors(newCompetitors);
+                          }}
+                          className="text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Sitio Web
+                        </label>
+                        <Input
+                          placeholder="https://competidor.com"
+                          value={competitor.website || ''}
+                          onChange={(e) => {
+                            const newCompetitors = [...competitors];
+                            newCompetitors[index] = { ...newCompetitors[index], website: e.target.value };
+                            setCompetitors(newCompetitors);
+                          }}
+                          className="text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Instagram
+                        </label>
+                        <Input
+                          placeholder="@competidor"
+                          value={competitor.instagram || ''}
+                          onChange={(e) => {
+                            const newCompetitors = [...competitors];
+                            newCompetitors[index] = { ...newCompetitors[index], instagram: e.target.value };
+                            setCompetitors(newCompetitors);
+                          }}
+                          className="text-sm"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              )}
+                
+                <p className="text-xs text-orange-600 mt-2">
+                  💡 Esta información nos ayudará a generar estrategias más específicas para tu mercado.
+                </p>
+              </div>
 
               <div className="flex justify-between">
                 <Button 
