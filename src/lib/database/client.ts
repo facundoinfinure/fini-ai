@@ -703,6 +703,10 @@ export class MessageService {
         // Ensure confidence is a valid decimal between 0 and 1
         ...(messageData.confidence !== undefined && {
           confidence: Math.max(0, Math.min(1, Number(messageData.confidence) || 0))
+        }),
+        // Ensure reasoning is a string (for agent transparency)
+        ...(messageData.reasoning !== undefined && {
+          reasoning: String(messageData.reasoning).trim()
         })
       };
 

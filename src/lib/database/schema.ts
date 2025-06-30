@@ -96,6 +96,7 @@ export interface Message {
   agent_type?: 'orchestrator' | 'analytics' | 'customer_service' | 'marketing';
   confidence?: number;
   processing_time_ms?: number;
+  reasoning?: string;  // 🔥 NEW: Agent reasoning for transparency
   created_at: string;
 }
 
@@ -227,6 +228,7 @@ CREATE TABLE IF NOT EXISTS messages (
   agent_type TEXT CHECK (agent_type IN ('orchestrator', 'analytics', 'customer_service', 'marketing')),
   confidence DECIMAL(3,2),
   processing_time_ms INTEGER,
+  reasoning TEXT,  -- Agent reasoning for transparency
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

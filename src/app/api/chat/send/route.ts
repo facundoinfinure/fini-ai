@@ -183,6 +183,7 @@ export async function POST(request: NextRequest) {
       agent_type: agentResponse.agentType as 'orchestrator' | 'analytics' | 'customer_service' | 'marketing',
       confidence: agentResponse.confidence,
       processing_time_ms: processingTimeMs,
+      reasoning: agentResponse.reasoning,  // 🔥 NEW: Agent reasoning for transparency
       created_at: new Date().toISOString()
     });
 
@@ -286,6 +287,7 @@ export async function POST(request: NextRequest) {
         message: agentResponse.response,
         agentType: agentResponse.agentType,
         confidence: agentResponse.confidence,
+        reasoning: agentResponse.reasoning,  // 🔥 NEW: Agent reasoning for transparency
         conversationId: finalConversationId,
         timestamp: new Date().toISOString(),
         processingTime,
