@@ -16,8 +16,8 @@ interface StripePricingTableProps {
 const PLANS = {
   basic: {
     name: 'Plan Basic',
-    monthlyPrice: 19.99,
-    annualPrice: 199.99,
+    monthlyPrice: 29.99,
+    annualPrice: 299.99,
     description: 'Perfecto para emprendedores',
     features: [
       'Chat básico por WhatsApp',
@@ -31,8 +31,8 @@ const PLANS = {
   },
   pro: {
     name: 'Plan Pro',
-    monthlyPrice: 39.99,
-    annualPrice: 399.99,
+    monthlyPrice: 49.99,
+    annualPrice: 499.99,
     description: 'Para negocios en crecimiento',
     features: [
       'Todo del Plan Basic',

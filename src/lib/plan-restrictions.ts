@@ -176,8 +176,8 @@ export const PLAN_CONFIGS: PlanConfig[] = [
   {
     id: 'basic',
     name: 'Plan Basic',
-    monthlyPrice: 19.99,
-    annualPrice: 199.99, // ~17% discount
+    monthlyPrice: 29.99,
+    annualPrice: 299.99, // ~17% discount
     description: 'Ideal para emprendedores',
     features: [
       'Chat básico por WhatsApp',
@@ -191,8 +191,8 @@ export const PLAN_CONFIGS: PlanConfig[] = [
   {
     id: 'pro',
     name: 'Plan Pro',
-    monthlyPrice: 39.99,
-    annualPrice: 399.99, // ~17% discount
+    monthlyPrice: 49.99,
+    annualPrice: 499.99, // ~17% discount
     description: 'Para negocios en crecimiento',
     features: [
       'Todo del Plan Basic',

@@ -19,13 +19,13 @@
 ### 2.2 Agregar Precios al Plan Basic
 1. En el producto recién creado, click **"+ Add price"**
 2. **Precio Mensual**:
-   - **Price**: `$19.99`
+   - **Price**: `$29.99`
    - **Billing period**: `Monthly`
    - **Price description**: `Basic Monthly`
 3. **Guarda** y toma nota del **Price ID** (empieza con `price_...`)
 
 4. Click **"+ Add price"** otra vez para el anual:
-   - **Price**: `$199.99`
+   - **Price**: `$299.99`
    - **Billing period**: `Yearly`
    - **Price description**: `Basic Annual (17% off)`
 5. **Guarda** y toma nota del **Price ID**
@@ -42,13 +42,13 @@
 
 ### 3.2 Agregar Precios al Plan Pro
 1. **Precio Mensual**:
-   - **Price**: `$39.99`
+   - **Price**: `$49.99`
    - **Billing period**: `Monthly`
    - **Price description**: `Pro Monthly`
 2. **Guarda** y toma nota del **Price ID**
 
 3. **Precio Anual**:
-   - **Price**: `$399.99`
+   - **Price**: `$499.99`
    - **Billing period**: `Yearly` 
    - **Price description**: `Pro Annual (17% off)`
 4. **Guarda** y toma nota del **Price ID**

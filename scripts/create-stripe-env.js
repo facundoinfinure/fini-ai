@@ -19,10 +19,10 @@ const STRIPE_CONFIG = {
   webhookSecret: 'whsec_...', // User needs to provide this
   
   // Price IDs - these need to be created in Stripe Dashboard
-  basicMonthly: 'price_...', // $19.99/month
-  basicAnnual: 'price_...', // $199.99/year (17% discount)
-  proMonthly: 'price_...', // $39.99/month  
-  proAnnual: 'price_...', // $399.99/year (17% discount)
+    basicMonthly: 'price_...', // $29.99/month
+  basicAnnual: 'price_...', // $299.99/year (17% discount)
+  proMonthly: 'price_...', // $49.99/month
+  proAnnual: 'price_...', // $499.99/year (17% discount)
 };
 
 const envPath = path.join(process.cwd(), '.env.local');
@@ -48,11 +48,11 @@ STRIPE_WEBHOOK_SECRET=${STRIPE_CONFIG.webhookSecret}
 NEXT_PUBLIC_STRIPE_PRICING_TABLE_ID=${STRIPE_CONFIG.pricingTableId}
 
 # Stripe Price IDs for Plans
-# Basic Plan ($19.99/month, $199.99/year)
+# Basic Plan ($29.99/month, $299.99/year)
 STRIPE_BASIC_MONTHLY_PRICE_ID=${STRIPE_CONFIG.basicMonthly}
 STRIPE_BASIC_ANNUAL_PRICE_ID=${STRIPE_CONFIG.basicAnnual}
 
-# Pro Plan ($39.99/month, $399.99/year)
+# Pro Plan ($49.99/month, $499.99/year)
 STRIPE_PRO_MONTHLY_PRICE_ID=${STRIPE_CONFIG.proMonthly}
 STRIPE_PRO_ANNUAL_PRICE_ID=${STRIPE_CONFIG.proAnnual}
 `;
@@ -92,16 +92,16 @@ const products = [
     name: 'Basic Plan',
     description: 'Perfect for small businesses starting with WhatsApp analytics',
     prices: [
-      { amount: 1999, interval: 'month', nickname: 'Basic Monthly' },
-      { amount: 19999, interval: 'year', nickname: 'Basic Annual (17% off)' }
+      { amount: 2999, interval: 'month', nickname: 'Basic Monthly' },
+      { amount: 29999, interval: 'year', nickname: 'Basic Annual (17% off)' }
     ]
   },
   {
     name: 'Pro Plan', 
     description: 'Advanced features for growing businesses',
     prices: [
-      { amount: 3999, interval: 'month', nickname: 'Pro Monthly' },
-      { amount: 39999, interval: 'year', nickname: 'Pro Annual (17% off)' }
+      { amount: 4999, interval: 'month', nickname: 'Pro Monthly' },
+      { amount: 49999, interval: 'year', nickname: 'Pro Annual (17% off)' }
     ]
   }
 ];

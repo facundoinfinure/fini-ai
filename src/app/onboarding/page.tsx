@@ -666,8 +666,8 @@ export default function OnboardingPage() {
     {
       id: "basic" as const,
       name: "Plan Basic",
-      monthlyPrice: 19.99,
-      annualPrice: 199.99, // ~17% discount
+          monthlyPrice: 29.99,
+    annualPrice: 299.99, // ~17% discount
       description: "Ideal para emprendedores",
       trial: "7 días gratis",
       features: [
@@ -683,8 +683,8 @@ export default function OnboardingPage() {
     {
       id: "pro" as const,
       name: "Plan Pro",
-      monthlyPrice: 39.99,
-      annualPrice: 399.99, // ~17% discount
+          monthlyPrice: 49.99,
+    annualPrice: 499.99, // ~17% discount
       description: "Para negocios en crecimiento",
       trial: "7 días gratis",
       features: [
