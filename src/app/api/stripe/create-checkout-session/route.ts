@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     // Get or create Stripe customer
     const customer = await getOrCreateStripeCustomer({
-      email: userEmail!,
+      email: userEmail || '',
       name: userName,
       userId,
     });

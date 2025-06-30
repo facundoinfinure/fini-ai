@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { UserService, StoreService, WhatsAppConfigService, UserSettingsService } from '@/lib/database/client';
+import { UserService, StoreService } from '@/lib/database/client';
 // import { segmentServerAnalytics } from '@/lib/analytics';
-
-interface OnboardingData {
-  storeUrl: string;
-  storeName: string;
-  whatsappNumber: string;
-  selectedPlan: 'basic' | 'pro';
-}
 
 export async function POST(_request: NextRequest) {
   try {
@@ -85,7 +78,7 @@ export async function POST(_request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     console.log('[INFO] Checking onboarding status');
     

@@ -114,7 +114,6 @@ export function StripePricingTable({
     return (
       <div className={`w-full ${className}`}>
         <div 
-          // @ts-ignore - Stripe pricing table custom element
           dangerouslySetInnerHTML={{
             __html: `
               <stripe-pricing-table 
