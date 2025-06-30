@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 export default function OnboardingPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(0); // Start with welcome step
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -23,6 +23,13 @@ export default function OnboardingPage() {
   const [isExtractingInfo, setIsExtractingInfo] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<"free" | "pro" | "enterprise">("free");
+  const [selectedGoal, setSelectedGoal] = useState<string>("");
+  
+  // 🤖 NEW: Store Analysis state
+  const [storeId, setStoreId] = useState<string>("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [businessProfile, setBusinessProfile] = useState<any>(null);
 
   // Check if user is authenticated and has completed onboarding
   useEffect(() => {
@@ -92,13 +99,13 @@ export default function OnboardingPage() {
   };
 
   const handleNextStep = () => {
-    if (currentStep < 3) {
+    if (currentStep < 5) { // Updated for 6 total steps (0-5)
       setCurrentStep(currentStep + 1);
     }
   };
 
   const handlePreviousStep = () => {
-    if (currentStep > 1) {
+    if (currentStep > 0) { // Updated to go back to welcome step
       setCurrentStep(currentStep - 1);
     }
   };
@@ -201,6 +208,10 @@ export default function OnboardingPage() {
 
       if (data.data?.authUrl) {
         console.log('[INFO] Redirecting to Tienda Nube OAuth:', data.data.authUrl);
+        // 🤖 NEW: Store the store ID for later analysis
+        if (data.data?.storeId) {
+          setStoreId(data.data.storeId);
+        }
         // Redirect to Tienda Nube OAuth
         window.location.href = data.data.authUrl;
       } else {
@@ -210,6 +221,83 @@ export default function OnboardingPage() {
     } catch (error) {
       console.error('[ERROR] Error connecting store:', error);
       setError(error instanceof Error ? error.message : "Error al conectar la tienda. Intenta nuevamente.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 🤖 NEW: Analyze store automatically with AI
+  const handleStoreAnalysis = async () => {
+    setIsAnalyzing(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      console.log('[STORE-ANALYSIS] Starting automatic analysis for store:', storeId);
+
+      // Get the first store (latest connected)
+      const storesResponse = await fetch('/api/stores');
+      const storesData = await storesResponse.json();
+
+      if (!storesData.success || !storesData.stores || storesData.stores.length === 0) {
+        throw new Error('No se encontró ninguna tienda conectada');
+      }
+
+      const latestStore = storesData.stores[0]; // Use the first store
+      setStoreId(latestStore.id);
+
+      // Analyze the store with AI
+      const analysisResponse = await fetch(`/api/stores/${latestStore.id}/analyze`, {
+        method: 'POST',
+      });
+
+      const analysisData = await analysisResponse.json();
+
+      if (!analysisResponse.ok || !analysisData.success) {
+        throw new Error(analysisData.error || 'Error al analizar la tienda');
+      }
+
+      console.log('[STORE-ANALYSIS] Analysis completed:', analysisData.data);
+
+      // Store the business profile
+      setBusinessProfile(analysisData.data.profile);
+      setAnalysisComplete(true);
+      setSuccess('¡Análisis completado! Revisa el perfil de tu negocio.');
+      
+      // Auto-advance to review step
+      setTimeout(() => {
+        handleNextStep();
+      }, 2000);
+
+    } catch (error) {
+      console.error('[STORE-ANALYSIS] Error analyzing store:', error);
+      setError(error instanceof Error ? error.message : "Error al analizar la tienda. Intenta nuevamente.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // 🤖 NEW: Save edited business profile
+  const handleSaveProfile = async () => {
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      console.log('[PROFILE-SAVE] Saving business profile:', businessProfile);
+
+      // For now, just store in state and continue
+      // In the future, this could save to database
+      setSuccess('Perfil guardado correctamente');
+      
+      // Continue to next step
+      setTimeout(() => {
+        handleNextStep();
+      }, 1500);
+
+    } catch (error) {
+      console.error('[PROFILE-SAVE] Error saving profile:', error);
+      setError(error instanceof Error ? error.message : "Error al guardar el perfil. Intenta nuevamente.");
     } finally {
       setIsLoading(false);
     }
@@ -376,48 +464,52 @@ export default function OnboardingPage() {
               </div>
             </div>
             <div className="text-sm text-gray-500">
-              Paso {currentStep} de 3
+              {currentStep === 0 ? "Bienvenida" : `Paso ${currentStep} de 5`}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Progress Bar */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center py-4">
-            <div className="flex-1">
-              <div className="flex items-center">
-                {[1, 2, 3].map((step) => (
-                  <div key={step} className="flex items-center">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                        currentStep >= step
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-200 text-gray-500'
-                      }`}
-                    >
-                      {step}
-                    </div>
-                    {step < 3 && (
+      {/* Progress Bar - Only show after welcome step */}
+      {currentStep > 0 && (
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center py-4">
+              <div className="flex-1">
+                <div className="flex items-center">
+                  {[1, 2, 3, 4, 5].map((step) => (
+                    <div key={step} className="flex items-center">
                       <div
-                        className={`flex-1 h-1 mx-4 rounded-full ${
-                          currentStep > step ? 'bg-blue-600' : 'bg-gray-200'
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                          currentStep >= step
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-200 text-gray-500'
                         }`}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between mt-2">
-                <span className="text-sm text-gray-600">Conectar Tienda</span>
-                <span className="text-sm text-gray-600">Configurar WhatsApp</span>
-                <span className="text-sm text-gray-600">Elegir Plan</span>
+                      >
+                        {step}
+                      </div>
+                      {step < 5 && (
+                        <div
+                          className={`flex-1 h-1 mx-2 rounded-full ${
+                            currentStep > step ? 'bg-blue-600' : 'bg-gray-200'
+                          }`}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between mt-2">
+                  <span className="text-xs text-gray-600">Tienda</span>
+                  <span className="text-xs text-gray-600">Análisis</span>
+                  <span className="text-xs text-gray-600">Perfil</span>
+                  <span className="text-xs text-gray-600">WhatsApp</span>
+                  <span className="text-xs text-gray-600">Plan</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -453,6 +545,108 @@ export default function OnboardingPage() {
         )}
 
         {/* Step Content */}
+        {/* Step 0: Welcome (similar to Origin) */}
+        {currentStep === 0 && (
+          <div className="max-w-2xl mx-auto text-center">
+            <div className="flex justify-end mb-8">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setCurrentStep(1)}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                SALTAR
+              </Button>
+            </div>
+            
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              ¡Bienvenido a Fini AI! ¿Por dónde te gustaría empezar?
+            </h1>
+            <p className="text-lg text-gray-600 mb-12">
+              Selecciona lo que más te interesa en este momento
+            </p>
+
+            <div className="space-y-4 mb-12">
+              {[
+                {
+                  id: "analytics",
+                  icon: "📊",
+                  title: "Gestionar mis analytics",
+                  description: "Ver métricas de ventas, productos y clientes"
+                },
+                {
+                  id: "sales",
+                  icon: "💰", 
+                  title: "Mejorar mis ventas",
+                  description: "Obtener insights para aumentar conversiones"
+                },
+                {
+                  id: "whatsapp",
+                  icon: "📱",
+                  title: "Obtener respuestas por WhatsApp",
+                  description: "Preguntar sobre mi negocio desde WhatsApp"
+                },
+                {
+                  id: "automation",
+                  icon: "🤖",
+                  title: "Automatizar tareas",
+                  description: "Reportes automáticos y análisis con IA"
+                },
+                {
+                  id: "marketing",
+                  icon: "🎯",
+                  title: "Mejorar mi marketing",
+                  description: "Ideas y estrategias personalizadas"
+                },
+                {
+                  id: "forecast",
+                  icon: "📈",
+                  title: "Predecir tendencias",
+                  description: "Forecasting y análisis predictivo"
+                },
+                {
+                  id: "unsure",
+                  icon: "🤔",
+                  title: "No estoy seguro",
+                  description: "Explorar todas las opciones disponibles"
+                }
+              ].map((goal) => (
+                <button
+                  key={goal.id}
+                  onClick={() => setSelectedGoal(goal.id)}
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all hover:border-blue-300 hover:bg-blue-50 ${
+                    selectedGoal === goal.id 
+                      ? 'border-blue-600 bg-blue-50' 
+                      : 'border-gray-200 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <span className="text-2xl mr-4">{goal.icon}</span>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900 text-lg">{goal.title}</h3>
+                      <p className="text-gray-600 text-sm">{goal.description}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <Button 
+              onClick={handleNextStep}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 h-12 text-lg font-semibold"
+              disabled={!selectedGoal}
+            >
+              SIGUIENTE →
+            </Button>
+
+            <div className="mt-8">
+              <a href="#" className="text-blue-600 hover:text-blue-700 text-sm">
+                Conoce más sobre el compromiso de seguridad de Fini AI
+              </a>
+            </div>
+          </div>
+        )}
+
         {currentStep === 1 && (
           <Card>
             <CardHeader>
@@ -542,7 +736,247 @@ export default function OnboardingPage() {
           </Card>
         )}
 
+        {/* 🤖 NEW Step 2: Automatic Store Analysis */}
         {currentStep === 2 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>🤖 Análisis Automático de tu Tienda</CardTitle>
+              <CardDescription>
+                Nuestra IA está analizando tu tienda para crear un perfil de negocio personalizado
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {!isAnalyzing && !analysisComplete && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">🤖</span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    ¡Perfecto! Tu tienda está conectada
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Ahora vamos a analizar tu catálogo, productos y datos para crear un perfil inteligente
+                  </p>
+                  <Button 
+                    onClick={handleStoreAnalysis}
+                    className="w-full max-w-sm"
+                  >
+                    🚀 Comenzar Análisis con IA
+                  </Button>
+                </div>
+              )}
+
+              {isAnalyzing && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Analizando tu tienda...
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Esto puede tomar unos momentos. Estamos procesando:
+                  </p>
+                  <div className="text-left max-w-sm mx-auto space-y-2">
+                    <div className="flex items-center text-sm text-gray-600">
+                      <div className="w-2 h-2 bg-blue-600 rounded-full mr-3"></div>
+                      📦 Catálogo de productos
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600">
+                      <div className="w-2 h-2 bg-blue-600 rounded-full mr-3"></div>
+                      🏷️ Categorías y precios
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600">
+                      <div className="w-2 h-2 bg-blue-600 rounded-full mr-3"></div>
+                      🎯 Audiencia objetivo
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600">
+                      <div className="w-2 h-2 bg-blue-600 rounded-full mr-3"></div>
+                      💡 Oportunidades de crecimiento
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {analysisComplete && businessProfile && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">✅</span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    ¡Análisis Completado!
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Hemos generado un perfil inteligente de tu negocio. En el siguiente paso podrás revisarlo y editarlo.
+                  </p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left max-w-md mx-auto">
+                    <h4 className="font-medium text-blue-900 mb-2">Vista previa del análisis:</h4>
+                    <div className="space-y-1 text-sm text-blue-800">
+                      <div>🏪 <strong>Categoría:</strong> {businessProfile.category}</div>
+                      <div>👥 <strong>Audiencia:</strong> {businessProfile.targetAudience}</div>
+                      <div>📊 <strong>Productos:</strong> {businessProfile.productAnalysis.totalProducts}</div>
+                      <div>💡 <strong>Generado por:</strong> {businessProfile.generatedBy === 'ai' ? 'IA' : 'Análisis básico'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-between">
+                <Button 
+                  variant="outline"
+                  onClick={handlePreviousStep}
+                  disabled={isAnalyzing}
+                >
+                  Anterior
+                </Button>
+                {analysisComplete && (
+                  <Button 
+                    onClick={handleNextStep}
+                  >
+                    Revisar Perfil →
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 🤖 NEW Step 3: Review and Edit Business Profile */}
+        {currentStep === 3 && businessProfile && (
+          <Card>
+            <CardHeader>
+              <CardTitle>📝 Revisa tu Perfil de Negocio</CardTitle>
+              <CardDescription>
+                Revisa y edita el perfil que generamos automáticamente. Puedes modificar cualquier campo.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Categoría del Negocio
+                  </label>
+                  <Input
+                    value={businessProfile.category}
+                    onChange={(e) => setBusinessProfile({
+                      ...businessProfile,
+                      category: e.target.value
+                    })}
+                    placeholder="ej: Moda y Vestimenta"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Audiencia Objetivo
+                  </label>
+                  <Input
+                    value={businessProfile.targetAudience}
+                    onChange={(e) => setBusinessProfile({
+                      ...businessProfile,
+                      targetAudience: e.target.value
+                    })}
+                    placeholder="ej: Jóvenes interesados en moda"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Descripción del Negocio
+                </label>
+                <textarea
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  rows={3}
+                  value={businessProfile.description}
+                  onChange={(e) => setBusinessProfile({
+                    ...businessProfile,
+                    description: e.target.value
+                  })}
+                  placeholder="Describe tu negocio en 1-2 oraciones"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Propuesta de Valor
+                </label>
+                <Input
+                  value={businessProfile.valueProposition}
+                  onChange={(e) => setBusinessProfile({
+                    ...businessProfile,
+                    valueProposition: e.target.value
+                  })}
+                  placeholder="¿Qué hace único a tu negocio?"
+                />
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-3">📊 Análisis Automático</h4>
+                <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-gray-700">Total productos:</span>
+                    <span className="ml-2 text-gray-600">{businessProfile.productAnalysis.totalProducts}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">Precio promedio:</span>
+                    <span className="ml-2 text-gray-600">
+                      ${businessProfile.productAnalysis.averagePrice?.toFixed(2)} {businessProfile.priceRange.currency}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">Marcas:</span>
+                    <span className="ml-2 text-gray-600">{businessProfile.productAnalysis.brandCount}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">Con variantes:</span>
+                    <span className="ml-2 text-gray-600">{businessProfile.productAnalysis.hasVariants ? 'Sí' : 'No'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {businessProfile.aiSuggestions?.marketingFocus && businessProfile.aiSuggestions.marketingFocus.length > 0 && (
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <h4 className="font-medium text-blue-900 mb-3">💡 Sugerencias de IA</h4>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="font-medium text-blue-800">Enfoque de marketing:</span>
+                      <ul className="ml-4 mt-1 list-disc">
+                        {businessProfile.aiSuggestions.marketingFocus.map((focus: string, index: number) => (
+                          <li key={index} className="text-blue-700">{focus}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-between">
+                <Button 
+                  variant="outline"
+                  onClick={handlePreviousStep}
+                >
+                  Anterior
+                </Button>
+                <Button 
+                  onClick={handleSaveProfile}
+                  disabled={isLoading}
+                  className="min-w-[120px]"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Guardando...
+                    </>
+                  ) : (
+                    'Guardar y Continuar'
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {currentStep === 4 && (
           <Card>
             <CardHeader>
               <CardTitle>Configura WhatsApp</CardTitle>
@@ -610,7 +1044,7 @@ export default function OnboardingPage() {
           </Card>
         )}
 
-        {currentStep === 3 && (
+        {currentStep === 5 && (
           <Card>
             <CardHeader>
               <CardTitle>Elige tu Plan</CardTitle>
