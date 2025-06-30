@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { UserService, StoreService, WhatsAppConfigService, UserSettingsService } from '@/lib/database/client';
-import { segmentServerAnalytics } from '@/lib/analytics';
+import { segmentServerAnalytics } from '@/lib/analytics/index';
 
 interface OnboardingData {
   storeUrl: string;
