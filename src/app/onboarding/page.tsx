@@ -30,7 +30,7 @@ export default function OnboardingPage() {
   const [isStoreNameExtracted, setIsStoreNameExtracted] = useState(false);
   const [isExtractingInfo, setIsExtractingInfo] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState("");
-  const [selectedPlan, setSelectedPlan] = useState<"free" | "pro" | "enterprise">("free");
+  const [selectedPlan, setSelectedPlan] = useState<"pro" | "enterprise">("pro");
   const [selectedGoal, setSelectedGoal] = useState<string>("");
   
   // 🤖 NEW: Store Analysis state
@@ -583,37 +583,31 @@ export default function OnboardingPage() {
 
   const plans = [
     {
-      id: "free" as const,
-      name: "Plan Básico",
-      price: "Gratis",
-      description: "Perfecto para empezar",
-      features: [
-        "Analytics básicos",
-        "Resumen diario por WhatsApp", 
-        "RAG básico para consultas",
-        "Soporte por email"
-      ]
-    },
-    {
       id: "pro" as const,
       name: "Plan Pro",
-      price: "$39/mes",
+      price: "$39.99/mes",
+      originalPrice: "$39.99",
       description: "Para negocios en crecimiento",
+      trial: "7 días gratis",
       features: [
-        "Todo del Plan Básico",
+        "Analytics básicos por WhatsApp",
         "Sistema multi-agente completo",
         "Forecasting con IA",
         "Análisis de competencia",
-        "Ideas de marketing",
-        "Memoria extendida",
+        "Ideas de marketing automatizadas",
+        "Memoria extendida de conversaciones",
+        "RAG avanzado para consultas",
         "Soporte prioritario"
-      ]
+      ],
+      highlighted: true
     },
     {
       id: "enterprise" as const,
       name: "Plan Enterprise", 
-      price: "$99/mes",
+      price: "$99.99/mes",
+      originalPrice: "$99.99",
       description: "Para empresas establecidas",
+      trial: "7 días gratis",
       features: [
         "Todo del Plan Pro",
         "Agentes personalizados",
@@ -621,7 +615,9 @@ export default function OnboardingPage() {
         "ML models custom",
         "API dedicada",
         "Soporte 24/7",
-        "Onboarding personalizado"
+        "Onboarding personalizado",
+        "Analytics avanzados y reportes",
+        "Múltiples tiendas"
       ]
     }
   ];
@@ -1399,18 +1395,20 @@ export default function OnboardingPage() {
             <CardHeader>
               <CardTitle>Elige tu Plan</CardTitle>
               <CardDescription>
-                Selecciona el plan que mejor se adapte a las necesidades de tu negocio
+                Selecciona el plan que mejor se adapte a las necesidades de tu negocio. Ambos planes incluyen 7 días de prueba gratuita.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid md:grid-cols-3 gap-6 mb-8">
+              <div className="grid md:grid-cols-2 gap-8 mb-8 max-w-4xl mx-auto">
                 {plans.map((plan) => (
                   <div
                     key={plan.id}
-                    className={`relative rounded-lg border-2 cursor-pointer transition-all ${
-                      selectedPlan === plan.id
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                    className={`relative rounded-xl border-2 cursor-pointer transition-all shadow-lg ${
+                      plan.highlighted 
+                        ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 ring-2 ring-blue-200'
+                        : selectedPlan === plan.id
+                        ? 'border-gray-400 bg-gray-50'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
                     }`}
                     onClick={() => setSelectedPlan(plan.id)}
                     // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
@@ -1423,8 +1421,18 @@ export default function OnboardingPage() {
                       }
                     }}
                   >
+                    {/* Recommended Badge */}
+                    {plan.highlighted && (
+                      <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                        <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-medium shadow-lg">
+                          Recomendado
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Selection Indicator */}
                     {selectedPlan === plan.id && (
-                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
                         <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
@@ -1432,19 +1440,32 @@ export default function OnboardingPage() {
                     )}
                     
                     <div className="p-6">
-                      <div className="text-center mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">{plan.name}</h3>
-                        <div className="text-2xl font-bold text-gray-900 mt-2">{plan.price}</div>
-                        <p className="text-sm text-gray-600 mt-1">{plan.description}</p>
+                      {/* Header */}
+                      <div className="text-center mb-6">
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">{plan.name}</h3>
+                        
+                        {/* Trial Badge */}
+                        <div className="mb-3">
+                          <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
+                            🎉 {plan.trial}
+                          </span>
+                        </div>
+                        
+                        {/* Price */}
+                        <div className="mb-2">
+                          <span className="text-3xl font-bold text-gray-900">{plan.price}</span>
+                        </div>
+                        <p className="text-sm text-gray-600">{plan.description}</p>
                       </div>
                       
-                      <ul className="space-y-2">
+                      {/* Features */}
+                      <ul className="space-y-3">
                         {plan.features.map((feature, featureIndex) => (
                           <li key={`${plan.id}-feature-${featureIndex}`} className="flex items-start text-sm">
-                            <svg className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
-                            <span className="text-gray-700">{feature}</span>
+                            <span className="text-gray-700 leading-relaxed">{feature}</span>
                           </li>
                         ))}
                       </ul>
