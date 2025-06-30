@@ -648,36 +648,46 @@ export default function OnboardingPage() {
       {currentStep > 0 && (
         <div className="bg-white border-b border-gray-200">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center py-4">
-              <div className="w-full max-w-2xl mx-auto">
-                <div className="flex items-center justify-center">
-                  {[1, 2, 3, 4, 5].map((step) => (
-                    <div key={step} className="flex items-center">
+            <div className="py-6">
+              <div className="w-full max-w-3xl mx-auto">
+                {/* Steps Grid */}
+                <div className="grid grid-cols-5 gap-4">
+                  {[
+                    { number: 1, label: "Tienda" },
+                    { number: 2, label: "Análisis" },
+                    { number: 3, label: "Perfil" },
+                    { number: 4, label: "WhatsApp" },
+                    { number: 5, label: "Plan" }
+                  ].map((step, index) => (
+                    <div key={step.number} className="flex flex-col items-center relative">
+                      {/* Connecting Line */}
+                      {index < 4 && (
+                        <div className="absolute top-4 left-1/2 w-full h-0.5 z-0">
+                          <div
+                            className={`h-full ml-4 ${
+                              currentStep > step.number ? 'bg-blue-600' : 'bg-gray-200'
+                            }`}
+                          />
+                        </div>
+                      )}
+                      
+                      {/* Step Circle */}
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                          currentStep >= step
+                        className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium mb-2 ${
+                          currentStep >= step.number
                             ? 'bg-blue-600 text-white'
                             : 'bg-gray-200 text-gray-500'
                         }`}
                       >
-                        {step}
+                        {step.number}
                       </div>
-                      {step < 5 && (
-                        <div
-                          className={`w-16 h-1 mx-2 rounded-full ${
-                            currentStep > step ? 'bg-blue-600' : 'bg-gray-200'
-                          }`}
-                        />
-                      )}
+                      
+                      {/* Step Label */}
+                      <span className="text-xs text-gray-600 text-center leading-tight">
+                        {step.label}
+                      </span>
                     </div>
                   ))}
-                </div>
-                <div className="grid grid-cols-5 mt-2 text-center">
-                  <span className="text-xs text-gray-600">Tienda</span>
-                  <span className="text-xs text-gray-600">Análisis</span>
-                  <span className="text-xs text-gray-600">Perfil</span>
-                  <span className="text-xs text-gray-600">WhatsApp</span>
-                  <span className="text-xs text-gray-600">Plan</span>
                 </div>
               </div>
             </div>
