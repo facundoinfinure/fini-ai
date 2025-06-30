@@ -26,7 +26,9 @@ import {
   Cog,
   TrendingUp,
   HeadphonesIcon,
-  Smartphone
+  Smartphone,
+  Brain,
+  Zap
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -46,6 +48,8 @@ interface Message {
   type: 'text' | 'analytics' | 'system';
   agent?: 'orchestrator' | 'analytics' | 'customer_service' | 'marketing' | 'stock_manager' | 'financial_advisor' | 'business_consultant' | 'product_manager' | 'operations_manager' | 'sales_coach';
   confidence?: number;
+  reasoning?: string;
+  processingTime?: number;
 }
 
 interface Conversation {
@@ -85,6 +89,8 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
   const [creatingConversation, setCreatingConversation] = useState(false);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState('');
+  const [expandedReasoning, setExpandedReasoning] = useState<Set<string>>(new Set());
+  const [deletingConversation, setDeletingConversation] = useState<string | null>(null);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -205,7 +211,9 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
           direction: 'outbound',
           type: 'analytics',
           agent: result.response?.agentType || 'orchestrator',
-          confidence: result.response?.confidence
+          confidence: result.response?.confidence,
+          reasoning: result.response?.reasoning,           // 🔥 NEW: Agent reasoning for transparency
+          processingTime: result.response?.processing_time_ms // 🔥 NEW: Processing time in ms
         };
 
         setMessages(prev => [...prev, assistantMessage]);
@@ -265,21 +273,47 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
   };
 
   const handleDeleteConversation = async (conversationId: string) => {
+    // 🔥 OPTIMISTIC UI: Update immediately, rollback if fails
+    setDeletingConversation(conversationId);
+    
+    // Backup current state for potential rollback
+    const currentConversations = conversations;
+    const currentSelected = selectedConversation;
+    const currentMessages = messages;
+    
+    // Optimistically update UI
+    const remaining = conversations.filter(c => c.id !== conversationId);
+    setConversations(remaining);
+    
+    if (selectedConversation?.id === conversationId) {
+      setSelectedConversation(remaining[0] || null);
+      setMessages([]);
+    }
+
     try {
       const response = await fetch(`/api/conversations/${conversationId}`, {
         method: 'DELETE'
       });
 
-      if (response.ok) {
-        setConversations(prev => prev.filter(c => c.id !== conversationId));
-        if (selectedConversation?.id === conversationId) {
-          const remaining = conversations.filter(c => c.id !== conversationId);
-          setSelectedConversation(remaining[0] || null);
-          setMessages([]);
-        }
+      if (!response.ok) {
+        throw new Error('Failed to delete conversation');
       }
+
+      console.log('[INFO] Conversation deleted successfully:', conversationId);
+      
     } catch (error) {
-      console.error('Error deleting conversation:', error);
+      console.error('[ERROR] Failed to delete conversation:', error);
+      
+      // 🔥 ROLLBACK: Restore previous state
+      setConversations(currentConversations);
+      setSelectedConversation(currentSelected);
+      setMessages(currentMessages);
+      
+      // TODO: Show error toast to user
+      alert('Error al eliminar la conversación. Inténtalo de nuevo.');
+      
+    } finally {
+      setDeletingConversation(null);
     }
   };
 
@@ -318,6 +352,19 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
       sales_coach: { icon: Target, label: 'Ventas', color: 'bg-pink-600', description: 'Estrategias de venta' }
     };
     return configs[agent as keyof typeof configs] || configs.orchestrator;
+  };
+
+  // 🔥 NEW: Toggle reasoning display
+  const toggleReasoning = (messageId: string) => {
+    setExpandedReasoning(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
   };
 
   const quickSuggestions = [
@@ -485,10 +532,12 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
             {conversations.map((conversation) => (
               <div
                 key={conversation.id}
-                className={`group relative p-3 mx-2 my-1 rounded-lg cursor-pointer transition-colors ${
-                  selectedConversation?.id === conversation.id
-                    ? 'bg-gray-100'
-                    : 'hover:bg-gray-50'
+                className={`group relative p-3 mx-2 my-1 rounded-lg cursor-pointer transition-all duration-200 ${
+                  deletingConversation === conversation.id 
+                    ? 'opacity-50 pointer-events-none bg-red-50 border border-red-200' 
+                    : selectedConversation?.id === conversation.id
+                      ? 'bg-blue-50 border border-blue-200 shadow-sm'
+                      : 'hover:bg-gray-50 hover:shadow-sm border border-transparent'
                 }`}
                 onClick={() => setSelectedConversation(conversation)}
               >
@@ -550,9 +599,14 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
                           handleDeleteConversation(conversation.id);
                         }}
                         className="text-red-600"
+                        disabled={deletingConversation === conversation.id}
                       >
-                        <Trash2 className="w-3 h-3 mr-2" />
-                        Eliminar
+                        {deletingConversation === conversation.id ? (
+                          <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3 h-3 mr-2" />
+                        )}
+                        {deletingConversation === conversation.id ? 'Eliminando...' : 'Eliminar'}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -585,19 +639,19 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
         </div>
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex gap-3 ${message.direction === 'inbound' ? 'flex-row-reverse' : 'flex-row'} max-w-[85%] ${
+              className={`flex gap-3 ${message.direction === 'inbound' ? 'flex-row-reverse justify-start' : 'flex-row justify-start'} max-w-[85%] ${
                 message.direction === 'inbound' ? 'ml-auto' : 'mr-auto'
               }`}
             >
               {/* Avatar */}
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
                 message.direction === 'inbound' 
-                  ? 'bg-black text-white' 
-                  : 'bg-gray-100 text-gray-600'
+                  ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white' 
+                  : 'bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700 border border-gray-300'
               }`}>
                 {message.direction === 'inbound' ? (
                   <User className="w-4 h-4" />
@@ -607,43 +661,80 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
               </div>
 
               {/* Message Content */}
-              <div className="flex flex-col gap-1">
-                {/* Agent Badge */}
+              <div className="flex flex-col gap-2 max-w-full">
+                {/* Agent Badge & Processing Time */}
                 {message.direction === 'outbound' && message.agent && (
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     {(() => {
                       const config = getAgentConfig(message.agent);
                       const Icon = config.icon;
                       return (
-                        <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-gray-200 rounded-lg shadow-sm">
                           <div className={`w-3 h-3 ${config.color} rounded flex items-center justify-center`}>
                             <Icon className="w-2 h-2 text-white" />
                           </div>
-                          <span className="font-medium">{config.label}</span>
+                          <span className="font-medium text-xs text-gray-700">{config.label}</span>
                         </div>
                       );
                     })()}
+                    
+                    {/* Processing Time Badge */}
+                    {message.processingTime && (
+                      <div className="flex items-center gap-1 px-2 py-1 bg-emerald-50 border border-emerald-200 rounded text-xs text-emerald-700">
+                        <Zap className="w-3 h-3" />
+                        <span>{message.processingTime}ms</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Message Bubble */}
-                <div className={`rounded-2xl px-4 py-2 text-sm ${
+                <div className={`rounded-2xl px-4 py-3 text-sm transition-all duration-200 hover:shadow-sm ${
                   message.direction === 'inbound'
-                    ? 'bg-black text-white'
-                    : 'bg-gray-100 text-gray-900 border border-gray-200'
+                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-sm'
+                    : 'bg-white text-gray-900 border border-gray-200 shadow-sm hover:border-gray-300'
                 }`}>
-                  <p className="whitespace-pre-wrap">{message.content}</p>
+                  <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
                 </div>
 
-                {/* Timestamp and Confidence */}
-                <div className={`text-xs text-gray-500 px-1 ${
-                  message.direction === 'inbound' ? 'text-right' : 'text-left'
+                {/* Reasoning Section */}
+                {message.reasoning && message.direction === 'outbound' && (
+                  <div className="space-y-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleReasoning(message.id)}
+                      className="h-6 px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 -ml-2"
+                    >
+                      <Brain className="w-3 h-3 mr-1" />
+                      {expandedReasoning.has(message.id) ? 'Ocultar' : 'Ver'} proceso de análisis
+                    </Button>
+                    
+                    {expandedReasoning.has(message.id) && (
+                      <div className="animate-in slide-in-from-top-2 duration-200 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Brain className="w-4 h-4 text-gray-600" />
+                          <span className="text-xs font-medium text-gray-700">Proceso de análisis</span>
+                        </div>
+                        <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">
+                          {message.reasoning}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Metadata: Timestamp, Confidence */}
+                <div className={`flex items-center gap-3 text-xs text-gray-500 px-1 ${
+                  message.direction === 'inbound' ? 'flex-row-reverse' : 'flex-row'
                 }`}>
-                  {format(new Date(message.timestamp), 'HH:mm', { locale: es })}
+                  <span>{format(new Date(message.timestamp), 'HH:mm', { locale: es })}</span>
+                  
                   {message.confidence && (
-                    <span className="ml-2">
-                      Confianza: {Math.round(message.confidence * 100)}%
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3 text-green-500" />
+                      <span>Confianza: {Math.round(message.confidence * 100)}%</span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -653,14 +744,17 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
           {/* Typing Indicator */}
           {isTyping && (
             <div className="flex gap-3 max-w-[85%] mr-auto">
-              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                <Bot className="w-4 h-4 text-gray-600" />
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700 border border-gray-300 flex items-center justify-center shadow-sm">
+                <Bot className="w-4 h-4" />
               </div>
-              <div className="bg-gray-100 rounded-2xl px-4 py-2 border border-gray-200">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className="bg-white rounded-2xl px-4 py-3 border border-gray-200 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                  <span className="text-sm text-gray-600 ml-2">Analizando tu consulta...</span>
                 </div>
               </div>
             </div>
