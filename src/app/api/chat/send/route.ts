@@ -4,7 +4,7 @@ import { FiniMultiAgentSystem } from '@/lib/agents/multi-agent-system';
 import { ConversationService, MessageService } from '@/lib/database/client';
 import { createTwilioWhatsAppService } from '@/lib/integrations/twilio-whatsapp';
 import { conversationTitleService } from '@/lib/services/conversation-title-service';
-import { segmentServerAnalytics } from '@/lib/analytics/segment-server';
+import { segmentServerAnalytics } from '@/lib/analytics';
 import type { AgentContext } from '@/lib/agents/types';
 
 /**

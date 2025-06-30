@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, ReactNode, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { segmentClientAnalytics } from '@/lib/analytics/segment-client';
+import { segmentClientAnalytics } from '@/lib/analytics';
 
 // Analytics Context
 const AnalyticsContext = createContext<{
