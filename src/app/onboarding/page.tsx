@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import StripePricingTable from "@/components/dashboard/stripe-pricing-table";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -33,6 +34,7 @@ export default function OnboardingPage() {
   const [selectedPlan, setSelectedPlan] = useState<"basic" | "pro">("basic");
   const [isAnnualBilling, setIsAnnualBilling] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<string>("");
+  const [useStripePricing, setUseStripePricing] = useState(false);
   
   // 🔄 NEW: Progress tracking state
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
@@ -589,7 +591,21 @@ export default function OnboardingPage() {
     }
   };
 
+  const handleStripePlanSelected = (plan: 'basic' | 'pro', billing: 'monthly' | 'annual') => {
+    console.log('[INFO] Stripe plan selected:', { plan, billing });
+    setSelectedPlan(plan);
+    setIsAnnualBilling(billing === 'annual');
+    // Note: Stripe will handle the actual payment and subscription creation
+    // After successful payment, user will be redirected back with success parameter
+  };
+
   const handleCompleteOnboarding = async () => {
+    if (useStripePricing) {
+      // If using Stripe pricing, we need to initiate checkout
+      setError("Por favor selecciona un plan usando la tabla de precios de Stripe arriba.");
+      return;
+    }
+
     setIsLoading(true);
     setError("");
     setSuccess("");
@@ -1490,6 +1506,48 @@ export default function OnboardingPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Option to use Stripe Pricing Table */}
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useStripePricing}
+                    onChange={(e) => setUseStripePricing(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-blue-900">
+                      Usar tabla de precios de Stripe (recomendado)
+                    </span>
+                    <p className="text-xs text-blue-700 mt-1">
+                      Procesamiento de pagos seguro con Stripe. Incluye prueba gratuita de 7 días.
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Stripe Pricing Table */}
+              {useStripePricing && (
+                <div className="mb-8">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
+                    Tabla de Precios Stripe
+                  </h3>
+                  <StripePricingTable 
+                    onPlanSelected={handleStripePlanSelected}
+                    showCustomPricing={false}
+                    className="border rounded-lg p-4 bg-gray-50"
+                  />
+                  <div className="mt-4 text-center">
+                    <p className="text-sm text-gray-600">
+                      Después de seleccionar un plan serás redirigido a Stripe para completar el pago.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Custom Plan Selection (fallback) */}
+              {!useStripePricing && (
+                <>
               {/* Billing Toggle */}
               <div className="flex justify-center mb-8">
                 <div className="bg-gray-100 p-1 rounded-lg inline-flex">
@@ -1600,6 +1658,9 @@ export default function OnboardingPage() {
                 ))}
               </div>
 
+                </>
+              )}
+
               <div className="flex justify-between">
                 <Button 
                   variant="outline"
@@ -1609,7 +1670,7 @@ export default function OnboardingPage() {
                 </Button>
                 <Button 
                   onClick={handleCompleteOnboarding}
-                  disabled={isLoading}
+                  disabled={isLoading || useStripePricing}
                   className="min-w-[140px]"
                 >
                   {isLoading ? (
@@ -1617,6 +1678,8 @@ export default function OnboardingPage() {
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                       Completando...
                     </>
+                  ) : useStripePricing ? (
+                    'Selecciona Plan Arriba'
                   ) : (
                     'Completar Setup'
                   )}

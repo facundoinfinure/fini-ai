@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { stripe, PLANS } from '@/lib/integrations/stripe';
+import { 
+  getOrCreateStripeCustomer, 
+  createCheckoutSession, 
+  getPriceIdForPlan 
+} from '@/lib/integrations/stripe';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,41 +25,45 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id;
     const userEmail = session.user.email;
+    const userName = session.user.user_metadata?.full_name || session.user.user_metadata?.name;
 
     // Parse request body
-    const { plan, successUrl, cancelUrl } = await request.json();
+    const { plan, billing, successUrl, cancelUrl } = await request.json();
 
-    if (!plan || !PLANS[plan as keyof typeof PLANS]) {
+    // Validate plan and billing
+    if (!plan || !['basic', 'pro'].includes(plan)) {
       return NextResponse.json({
         success: false,
-        error: 'Invalid plan specified'
+        error: 'Invalid plan specified. Must be "basic" or "pro"'
       }, { status: 400 });
     }
 
-    const selectedPlan = PLANS[plan as keyof typeof PLANS];
+    if (!billing || !['monthly', 'annual'].includes(billing)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid billing cycle specified. Must be "monthly" or "annual"'
+      }, { status: 400 });
+    }
 
-    // Create Stripe checkout session
-    const checkoutSession = await stripe.checkout.sessions.create({
-      customer_email: userEmail,
-      line_items: [
-        {
-          price: selectedPlan.priceId,
-          quantity: 1,
-        },
-      ],
-      mode: 'subscription',
-      success_url: successUrl || `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?success=true`,
-      cancel_url: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?canceled=true`,
-      metadata: {
-        userId,
-        plan,
-      },
-      subscription_data: {
-        metadata: {
-          userId,
-          plan,
-        },
-      },
+    // Get or create Stripe customer
+    const customer = await getOrCreateStripeCustomer({
+      email: userEmail!,
+      name: userName,
+      userId,
+    });
+
+    // Get price ID for the selected plan and billing cycle
+    const priceId = getPriceIdForPlan(plan as 'basic' | 'pro', billing as 'monthly' | 'annual');
+
+    // Create checkout session
+    const checkoutSession = await createCheckoutSession({
+      customerId: customer.id,
+      priceId,
+      successUrl: successUrl || `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?canceled=true`,
+      userId,
+      plan: plan as 'basic' | 'pro',
+      billing: billing as 'monthly' | 'annual',
     });
 
     console.log('[INFO] Stripe checkout session created:', checkoutSession.id);
@@ -65,6 +73,7 @@ export async function POST(request: NextRequest) {
       data: {
         sessionId: checkoutSession.id,
         url: checkoutSession.url,
+        customerId: customer.id,
       }
     });
 

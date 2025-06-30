@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { stripe } from '@/lib/integrations/stripe';
+import { stripe, mapStripePlanToAppPlan, verifyWebhookSignature } from '@/lib/integrations/stripe';
 import { headers } from 'next/headers';
 import type Stripe from 'stripe';
 
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     let event: Stripe.Event;
 
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      event = verifyWebhookSignature(body, signature, webhookSecret);
     } catch (err) {
       console.error('[ERROR] Webhook signature verification failed:', err);
       return NextResponse.json({
@@ -43,17 +43,22 @@ export async function POST(request: NextRequest) {
         console.log('[INFO] Checkout session completed:', session.id);
         
         if (session.mode === 'subscription' && session.subscription) {
-          const _subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+          const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
           const userId = session.metadata?.userId;
-          const plan = session.metadata?.plan;
 
-          if (userId && plan) {
+          if (userId && subscription) {
+            // Map Stripe subscription to our plan structure
+            const mappedPlan = mapStripePlanToAppPlan(subscription);
+            
             // Update user subscription in database
             const { error } = await supabase
               .from('users')
               .update({
-                subscription_plan: plan,
-                subscription_status: 'active',
+                subscription_plan: mappedPlan.plan,
+                subscription_status: mappedPlan.status === 'active' ? 'active' : 'inactive',
+                subscription_billing: mappedPlan.billing,
+                stripe_customer_id: session.customer as string,
+                stripe_subscription_id: subscription.id,
                 updated_at: new Date().toISOString()
               })
               .eq('id', userId);
@@ -61,7 +66,12 @@ export async function POST(request: NextRequest) {
             if (error) {
               console.error('[ERROR] Failed to update user subscription:', error);
             } else {
-              console.log('[INFO] User subscription updated successfully');
+              console.log('[INFO] User subscription updated successfully:', {
+                userId,
+                plan: mappedPlan.plan,
+                billing: mappedPlan.billing,
+                status: mappedPlan.status
+              });
             }
           }
         }
@@ -73,16 +83,17 @@ export async function POST(request: NextRequest) {
         console.log('[INFO] Subscription updated:', subscription.id);
         
         const userId = subscription.metadata?.userId;
-        const plan = subscription.metadata?.plan;
 
         if (userId) {
-          const status = subscription.status === 'active' ? 'active' : 'inactive';
+          // Map Stripe subscription to our plan structure
+          const mappedPlan = mapStripePlanToAppPlan(subscription);
           
           const { error } = await supabase
             .from('users')
             .update({
-              subscription_plan: plan || 'free',
-              subscription_status: status,
+              subscription_plan: mappedPlan.plan,
+              subscription_status: mappedPlan.status === 'active' ? 'active' : 'inactive',
+              subscription_billing: mappedPlan.billing,
               updated_at: new Date().toISOString()
             })
             .eq('id', userId);
@@ -90,7 +101,12 @@ export async function POST(request: NextRequest) {
           if (error) {
             console.error('[ERROR] Failed to update subscription status:', error);
           } else {
-            console.log('[INFO] Subscription status updated successfully');
+            console.log('[INFO] Subscription status updated successfully:', {
+              userId,
+              plan: mappedPlan.plan,
+              billing: mappedPlan.billing,
+              status: mappedPlan.status
+            });
           }
         }
         break;
@@ -106,8 +122,10 @@ export async function POST(request: NextRequest) {
           const { error } = await supabase
             .from('users')
             .update({
-              subscription_plan: 'free',
+              subscription_plan: 'basic',
               subscription_status: 'cancelled',
+              subscription_billing: null,
+              stripe_subscription_id: null,
               updated_at: new Date().toISOString()
             })
             .eq('id', userId);
@@ -115,7 +133,7 @@ export async function POST(request: NextRequest) {
           if (error) {
             console.error('[ERROR] Failed to update subscription status:', error);
           } else {
-            console.log('[INFO] Subscription cancelled successfully');
+            console.log('[INFO] Subscription cancelled successfully - reverted to basic plan');
           }
         }
         break;
