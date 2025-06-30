@@ -120,7 +120,7 @@ export default function OnboardingPage() {
         const storesData = await storesResponse.json();
         console.log('[INFO] Stores data:', storesData);
         
-        if (storesData.success && storesData.stores && storesData.stores.length > 0) {
+        if (storesData.success && storesData.data && storesData.data.length > 0) {
           hasStores = true;
         }
       }
@@ -330,11 +330,11 @@ export default function OnboardingPage() {
       const storesResponse = await fetch('/api/stores');
       const storesData = await storesResponse.json();
 
-      if (!storesData.success || !storesData.stores || storesData.stores.length === 0) {
+      if (!storesData.success || !storesData.data || storesData.data.length === 0) {
         throw new Error('No se encontró ninguna tienda conectada');
       }
 
-      const latestStore = storesData.stores[0]; // Use the first store
+      const latestStore = storesData.data[0]; // Use the first store
       setStoreId(latestStore.id);
 
       // Analyze the store with AI
