@@ -34,7 +34,6 @@ export default function OnboardingPage() {
   const [selectedPlan, setSelectedPlan] = useState<"basic" | "pro">("basic");
   const [isAnnualBilling, setIsAnnualBilling] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<string>("");
-  const [useStripePricing, setUseStripePricing] = useState(false);
   
   // 🔄 NEW: Progress tracking state
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
@@ -600,49 +599,9 @@ export default function OnboardingPage() {
   };
 
   const handleCompleteOnboarding = async () => {
-    if (useStripePricing) {
-      // If using Stripe pricing, we need to initiate checkout
-      setError("Por favor selecciona un plan usando la tabla de precios de Stripe arriba.");
-      return;
-    }
-
-    setIsLoading(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      console.log('[INFO] Completing onboarding for user:', user?.id);
-
-      const response = await fetch('/api/user/complete-onboarding', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          selectedPlan,
-          completedAt: new Date().toISOString()
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Error al completar el onboarding');
-      }
-
-      setSuccess('¡Onboarding completado! Redirigiendo al dashboard...');
-      
-      // Redirect to dashboard after a short delay
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 2000);
-
-    } catch (error) {
-      console.error('[ERROR] Error completing onboarding:', error);
-      setError(error instanceof Error ? error.message : "Error al completar el setup. Intenta nuevamente.");
-    } finally {
-      setIsLoading(false);
-    }
+    // With Stripe pricing table, user should select a plan directly through Stripe
+    setError("Por favor selecciona un plan usando la tabla de precios de Stripe arriba.");
+    return;
   };
 
   // Show loading while checking auth
@@ -1506,160 +1465,22 @@ export default function OnboardingPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Option to use Stripe Pricing Table */}
-              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={useStripePricing}
-                    onChange={(e) => setUseStripePricing(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-blue-900">
-                      Usar tabla de precios de Stripe (recomendado)
-                    </span>
-                    <p className="text-xs text-blue-700 mt-1">
-                      Procesamiento de pagos seguro con Stripe. Incluye prueba gratuita de 7 días.
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Stripe Pricing Table */}
-              {useStripePricing && (
-                <div className="mb-8">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
-                    Tabla de Precios Stripe
-                  </h3>
-                  <StripePricingTable 
-                    onPlanSelected={handleStripePlanSelected}
-                    showCustomPricing={false}
-                    className="border rounded-lg p-4 bg-gray-50"
-                  />
-                  <div className="mt-4 text-center">
-                    <p className="text-sm text-gray-600">
-                      Después de seleccionar un plan serás redirigido a Stripe para completar el pago.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Custom Plan Selection (fallback) */}
-              {!useStripePricing && (
-                <>
-              {/* Billing Toggle */}
-              <div className="flex justify-center mb-8">
-                <div className="bg-gray-100 p-1 rounded-lg inline-flex">
-                  <button
-                    onClick={() => setIsAnnualBilling(false)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                      !isAnnualBilling
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Mensual
-                  </button>
-                  <button
-                    onClick={() => setIsAnnualBilling(true)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all relative ${
-                      isAnnualBilling
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Anual
-                    <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                      -17%
-                    </span>
-                  </button>
+              {/* Stripe Pricing Table - Always shown */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
+                  Tabla de Precios Stripe
+                </h3>
+                <StripePricingTable 
+                  onPlanSelected={handleStripePlanSelected}
+                  showCustomPricing={false}
+                  className="border rounded-lg p-4 bg-gray-50"
+                />
+                <div className="mt-4 text-center">
+                  <p className="text-sm text-gray-600">
+                    Después de seleccionar un plan serás redirigido a Stripe para completar el pago.
+                  </p>
                 </div>
               </div>
-              
-              <div className="grid md:grid-cols-2 gap-8 mb-8 max-w-4xl mx-auto">
-                {plans.map((plan) => (
-                  <div
-                    key={plan.id}
-                    className={`relative rounded-xl border-2 cursor-pointer transition-all shadow-lg ${
-                      plan.highlighted 
-                        ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 ring-2 ring-blue-200'
-                        : selectedPlan === plan.id
-                        ? 'border-gray-400 bg-gray-50'
-                        : 'border-gray-200 hover:border-gray-300 bg-white'
-                    }`}
-                    onClick={() => setSelectedPlan(plan.id)}
-                    // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-                    tabIndex={0}
-                    role="button"
-                    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        setSelectedPlan(plan.id);
-                      }
-                    }}
-                  >
-                    {/* Recommended Badge */}
-                    {plan.highlighted && (
-                      <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                        <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-medium shadow-lg">
-                          Recomendado
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Selection Indicator */}
-                    {selectedPlan === plan.id && (
-                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    )}
-                    
-                    <div className="p-6">
-                      {/* Header */}
-                      <div className="text-center mb-6">
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">{plan.name}</h3>
-                        
-                        {/* Trial Badge */}
-                        <div className="mb-3">
-                          <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
-                            🎉 {plan.trial}
-                          </span>
-                        </div>
-                        
-                        {/* Price */}
-                        <div className="mb-2">
-                          <span className="text-3xl font-bold text-gray-900">{getDisplayPrice(plan).price}</span>
-                          {isAnnualBilling && (
-                            <div className="text-sm text-gray-500 mt-1">
-                              <div>{getDisplayPrice(plan).fullPrice}</div>
-                              <div className="text-green-600 font-medium">{getDisplayPrice(plan).savings}</div>
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600">{plan.description}</p>
-                      </div>
-                      
-                      {/* Features */}
-                      <ul className="space-y-3">
-                        {plan.features.map((feature, featureIndex) => (
-                          <li key={`${plan.id}-feature-${featureIndex}`} className="flex items-start text-sm">
-                            <svg className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span className="text-gray-700 leading-relaxed">{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-                </>
-              )}
 
               <div className="flex justify-between">
                 <Button 
@@ -1670,7 +1491,7 @@ export default function OnboardingPage() {
                 </Button>
                 <Button 
                   onClick={handleCompleteOnboarding}
-                  disabled={isLoading || useStripePricing}
+                  disabled={isLoading}
                   className="min-w-[140px]"
                 >
                   {isLoading ? (
@@ -1678,10 +1499,8 @@ export default function OnboardingPage() {
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                       Completando...
                     </>
-                  ) : useStripePricing ? (
-                    'Selecciona Plan Arriba'
                   ) : (
-                    'Completar Setup'
+                    'Proceder con Stripe'
                   )}
                 </Button>
               </div>
