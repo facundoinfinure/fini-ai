@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
+import { AnalyticsProvider } from './analytics-provider';
 // import { SessionProvider } from "next-auth/react";
 
 interface ProvidersProps {
@@ -8,5 +9,9 @@ interface ProvidersProps {
 }
 
 export function Providers({ children }: ProvidersProps) {
-  return <>{children}</>;
+  return (
+    <AnalyticsProvider>
+      {children}
+    </AnalyticsProvider>
+  );
 } 

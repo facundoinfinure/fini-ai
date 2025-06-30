@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { useAnalytics } from "@/lib/analytics/use-analytics";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 export default function OnboardingPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const { trackOnboardingStep, trackButtonClick, trackError, trackFeature } = useAnalytics();
   const [currentStep, setCurrentStep] = useState(0); // Start with welcome step
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -139,6 +141,14 @@ export default function OnboardingPage() {
 
   const handleNextStep = () => {
     if (currentStep < 5) { // Updated for 6 total steps (0-5)
+      // Track step completion
+      const stepNames = ['welcome', 'store-connection', 'store-analysis', 'profile', 'whatsapp', 'plan-selection'];
+      trackOnboardingStep(currentStep, stepNames[currentStep] || 'unknown', true, {
+        nextStep: currentStep + 1,
+        hasStores,
+        onboardingCompleted
+      });
+      
       setCurrentStep(currentStep + 1);
     }
   };
@@ -206,6 +216,14 @@ export default function OnboardingPage() {
     setSuccess("");
 
     try {
+      // Track store connection attempt
+      trackFeature('store-connection', true, {
+        method: 'oauth',
+        storeUrl,
+        storeName,
+        step: currentStep
+      });
+
       // Validate store URL format
       if (!storeUrl.includes('tiendanube.com') && !storeUrl.includes('mitiendanube.com')) {
         throw new Error('La URL debe ser de Tienda Nube');
@@ -259,7 +277,17 @@ export default function OnboardingPage() {
 
     } catch (error) {
       console.error('[ERROR] Error connecting store:', error);
-      setError(error instanceof Error ? error.message : "Error al conectar la tienda. Intenta nuevamente.");
+      const errorMessage = error instanceof Error ? error.message : "Error al conectar la tienda. Intenta nuevamente.";
+      
+      // Track store connection error
+      trackError(error instanceof Error ? error : new Error(errorMessage), {
+        feature: 'store-connection',
+        step: currentStep,
+        storeUrl,
+        storeName
+      });
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

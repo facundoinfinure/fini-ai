@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { UserService, StoreService, WhatsAppConfigService, UserSettingsService } from '@/lib/database/client';
+import { segmentServerAnalytics } from '@/lib/analytics';
 
 interface OnboardingData {
   storeUrl: string;
@@ -49,6 +50,24 @@ export async function POST(_request: NextRequest) {
     }
 
     console.log('[INFO] User onboarding completed successfully');
+
+    // Track onboarding completion
+    try {
+      // Get user's stores and WhatsApp status for tracking
+      const storesResult = await StoreService.getStoresByUserId(userId);
+      const whatsappResult = await WhatsAppConfigService.getConfigByUserId(userId);
+      
+      await segmentServerAnalytics.trackOnboardingCompleted(userId, {
+        totalSteps: 6,
+        timeSpent: 0, // Could be calculated if we track start time
+        planSelected: 'free', // Default plan
+        storeConnected: storesResult.success && storesResult.stores && storesResult.stores.length > 0,
+        whatsappConnected: whatsappResult.success && whatsappResult.config !== null
+      });
+    } catch (trackingError) {
+      console.error('[WARNING] Failed to track onboarding completion:', trackingError);
+      // Don't fail the main request if tracking fails
+    }
 
     return NextResponse.json({
       success: true,

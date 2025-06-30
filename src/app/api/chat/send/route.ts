@@ -4,6 +4,7 @@ import { FiniMultiAgentSystem } from '@/lib/agents/multi-agent-system';
 import { ConversationService, MessageService } from '@/lib/database/client';
 import { createTwilioWhatsAppService } from '@/lib/integrations/twilio-whatsapp';
 import { conversationTitleService } from '@/lib/services/conversation-title-service';
+import { segmentServerAnalytics } from '@/lib/analytics';
 import type { AgentContext } from '@/lib/agents/types';
 
 /**
@@ -90,6 +91,13 @@ export async function POST(request: NextRequest) {
         finalConversationId = conversation.id;
         customerWhatsApp = conversation.customer_number;
         console.log('[CHAT-SYNC] Created new unified conversation:', finalConversationId);
+        
+        // Track conversation started
+        await segmentServerAnalytics.trackConversationStarted(user.id, {
+          conversationId: finalConversationId,
+          storeId,
+          source: 'dashboard'
+        });
       } else {
         console.error('[CHAT-SYNC] Failed to create conversation:', newConvResult.error);
         return NextResponse.json(
@@ -179,6 +187,25 @@ export async function POST(request: NextRequest) {
     if (!botMessageResult.success) {
       console.error('[CHAT-SYNC] Failed to save bot message:', botMessageResult.error);
     }
+
+    // Track chat message and AI agent usage
+    await segmentServerAnalytics.trackChatMessage(user.id, {
+      conversationId: finalConversationId,
+      storeId,
+      messageType: 'user',
+      messageLength: trimmedMessage.length,
+      query: trimmedMessage,
+      success: true
+    });
+
+    await segmentServerAnalytics.trackAIAgentUsed(user.id, {
+      agentType: agentResponse.agentType,
+      query: trimmedMessage,
+      responseTime: processingTimeMs,
+      confidence: agentResponse.confidence || 0,
+      success: agentResponse.success !== false,
+      conversationId: finalConversationId
+    });
 
     // 7.5. 🎯 AUTO-GENERATE TITLE: Generate conversation title after a few messages
     try {
