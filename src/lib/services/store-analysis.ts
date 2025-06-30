@@ -3,6 +3,40 @@ import { TiendaNubeAPI } from '@/lib/integrations/tiendanube';
 import type { TiendaNubeStore, TiendaNubeProduct } from '@/types/tiendanube';
 
 /**
+ * 🛡️ Safe description utility
+ * Converts any description value to a safe string, handling objects, undefined, null, etc.
+ */
+function safeDescription(desc: any, fallback = 'Tienda online'): string {
+  if (!desc) return fallback;
+  
+  if (typeof desc === 'string') {
+    return desc.trim() || fallback;
+  }
+  
+  if (typeof desc === 'object') {
+    // Try to extract a string from the object
+    if (desc.es) return String(desc.es).trim() || fallback;
+    if (desc.en) return String(desc.en).trim() || fallback;
+    if (desc.short) return String(desc.short).trim() || fallback;
+    if (desc.long) return String(desc.long).trim() || fallback;
+    if (desc.description) return String(desc.description).trim() || fallback;
+    if (desc.text) return String(desc.text).trim() || fallback;
+    
+    // If object has a single property, try to use its value
+    const keys = Object.keys(desc);
+    if (keys.length === 1 && typeof desc[keys[0]] === 'string') {
+      return String(desc[keys[0]]).trim() || fallback;
+    }
+    
+    // If no extractable string found, use fallback
+    return fallback;
+  }
+  
+  // Convert any other type to string safely
+  return String(desc).trim() || fallback;
+}
+
+/**
  * 🏪 Interfaces for Store Analysis
  */
 export interface BusinessProfile {
@@ -247,7 +281,7 @@ export class StoreAnalysisService {
     return {
       businessName: store.name,
       category: aiData.category || 'E-commerce General',
-      description: aiData.description || store.description || 'Tienda online',
+      description: safeDescription(aiData.description) || safeDescription(store.description, 'Tienda online especializada en e-commerce'),
       targetAudience: aiData.targetAudience || 'Público general',
       priceRange: {
         min: analysis.minPrice,
@@ -296,7 +330,7 @@ export class StoreAnalysisService {
     return {
       businessName: store.name,
       category: mainCategory,
-      description: store.description || `Tienda online especializada en ${mainCategory.toLowerCase()}`,
+      description: safeDescription(store.description, `Tienda online especializada en ${mainCategory.toLowerCase()}`),
       targetAudience: audience,
       priceRange: {
         min: analysis.minPrice,
@@ -333,7 +367,7 @@ export class StoreAnalysisService {
     }));
 
     return `TIENDA: ${store.name}
-DESCRIPCIÓN: ${store.description || 'No disponible'}
+DESCRIPCIÓN: ${safeDescription(store.description, 'No disponible')}
 PRODUCTOS: ${analysis.totalProducts}
 CATEGORÍAS: ${analysis.topCategories.join(', ')}
 PRECIOS: ${analysis.minPrice} - ${analysis.maxPrice} ${store.currency}
