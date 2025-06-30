@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Loader2, Mail, Bot, Store, CheckCircle, ShoppingBag, BarChart3, MessageSquare, Users, TrendingUp, Zap } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense, useCallback } from "react";
+import Link from "next/link";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -227,9 +228,12 @@ function SignInContent() {
           {/* Sign up link */}
           <div className="mt-6 text-center">
             <span className="text-gray-600">¿No tienes una cuenta? </span>
-            <a href="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
+            <Link
+              href="/signup"
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
               Regístrate
-            </a>
+            </Link>
           </div>
         </div>
       </div>

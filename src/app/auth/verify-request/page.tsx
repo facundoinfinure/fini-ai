@@ -3,7 +3,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Mail, Bot, CheckCircle, ArrowLeft } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, Suspense } from "react";
+import { useEffect, Suspense, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,8 +11,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 function VerifyRequestContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const email = searchParams.get("email");
+  const [email, setEmail] = useState("");
   const { user, loading } = useAuth();
+
+  useEffect(() => {
+    const emailParam = searchParams.get("email");
+    if (emailParam) {
+      setEmail(emailParam);
+    }
+  }, [searchParams]);
 
   // Redirect if user is already signed in
   useEffect(() => {
@@ -119,7 +126,14 @@ function VerifyRequestContent() {
 
 export default function VerifyRequestPage() {
   return (
-    <Suspense>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-sm text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    }>
       <VerifyRequestContent />
     </Suspense>
   );

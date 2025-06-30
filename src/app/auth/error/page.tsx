@@ -4,6 +4,7 @@ import { AlertTriangle, Home, RefreshCw, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { Button } from "@/components/ui/button";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -170,7 +171,14 @@ function AuthErrorContent() {
 
 export default function AuthErrorPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-sm text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    }>
       <AuthErrorContent />
     </Suspense>
   );

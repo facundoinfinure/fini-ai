@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useEffect, ReactNode, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { segmentClientAnalytics } from '@/lib/analytics';
@@ -18,11 +18,20 @@ interface AnalyticsProviderProps {
   children: ReactNode;
 }
 
+// Helper function to get page section
+function getPageSection(page: string): string {
+  if (page.includes('/dashboard')) return 'dashboard';
+  if (page.includes('/onboarding')) return 'onboarding';
+  if (page.includes('/auth')) return 'auth';
+  if (page.includes('/chat')) return 'chat';
+  return 'home';
+}
+
 /**
- * Analytics Provider Component
- * Handles automatic Segment initialization and page view tracking
+ * Internal Analytics Component that uses useSearchParams
+ * This is wrapped in Suspense to prevent SSR issues
  */
-export function AnalyticsProvider({ children }: AnalyticsProviderProps) {
+function AnalyticsTracker() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -94,22 +103,20 @@ export function AnalyticsProvider({ children }: AnalyticsProviderProps) {
     };
   }, []);
 
-  return (
-    <AnalyticsContext.Provider value={{ initialized: true }}>
-      {children}
-    </AnalyticsContext.Provider>
-  );
+  return null;
 }
 
 /**
- * Helper function to determine page section from pathname
+ * Analytics Provider Component
+ * Handles automatic Segment initialization and page view tracking
  */
-function getPageSection(pathname: string): string {
-  if (pathname === '/') return 'home';
-  if (pathname.startsWith('/dashboard')) return 'dashboard';
-  if (pathname.startsWith('/onboarding')) return 'onboarding';
-  if (pathname.startsWith('/auth')) return 'auth';
-  if (pathname.startsWith('/chat')) return 'chat';
-  if (pathname.startsWith('/signup')) return 'signup';
-  return 'other';
+export function AnalyticsProvider({ children }: AnalyticsProviderProps) {
+  return (
+    <AnalyticsContext.Provider value={{ initialized: true }}>
+      <Suspense fallback={null}>
+        <AnalyticsTracker />
+      </Suspense>
+      {children}
+    </AnalyticsContext.Provider>
+  );
 }
