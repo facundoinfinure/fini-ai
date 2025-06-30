@@ -14,9 +14,18 @@ import {
   ChevronRight,
   Plus,
   MessageCircle,
-  Trash2
+  Trash2,
+  MoreHorizontal,
+  Edit3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator 
+} from '@/components/ui/dropdown-menu';
 
 interface SidebarLayoutProps {
   children: React.ReactNode;
@@ -192,31 +201,39 @@ export function SidebarLayout({
   const handleConversationDelete = async (conversationId: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevenir que se seleccione la conversación al hacer click en eliminar
     
+    // Actualizar estado local INMEDIATAMENTE para UX responsiva
+    setConversations(prev => prev.filter(c => c.id !== conversationId));
+    
+    // Si era la conversación seleccionada, limpiar selección
+    if (selectedConversation === conversationId) {
+      setSelectedConversation(null);
+    }
+    
+    // Llamar al callback del padre para eliminar del backend
     if (onConversationDelete) {
       onConversationDelete(conversationId);
     } else {
-      // Fallback - eliminar localmente si no hay callback del padre
+      // Fallback - eliminar del backend directamente si no hay callback del padre
       try {
         const response = await fetch(`/api/conversations/${conversationId}`, {
           method: 'DELETE'
         });
         
         const data = await response.json();
-        if (data.success) {
-          // Remover de la lista local
-          setConversations(prev => prev.filter(c => c.id !== conversationId));
-          
-          // Si era la conversación seleccionada, limpiar selección
-          if (selectedConversation === conversationId) {
-            setSelectedConversation(null);
-          }
-          
+        if (!data.success) {
+          // Si falló la eliminación del backend, restaurar en el estado local
+          console.error('Error eliminando del backend:', data.error);
+          // Recargar conversaciones para sincronizar estado
           if (onConversationUpdate) {
             onConversationUpdate();
           }
         }
       } catch (error) {
         console.error('Error deleting conversation:', error);
+        // Recargar conversaciones para sincronizar estado
+        if (onConversationUpdate) {
+          onConversationUpdate();
+        }
       }
     }
   };
@@ -316,16 +333,43 @@ export function SidebarLayout({
                             )}
                           </div>
                           
-                          {/* Delete Button - Only visible on hover */}
-                          <button
-                            onClick={(e) => handleConversationDelete(conversation.id, e)}
-                            className="delete-conversation-btn opacity-0 group-hover:opacity-100 
-                                     transition-opacity duration-200 flex-shrink-0 
-                                     p-1 rounded hover:bg-red-100 hover:text-red-600"
-                            title="Eliminar conversación"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                          {/* Menu Button - Only visible on hover */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className="opacity-0 group-hover:opacity-100 
+                                         transition-opacity duration-200 flex-shrink-0 
+                                         p-1 rounded hover:bg-gray-100 hover:text-gray-700"
+                                onClick={(e) => e.stopPropagation()}
+                                title="Opciones de conversación"
+                              >
+                                <MoreHorizontal className="w-3 h-3" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // TODO: Implementar edición de título si se necesita
+                                  console.log('Editar título:', conversation.id);
+                                }}
+                              >
+                                <Edit3 className="w-3 h-3 mr-2" />
+                                Renombrar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleConversationDelete(conversation.id, e);
+                                }}
+                                className="text-red-600 focus:text-red-600"
+                              >
+                                <Trash2 className="w-3 h-3 mr-2" />
+                                Eliminar conversación
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       ))}
                     </div>
