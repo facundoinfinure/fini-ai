@@ -42,6 +42,13 @@ export default function OnboardingPage() {
   // 🏢 NEW: Competitors state
   const [competitors, setCompetitors] = useState<Array<{website?: string, instagram?: string, name?: string}>>([{}, {}, {}]);
 
+  // 📱 NEW: OTP Verification state  
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [whatsappNumberId, setWhatsappNumberId] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [isVerifyingOTP, setIsVerifyingOTP] = useState(false);
+
   // Add flag to prevent multiple checkExistingOnboarding calls
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
 
@@ -426,12 +433,92 @@ export default function OnboardingPage() {
         throw new Error(data.error || 'Error al configurar WhatsApp');
       }
 
-      setSuccess('WhatsApp configurado correctamente');
-      handleNextStep();
+      // Show OTP verification step
+      setWhatsappNumberId(data.data.whatsapp_number_id);
+      setShowOTPVerification(true);
+      setSuccess('Código de verificación enviado a tu WhatsApp');
 
     } catch (error) {
       console.error('[ERROR] Error setting up WhatsApp:', error);
       setError(error instanceof Error ? error.message : "Error al configurar WhatsApp. Intenta nuevamente.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (!whatsappNumberId || !otpCode.trim()) {
+      setOtpError("Por favor ingresa el código de verificación");
+      return;
+    }
+
+    setIsVerifyingOTP(true);
+    setOtpError("");
+
+    try {
+      const response = await fetch('/api/whatsapp/verify-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          whatsapp_number_id: whatsappNumberId,
+          otp_code: otpCode.trim()
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Código de verificación incorrecto');
+      }
+
+      // OTP verified successfully
+      setSuccess('WhatsApp verificado correctamente');
+      setShowOTPVerification(false);
+      setOtpCode("");
+      setWhatsappNumberId(null);
+      
+      // Continue to next step
+      handleNextStep();
+
+    } catch (error) {
+      console.error('[ERROR] Error verifying OTP:', error);
+      setOtpError(error instanceof Error ? error.message : "Error al verificar código. Intenta nuevamente.");
+    } finally {
+      setIsVerifyingOTP(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    if (!whatsappNumberId) return;
+
+    setIsLoading(true);
+    setOtpError("");
+
+    try {
+      const response = await fetch('/api/whatsapp/send-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          whatsapp_number_id: whatsappNumberId
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Error al reenviar código');
+      }
+
+      setSuccess('Código reenviado a tu WhatsApp');
+      setOtpCode("");
+
+    } catch (error) {
+      console.error('[ERROR] Error resending OTP:', error);
+      setOtpError(error instanceof Error ? error.message : "Error al reenviar código. Intenta nuevamente.");
     } finally {
       setIsLoading(false);
     }
@@ -1150,7 +1237,7 @@ export default function OnboardingPage() {
           </Card>
         )}
 
-        {currentStep === 4 && (
+        {currentStep === 4 && !showOTPVerification && (
           <Card>
             <CardHeader>
               <CardTitle>Configura WhatsApp</CardTitle>
@@ -1211,6 +1298,95 @@ export default function OnboardingPage() {
                     </>
                   ) : (
                     'Configurar WhatsApp'
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {currentStep === 4 && showOTPVerification && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Verifica tu WhatsApp</CardTitle>
+              <CardDescription>
+                Hemos enviado un código de 6 dígitos a {whatsappNumber}. Ingresa el código para completar la configuración.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <label htmlFor="otpCode" className="block text-sm font-medium text-gray-700 mb-2">
+                  Código de Verificación
+                </label>
+                <Input
+                  id="otpCode"
+                  type="text"
+                  placeholder="123456"
+                  value={otpCode}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                    setOtpCode(value);
+                    setOtpError("");
+                  }}
+                  className="w-full text-center text-lg tracking-wider"
+                  maxLength={6}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  El código expira en 10 minutos.
+                </p>
+                {otpError && (
+                  <p className="text-xs text-red-600 mt-1">{otpError}</p>
+                )}
+              </div>
+
+              <div className="bg-green-50 border border-green-200 rounded-md p-4">
+                <div className="flex">
+                  <div className="text-green-400">
+                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-green-800">
+                      Revisa tu WhatsApp Business en <strong>{whatsappNumber}</strong> para encontrar el código de 6 dígitos.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between">
+                <div className="space-x-3">
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setShowOTPVerification(false);
+                      setOtpCode("");
+                      setOtpError("");
+                      setWhatsappNumberId(null);
+                    }}
+                  >
+                    Cambiar Número
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={handleResendOTP}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Reenviando...' : 'Reenviar Código'}
+                  </Button>
+                </div>
+                <Button 
+                  onClick={handleVerifyOTP}
+                  disabled={isVerifyingOTP || otpCode.length !== 6}
+                  className="min-w-[120px]"
+                >
+                  {isVerifyingOTP ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Verificando...
+                    </>
+                  ) : (
+                    'Verificar Código'
                   )}
                 </Button>
               </div>
