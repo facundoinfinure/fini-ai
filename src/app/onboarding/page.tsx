@@ -30,7 +30,7 @@ export default function OnboardingPage() {
   const [isStoreNameExtracted, setIsStoreNameExtracted] = useState(false);
   const [isExtractingInfo, setIsExtractingInfo] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState("");
-  const [selectedPlan, setSelectedPlan] = useState<"pro" | "enterprise">("pro");
+  const [selectedPlan, setSelectedPlan] = useState<"basic" | "pro">("basic");
   const [isAnnualBilling, setIsAnnualBilling] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<string>("");
   
@@ -648,42 +648,41 @@ export default function OnboardingPage() {
 
   const plans = [
     {
+      id: "basic" as const,
+      name: "Plan Basic",
+      monthlyPrice: 19.99,
+      annualPrice: 199.99, // ~17% discount
+      description: "Ideal para emprendedores",
+      trial: "7 días gratis",
+      features: [
+        "Chat básico por WhatsApp",
+        "Analytics básicos",
+        "1 tienda únicamente", 
+        "Métricas en tiempo real",
+        "Historial 7 días",
+        "Soporte por email"
+      ],
+      highlighted: false
+    },
+    {
       id: "pro" as const,
       name: "Plan Pro",
       monthlyPrice: 39.99,
-      annualPrice: 399.99, // 2 meses gratis (10 meses)
+      annualPrice: 399.99, // ~17% discount
       description: "Para negocios en crecimiento",
       trial: "7 días gratis",
       features: [
-        "Analytics básicos por WhatsApp",
+        "Todo del Plan Basic",
         "Sistema multi-agente completo",
         "Forecasting con IA",
         "Análisis de competencia",
         "Ideas de marketing automatizadas",
-        "Memoria extendida de conversaciones",
-        "RAG avanzado para consultas",
+        "Múltiples tiendas (hasta 5)",
+        "Analytics avanzados",
+        "Historial extendido (30 días)",
         "Soporte prioritario"
       ],
       highlighted: true
-    },
-    {
-      id: "enterprise" as const,
-      name: "Plan Enterprise", 
-      monthlyPrice: 99.99,
-      annualPrice: 999.99, // 2 meses gratis (10 meses)
-      description: "Para empresas establecidas",
-      trial: "7 días gratis",
-      features: [
-        "Todo del Plan Pro",
-        "Agentes personalizados",
-        "Integraciones avanzadas", 
-        "ML models custom",
-        "API dedicada",
-        "Soporte 24/7",
-        "Onboarding personalizado",
-        "Analytics avanzados y reportes",
-        "Múltiples tiendas"
-      ]
     }
   ];
 

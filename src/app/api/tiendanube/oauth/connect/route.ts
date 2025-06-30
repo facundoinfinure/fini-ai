@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { checkStoreLimit, createPlanErrorResponse } from '@/lib/middleware/plan-restrictions';
 
 interface ConnectRequest {
   storeUrl: string;
@@ -24,6 +25,33 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.user.id;
+    
+    // Check current store count and plan limits
+    const { data: stores, error: storesError } = await supabase
+      .from('stores')
+      .select('id', { count: 'exact' })
+      .eq('user_id', userId)
+      .eq('is_active', true);
+    
+    if (storesError) {
+      console.error('[ERROR] Failed to check store count:', storesError);
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to check store count'
+      }, { status: 500 });
+    }
+    
+    const currentStoreCount = stores?.length || 0;
+    
+    // Check store limit based on plan
+    const storeLimitCheck = await checkStoreLimit(request, currentStoreCount);
+    
+    if (!storeLimitCheck.success) {
+      console.log(`[INFO] Store limit exceeded for user ${userId}. Current count: ${currentStoreCount}, Plan: ${storeLimitCheck.plan || 'unknown'}`);
+      return createPlanErrorResponse(storeLimitCheck.error!);
+    }
+    
+    console.log(`[INFO] Store limit check passed for user ${userId}. Current count: ${currentStoreCount}, Plan: ${storeLimitCheck.plan}`);
     
     // Parse request body to get store information
     let storeData: ConnectRequest;

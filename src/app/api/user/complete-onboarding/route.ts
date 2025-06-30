@@ -7,7 +7,7 @@ interface OnboardingData {
   storeUrl: string;
   storeName: string;
   whatsappNumber: string;
-  selectedPlan: 'free' | 'pro' | 'enterprise';
+  selectedPlan: 'basic' | 'pro';
 }
 
 export async function POST(_request: NextRequest) {

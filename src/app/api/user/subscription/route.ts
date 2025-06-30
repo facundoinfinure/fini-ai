@@ -38,7 +38,7 @@ export async function GET() {
       // Si las columnas no existen, usar valores por defecto
       console.log('[INFO] Using default subscription values (columns may not exist yet)');
       userProfile = {
-        subscription_plan: 'free',
+        subscription_plan: 'basic',
         subscription_status: 'active'
       };
       profileError = null;
@@ -82,21 +82,21 @@ export async function GET() {
     const totalMessages = conversations?.reduce((total, conv) => total + (conv.message_count || 0), 0) || 0;
 
     // Determinar límites según el plan
-    const plan = userProfile?.subscription_plan || 'free';
+    const plan = userProfile?.subscription_plan || 'basic';
     let maxStores = 1;
     let maxMessages = 500;
     let maxAnalytics = 100;
 
     switch (plan) {
+      case 'basic':
+        maxStores = 1;
+        maxMessages = 500;
+        maxAnalytics = 100;
+        break;
       case 'pro':
         maxStores = 5;
         maxMessages = 5000;
         maxAnalytics = 1000;
-        break;
-      case 'enterprise':
-        maxStores = 999;
-        maxMessages = 99999;
-        maxAnalytics = 99999;
         break;
     }
 
