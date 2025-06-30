@@ -76,12 +76,14 @@ function DashboardContent() {
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
 
-  // Handle OAuth callback results
+  // Handle OAuth callback results and Stripe checkout success
   useEffect(() => {
     const error = searchParams.get('error');
     const message = searchParams.get('message');
     const success = searchParams.get('success');
     const storeName = searchParams.get('store_name');
+    const sessionId = searchParams.get('session_id');
+    const canceled = searchParams.get('canceled');
 
     if (error) {
       const errorType = message || error;
@@ -104,6 +106,14 @@ function DashboardContent() {
       setTimeout(() => {
         fetchDashboardData();
       }, 1000);
+    } else if (success === 'true' && sessionId) {
+      // Handle successful Stripe checkout
+      handleStripeCheckoutSuccess(sessionId);
+    } else if (canceled === 'true') {
+      setNotification({
+        type: 'warning',
+        message: 'Pago cancelado. Puedes intentar nuevamente cuando quieras.'
+      });
     }
   }, [searchParams]);
 
@@ -241,6 +251,91 @@ function DashboardContent() {
 
   const handleRefresh = () => {
     fetchDashboardData();
+  };
+
+  // Handle successful Stripe checkout completion
+  const handleStripeCheckoutSuccess = async (sessionId: string) => {
+    try {
+      logger.info('Processing Stripe checkout success', { sessionId });
+      
+      setNotification({
+        type: 'success',
+        message: '¡Suscripción activada exitosamente! 🎉 Configurando tu cuenta...'
+      });
+
+      // Wait a moment for webhook to process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Refresh dashboard data to get updated subscription status
+      await fetchDashboardData();
+
+      // Get user's WhatsApp number and first store for welcome message
+      const storesResponse = await fetch('/api/stores');
+      if (storesResponse.ok) {
+        const storesData = await storesResponse.json();
+        if (storesData.success && storesData.data.length > 0) {
+          const firstStore = storesData.data[0];
+          const whatsappNumbers = await fetch('/api/whatsapp/numbers');
+          
+          if (whatsappNumbers.ok) {
+            const numbersData = await whatsappNumbers.json();
+            if (numbersData.success && numbersData.data.length > 0) {
+              const verifiedNumber = numbersData.data.find((num: any) => num.verified);
+              
+              if (verifiedNumber) {
+                // Send welcome message
+                const welcomeResponse = await fetch('/api/whatsapp/send-welcome', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    to: verifiedNumber.phone_number,
+                    storeId: firstStore.id,
+                    userId: user?.id
+                  })
+                });
+
+                if (welcomeResponse.ok) {
+                  logger.info('Welcome message sent successfully');
+                  setNotification({
+                    type: 'success',
+                    message: '¡Bienvenido a Fini AI! 🚀 Te hemos enviado un mensaje de bienvenida por WhatsApp. Tu asistente IA está listo para ayudarte.'
+                  });
+                } else {
+                  logger.warn('Failed to send welcome message, but subscription is active');
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Mark onboarding as completed
+      try {
+        await fetch('/api/user/complete-onboarding', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            completedAt: new Date().toISOString(),
+            source: 'stripe_checkout'
+          })
+        });
+      } catch (error) {
+        logger.warn('Failed to mark onboarding as completed', { error });
+      }
+
+      // Clean URL parameters
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.delete('success');
+      currentUrl.searchParams.delete('session_id');
+      window.history.replaceState({}, '', currentUrl.toString());
+
+    } catch (error) {
+      logger.error('Error processing Stripe checkout success', { error });
+      setNotification({
+        type: 'error',
+        message: 'Suscripción activada, pero hubo un problema configurando tu cuenta. Por favor contacta soporte.'
+      });
+    }
   };
 
   // Conversations management

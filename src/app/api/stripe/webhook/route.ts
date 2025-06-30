@@ -6,6 +6,88 @@ import type Stripe from 'stripe';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
+/**
+ * Send welcome message to user after successful subscription
+ */
+async function sendWelcomeMessageToUser(userId: string) {
+  try {
+    console.log('[INFO] Sending welcome message to user:', userId);
+    
+    const supabase = createClient();
+
+    // Get user's stores and WhatsApp numbers
+    const [storesResult, numbersResult] = await Promise.all([
+      supabase
+        .from('stores')
+        .select('id, name')
+        .eq('user_id', userId)
+        .limit(1),
+      supabase
+        .from('whatsapp_numbers')
+        .select('phone_number, verified')
+        .eq('user_id', userId)
+        .eq('verified', true)
+        .limit(1)
+    ]);
+
+    if (storesResult.error) {
+      console.error('[ERROR] Failed to fetch user stores:', storesResult.error);
+      return;
+    }
+
+    if (numbersResult.error) {
+      console.error('[ERROR] Failed to fetch WhatsApp numbers:', numbersResult.error);
+      return;
+    }
+
+    const stores = storesResult.data;
+    const numbers = numbersResult.data;
+
+    if (!stores || stores.length === 0) {
+      console.log('[INFO] No stores found for user, skipping welcome message');
+      return;
+    }
+
+    if (!numbers || numbers.length === 0) {
+      console.log('[INFO] No verified WhatsApp numbers found for user, skipping welcome message');
+      return;
+    }
+
+    const firstStore = stores[0];
+    const verifiedNumber = numbers[0];
+
+    // Send welcome message
+    const welcomeResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/whatsapp/send-welcome`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: verifiedNumber.phone_number,
+        storeId: firstStore.id,
+        userId: userId
+      })
+    });
+
+    if (welcomeResponse.ok) {
+      const result = await welcomeResponse.json();
+      console.log('[INFO] Welcome message sent successfully:', {
+        userId,
+        phone: verifiedNumber.phone_number,
+        storeId: firstStore.id,
+        messageId: result.data?.messageId
+      });
+    } else {
+      const errorData = await welcomeResponse.json();
+      console.error('[ERROR] Welcome message API failed:', errorData);
+    }
+
+  } catch (error) {
+    console.error('[ERROR] Error in sendWelcomeMessageToUser:', error);
+    throw error;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log('[INFO] Processing Stripe webhook');
@@ -72,6 +154,16 @@ export async function POST(request: NextRequest) {
                 billing: mappedPlan.billing,
                 status: mappedPlan.status
               });
+
+              // Send welcome message for new active subscriptions
+              if (mappedPlan.status === 'active') {
+                try {
+                  await sendWelcomeMessageToUser(userId);
+                } catch (welcomeError) {
+                  console.error('[ERROR] Failed to send welcome message:', welcomeError);
+                  // Don't fail the webhook for welcome message errors
+                }
+              }
             }
           }
         }
