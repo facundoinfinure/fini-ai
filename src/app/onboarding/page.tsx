@@ -31,7 +31,53 @@ export default function OnboardingPage() {
   const [isExtractingInfo, setIsExtractingInfo] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<"pro" | "enterprise">("pro");
+  const [isAnnualBilling, setIsAnnualBilling] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<string>("");
+  
+  // 🔄 NEW: Progress tracking state
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  
+  // 🔄 Progress persistence functions
+  const saveProgress = (step: number) => {
+    const newCompletedSteps = new Set(completedSteps);
+    newCompletedSteps.add(step);
+    setCompletedSteps(newCompletedSteps);
+    
+    // Save to localStorage
+    const progressKey = `onboarding_progress_${user?.id}`;
+    localStorage.setItem(progressKey, JSON.stringify(Array.from(newCompletedSteps)));
+    
+    console.log('[INFO] Progress saved for step:', step, 'Completed steps:', Array.from(newCompletedSteps));
+  };
+  
+  const loadProgress = (): Set<number> => {
+    if (!user?.id) return new Set<number>();
+    
+    const progressKey = `onboarding_progress_${user?.id}`;
+    const savedProgress = localStorage.getItem(progressKey);
+    
+    if (savedProgress) {
+      try {
+        const stepsArray: number[] = JSON.parse(savedProgress);
+        const stepsSet = new Set<number>(stepsArray.filter(step => typeof step === 'number'));
+        setCompletedSteps(stepsSet);
+        console.log('[INFO] Progress loaded:', Array.from(stepsSet));
+        return stepsSet;
+      } catch (error) {
+        console.error('[ERROR] Failed to parse saved progress:', error);
+      }
+    }
+    return new Set<number>();
+  };
+  
+  const getNextIncompleteStep = (currentCompletedSteps: Set<number>) => {
+    // Step progression logic based on completed steps
+    if (!currentCompletedSteps.has(1) && !hasStores) return 1; // Store connection
+    if (!currentCompletedSteps.has(2) && hasStores) return 2;  // Analysis
+    if (!currentCompletedSteps.has(3)) return 3;  // Profile
+    if (!currentCompletedSteps.has(4)) return 4;  // WhatsApp
+    return 5; // Plans (final step)
+  };
   
   // 🤖 NEW: Store Analysis state
   const [storeId, setStoreId] = useState<string | null>(null);
@@ -51,6 +97,13 @@ export default function OnboardingPage() {
 
   // Add flag to prevent multiple checkExistingOnboarding calls
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
+
+  // Load progress when user is available
+  useEffect(() => {
+    if (user?.id) {
+      loadProgress();
+    }
+  }, [user?.id]);
 
   // Check if user is authenticated and handle onboarding state
   useEffect(() => {
@@ -101,6 +154,9 @@ export default function OnboardingPage() {
     try {
       console.log('[INFO] Checking onboarding status for user:', user?.id, 'stepParam:', stepParam);
       
+      // Load saved progress first
+      const currentCompletedSteps = loadProgress();
+      
       // Check user's onboarding status and stores in parallel
       const [onboardingResponse, storesResponse] = await Promise.all([
         fetch("/api/user/complete-onboarding", { method: 'GET' }),
@@ -113,7 +169,7 @@ export default function OnboardingPage() {
       });
       
       let hasCompletedOnboarding = false;
-      let hasStores = false;
+      let currentHasStores = false;
       
       // Parse onboarding response
       if (onboardingResponse.ok) {
@@ -131,12 +187,16 @@ export default function OnboardingPage() {
         console.log('[INFO] Stores data:', storesData);
         
         if (storesData.success && storesData.data && storesData.data.length > 0) {
-          hasStores = true;
+          currentHasStores = true;
+          // If user has stores, mark step 1 as completed
+          if (!currentCompletedSteps.has(1)) {
+            saveProgress(1);
+          }
         }
       }
       
       // Set state variables
-      setHasStores(hasStores);
+      setHasStores(currentHasStores);
       setOnboardingCompleted(hasCompletedOnboarding);
 
       // Determine appropriate step
@@ -147,20 +207,16 @@ export default function OnboardingPage() {
         targetStep = parseInt(stepParam);
         console.log('[INFO] Using step from URL parameter:', targetStep);
       }
-      // Otherwise, determine step based on user's progress
-      else if (hasStores && !hasCompletedOnboarding) {
-        // User has connected store but hasn't completed onboarding
-        targetStep = 2; // Go to analysis step
-        console.log('[INFO] User has stores but onboarding not completed, going to step 2');
-      }
-      else if (hasCompletedOnboarding && hasStores) {
-        // User has completed everything -> redirect to dashboard
-        console.log('[INFO] User has completed onboarding and has stores, redirecting to dashboard');
+      // If onboarding is completely done, redirect to dashboard
+      else if (hasCompletedOnboarding && currentHasStores) {
+        console.log('[INFO] User has completed onboarding, redirecting to dashboard');
         router.push("/dashboard");
         return;
       }
+      // Otherwise, determine step based on saved progress
       else {
-        console.log('[INFO] Using default welcome step');
+        targetStep = getNextIncompleteStep(currentCompletedSteps);
+        console.log('[INFO] Next incomplete step determined:', targetStep, 'Completed steps:', Array.from(currentCompletedSteps));
       }
       
       console.log('[INFO] Setting onboarding step to:', targetStep);
@@ -365,6 +421,9 @@ export default function OnboardingPage() {
       setAnalysisComplete(true);
       setSuccess('¡Análisis completado! Revisa el perfil de tu negocio.');
       
+      // Save progress for analysis step
+      saveProgress(2);
+      
       // Let user manually advance to review step
 
     } catch (error) {
@@ -387,6 +446,9 @@ export default function OnboardingPage() {
       // For now, just store in state and continue
       // In the future, this could save to database
       setSuccess('Perfil guardado correctamente');
+      
+      // Save progress for profile step
+      saveProgress(3);
       
       // Auto-advance to next step after short delay
       setTimeout(() => {
@@ -478,6 +540,9 @@ export default function OnboardingPage() {
       setShowOTPVerification(false);
       setOtpCode("");
       setWhatsappNumberId(null);
+      
+      // Save progress for WhatsApp step
+      saveProgress(4);
       
       // Continue to next step
       handleNextStep();
@@ -585,8 +650,8 @@ export default function OnboardingPage() {
     {
       id: "pro" as const,
       name: "Plan Pro",
-      price: "$39.99/mes",
-      originalPrice: "$39.99",
+      monthlyPrice: 39.99,
+      annualPrice: 399.99, // 2 meses gratis (10 meses)
       description: "Para negocios en crecimiento",
       trial: "7 días gratis",
       features: [
@@ -604,8 +669,8 @@ export default function OnboardingPage() {
     {
       id: "enterprise" as const,
       name: "Plan Enterprise", 
-      price: "$99.99/mes",
-      originalPrice: "$99.99",
+      monthlyPrice: 99.99,
+      annualPrice: 999.99, // 2 meses gratis (10 meses)
       description: "Para empresas establecidas",
       trial: "7 días gratis",
       features: [
@@ -621,6 +686,23 @@ export default function OnboardingPage() {
       ]
     }
   ];
+
+  const getDisplayPrice = (plan: typeof plans[0]) => {
+    if (isAnnualBilling) {
+      const monthlyEquivalent = plan.annualPrice / 12;
+      return {
+        price: `$${monthlyEquivalent.toFixed(2)}/mes`,
+        fullPrice: `$${plan.annualPrice}/año`,
+        savings: `Ahorras $${((plan.monthlyPrice * 12) - plan.annualPrice).toFixed(2)}/año`
+      };
+    } else {
+      return {
+        price: `$${plan.monthlyPrice}/mes`,
+        fullPrice: `$${plan.monthlyPrice}/mes`,
+        savings: null
+      };
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1409,6 +1491,35 @@ export default function OnboardingPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Billing Toggle */}
+              <div className="flex justify-center mb-8">
+                <div className="bg-gray-100 p-1 rounded-lg inline-flex">
+                  <button
+                    onClick={() => setIsAnnualBilling(false)}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                      !isAnnualBilling
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Mensual
+                  </button>
+                  <button
+                    onClick={() => setIsAnnualBilling(true)}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all relative ${
+                      isAnnualBilling
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Anual
+                    <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                      -17%
+                    </span>
+                  </button>
+                </div>
+              </div>
+              
               <div className="grid md:grid-cols-2 gap-8 mb-8 max-w-4xl mx-auto">
                 {plans.map((plan) => (
                   <div
@@ -1463,7 +1574,13 @@ export default function OnboardingPage() {
                         
                         {/* Price */}
                         <div className="mb-2">
-                          <span className="text-3xl font-bold text-gray-900">{plan.price}</span>
+                          <span className="text-3xl font-bold text-gray-900">{getDisplayPrice(plan).price}</span>
+                          {isAnnualBilling && (
+                            <div className="text-sm text-gray-500 mt-1">
+                              <div>{getDisplayPrice(plan).fullPrice}</div>
+                              <div className="text-green-600 font-medium">{getDisplayPrice(plan).savings}</div>
+                            </div>
+                          )}
                         </div>
                         <p className="text-sm text-gray-600">{plan.description}</p>
                       </div>
