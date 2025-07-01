@@ -342,7 +342,12 @@ function DashboardContent() {
   // Conversations management
   const loadConversations = async () => {
     try {
-      const response = await fetch('/api/conversations');
+      const response = await fetch('/api/conversations', {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       const data = await response.json();
       
       if (data.success && data.data) {
@@ -440,30 +445,75 @@ function DashboardContent() {
       console.log('[INFO] Eliminando conversación:', conversationId);
       
       const response = await fetch(`/api/conversations/${conversationId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
       });
       
       const data = await response.json();
       if (data.success) {
         console.log('[INFO] Conversación eliminada exitosamente del backend:', conversationId);
         
-        // Remover de la lista local
-        setConversations(prev => prev.filter(c => c.id !== conversationId));
-        
-        // Si era la conversación seleccionada, limpiar selección
+        // Limpiar selección si era la conversación seleccionada
         if (selectedConversationId === conversationId) {
           setSelectedConversationId(null);
         }
         
-        // 🔄 REFRESH: Recargar conversaciones para asegurar sincronización con backend
-        setTimeout(() => {
-          loadConversations();
-        }, 500); // Pequeño delay para asegurar que el backend procesó la eliminación
+        // 🔄 VERIFICACIÓN: Verificar que realmente se eliminó del backend
+        const verifyDeletion = async (attempt = 1, maxAttempts = 3) => {
+          try {
+            console.log(`[INFO] Verificando eliminación (intento ${attempt}/${maxAttempts})`);
+            
+            const verifyResponse = await fetch('/api/conversations?' + Math.random(), {
+              headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+              }
+            });
+            
+            if (verifyResponse.ok) {
+              const verifyData = await verifyResponse.json();
+              if (verifyData.success) {
+                const stillExists = verifyData.data.some((conv: any) => conv.id === conversationId);
+                
+                if (stillExists && attempt < maxAttempts) {
+                  console.log(`[WARNING] Conversación aún existe, reintentando... (${attempt}/${maxAttempts})`);
+                  // Esperar un poco más y reintentar
+                  setTimeout(() => verifyDeletion(attempt + 1, maxAttempts), 1000);
+                  return;
+                }
+                
+                if (stillExists) {
+                  console.error('[ERROR] Conversación no se eliminó después de múltiples intentos');
+                  setNotification({
+                    type: 'error',
+                    message: 'Error: la conversación no se eliminó completamente. Refrescar la página.'
+                  });
+                  return;
+                }
+                
+                // ✅ Eliminación verificada exitosamente
+                console.log('[INFO] Eliminación verificada exitosamente');
+                setConversations(verifyData.data);
+              }
+            }
+          } catch (error) {
+            console.error('[ERROR] Error verificando eliminación:', error);
+            if (attempt >= maxAttempts) {
+              // Fallback: forzar recarga de conversaciones
+              loadConversations();
+            }
+          }
+        };
         
-        console.log('[INFO] Conversación eliminada y estado sincronizado');
+        // Iniciar verificación
+        verifyDeletion();
+        
+        console.log('[INFO] Proceso de eliminación iniciado');
       } else {
         console.error('[ERROR] Backend failed to delete conversation:', data.error);
-        // Mostrar error al usuario
         setNotification({
           type: 'error',
           message: `Error eliminando conversación: ${data.error}`
@@ -472,8 +522,8 @@ function DashboardContent() {
     } catch (error) {
       console.error('[ERROR] Network error deleting conversation:', error);
       setNotification({
-        type: 'error', 
-        message: 'Error de red al eliminar conversación. Verifica tu conexión.'
+        type: 'error',
+        message: 'Error de conexión eliminando conversación'
       });
     }
   };

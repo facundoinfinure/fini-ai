@@ -83,6 +83,12 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: formattedConversations
+    }, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     });
 
   } catch (error) {
