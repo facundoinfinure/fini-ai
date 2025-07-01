@@ -143,6 +143,16 @@ export async function POST() {
   try {
     console.log('[INFO] Configurando base de datos...')
     
+    // Use supabaseAdmin for setup operations
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .limit(1);
+
+    if (error) {
+      console.log('[INFO] Users table needs setup, proceeding with schema creation');
+    }
+
     // SQL para crear las tablas y políticas
     const setupSQL = `
       -- Enable UUID extension
@@ -749,17 +759,75 @@ export async function POST() {
       \`
     `
 
-    // Split the SQL into individual statements and execute them
-    const statements = setupSQL.split(';').filter(stmt => stmt.trim().length > 0);
+    // Execute the SQL schema setup directly using supabase SQL
+    console.log('[INFO] Executing database schema setup...');
     
-    for (const statement of statements) {
-      if (statement.trim()) {
-        const { error } = await supabaseAdmin.rpc('exec_sql', { sql: `${statement.trim()};` });
-        if (error) {
-          console.error('[ERROR] Error executing statement:', statement.trim(), error);
-          // Continue with other statements even if one fails
+    try {
+      // Execute the main schema SQL
+      const { error: setupError } = await supabaseAdmin.rpc('exec_sql', { sql: setupSQL });
+      
+      if (setupError) {
+        console.log('[INFO] Main schema setup failed, trying alternative method...');
+        
+        // Try to execute the migration part directly
+        const migrationSQL = `
+          -- Add missing user profile columns
+          DO $$
+          BEGIN
+            -- Add full_name column if it doesn't exist
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'full_name') THEN
+              ALTER TABLE public.users ADD COLUMN full_name TEXT;
+              RAISE NOTICE 'Added full_name column';
+            END IF;
+            
+            -- Add business profile columns if they don't exist
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'business_name') THEN
+              ALTER TABLE public.users ADD COLUMN business_name TEXT;
+              RAISE NOTICE 'Added business_name column';
+            END IF;
+            
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'business_type') THEN
+              ALTER TABLE public.users ADD COLUMN business_type TEXT;
+              RAISE NOTICE 'Added business_type column';
+            END IF;
+            
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'business_description') THEN
+              ALTER TABLE public.users ADD COLUMN business_description TEXT;
+              RAISE NOTICE 'Added business_description column';
+            END IF;
+            
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'target_audience') THEN
+              ALTER TABLE public.users ADD COLUMN target_audience TEXT;
+              RAISE NOTICE 'Added target_audience column';
+            END IF;
+            
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'competitors') THEN
+              ALTER TABLE public.users ADD COLUMN competitors JSONB DEFAULT '[]'::jsonb;
+              RAISE NOTICE 'Added competitors column';
+            END IF;
+            
+            -- Update subscription_plan from 'free' to 'basic' for existing users
+            UPDATE public.users SET subscription_plan = 'basic' WHERE subscription_plan = 'free';
+            
+            RAISE NOTICE 'User profile migration completed successfully';
+          END $$;
+        `;
+        
+        const { error: migrationError } = await supabaseAdmin.rpc('exec_sql', { sql: migrationSQL });
+        
+        if (migrationError) {
+          console.log('[ERROR] Migration failed:', migrationError.message);
+          throw new Error(`Migration failed: ${migrationError.message}`);
+        } else {
+          console.log('[SUCCESS] Profile migration completed');
         }
+      } else {
+        console.log('[SUCCESS] Schema setup completed');
       }
+      
+    } catch (schemaError) {
+      console.log('[ERROR] Schema execution failed:', schemaError);
+      throw schemaError;
     }
 
     console.log('[SUCCESS] Base de datos configurada correctamente')

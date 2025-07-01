@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import StripePricingTable from "@/components/dashboard/stripe-pricing-table";
+import { motion } from "framer-motion";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { CheckCircle, User, Building, Target, X, Plus, Loader2 } from "lucide-react";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -1150,195 +1153,230 @@ export default function OnboardingPage() {
         )}
 
         {/* 🤖 NEW Step 3: Review and Edit Business Profile */}
-        {currentStep === 3 && businessProfile && (
-          <Card>
-            <CardHeader>
-              <CardTitle>📝 Revisa tu Perfil de Negocio</CardTitle>
-              <CardDescription>
-                Revisa y edita el perfil que generamos automáticamente. Puedes modificar cualquier campo.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* ✨ NEW: Personal Information Section */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="font-medium text-blue-900 mb-3">👤 Información Personal</h4>
-                <div>
-                  <label className="block text-sm font-medium text-blue-700 mb-2">
-                    Nombre Completo
-                  </label>
-                  <Input
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Tu nombre completo"
-                    className="bg-white border-blue-300 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <p className="text-xs text-blue-600 mt-1">
-                    Este será tu nombre en tu perfil de Fini AI.
-                  </p>
-                </div>
-              </div>
+        {currentStep === 3 && (
+          <motion.div
+            key="step-3"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Perfil del Negocio
+              </h2>
+              <p className="text-gray-600">
+                Cuéntanos sobre tu negocio para ofrecerte mejores insights
+              </p>
+            </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Categoría del Negocio
-                  </label>
-                  <Input
-                    value={businessProfile.category}
-                    onChange={(e) => setBusinessProfile({
-                      ...businessProfile,
-                      category: e.target.value
-                    })}
-                    placeholder="ej: Moda y Vestimenta"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Audiencia Objetivo
-                  </label>
-                  <Input
-                    value={businessProfile.targetAudience}
-                    onChange={(e) => setBusinessProfile({
-                      ...businessProfile,
-                      targetAudience: e.target.value
-                    })}
-                    placeholder="ej: Jóvenes interesados en moda"
-                  />
-                </div>
-              </div>
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Descripción del Negocio
-                </label>
-                <textarea
-                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  rows={3}
-                  value={businessProfile.description}
-                  onChange={(e) => setBusinessProfile({
-                    ...businessProfile,
-                    description: e.target.value
-                  })}
-                  placeholder="Describe tu negocio en 1-2 oraciones"
-                />
-              </div>
+            {success && (
+              <Alert>
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>{success}</AlertDescription>
+              </Alert>
+            )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Propuesta de Valor
-                </label>
-                <Input
-                  value={businessProfile.valueProposition}
-                  onChange={(e) => setBusinessProfile({
-                    ...businessProfile,
-                    valueProposition: e.target.value
-                  })}
-                  placeholder="¿Qué hace único a tu negocio?"
-                />
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-3">📊 Análisis Automático</h4>
-                <div className="grid md:grid-cols-2 gap-4 text-sm">
+            <div className="space-y-6">
+              {/* Personal Information Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <User className="h-5 w-5" />
+                    <span>Información Personal</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div>
-                    <span className="font-medium text-gray-700">Total productos:</span>
-                    <span className="ml-2 text-gray-600">{businessProfile.productAnalysis.totalProducts}</span>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Nombre Completo *
+                    </label>
+                    <Input
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Tu nombre completo"
+                      required
+                    />
                   </div>
-                  <div>
-                    <span className="font-medium text-gray-700">Precio promedio:</span>
-                    <span className="ml-2 text-gray-600">
-                      ${businessProfile.productAnalysis.averagePrice?.toFixed(2)} {businessProfile.priceRange.currency}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">Marcas:</span>
-                    <span className="ml-2 text-gray-600">{businessProfile.productAnalysis.brandCount}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">Con variantes:</span>
-                    <span className="ml-2 text-gray-600">{businessProfile.productAnalysis.hasVariants ? 'Sí' : 'No'}</span>
-                  </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
 
-              <div className="bg-orange-50 rounded-lg p-4">
-                <h4 className="font-medium text-orange-900 mb-3">🏢 Competidores Principales</h4>
-                <p className="text-sm text-orange-700 mb-4">
-                  Agrega hasta 3 competidores para obtener mejores insights y estrategias de marketing.
-                </p>
-                
-                <div className="space-y-4">
+              {/* Business Information Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Building className="h-5 w-5" />
+                    <span>Información del Negocio</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {businessProfile && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                          Nombre del Negocio
+                        </label>
+                        <Input
+                          value={businessProfile.businessName}
+                          onChange={(e) => setBusinessProfile({
+                            ...businessProfile,
+                            businessName: e.target.value
+                          })}
+                          placeholder="Nombre de tu empresa"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                          Tipo de Negocio
+                        </label>
+                        <Input
+                          value={businessProfile.category}
+                          onChange={(e) => setBusinessProfile({
+                            ...businessProfile,
+                            category: e.target.value
+                          })}
+                          placeholder="Ej: E-commerce, Servicios, etc."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                          Descripción del Negocio
+                        </label>
+                        <textarea
+                          value={businessProfile.description}
+                          onChange={(e) => setBusinessProfile({
+                            ...businessProfile,
+                            description: e.target.value
+                          })}
+                          placeholder="Describe brevemente tu negocio, productos o servicios..."
+                          className="w-full p-3 border border-gray-300 rounded-md min-h-[100px] focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent resize-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 mb-2 block">
+                          Audiencia Objetivo
+                        </label>
+                        <Input
+                          value={businessProfile.targetAudience}
+                          onChange={(e) => setBusinessProfile({
+                            ...businessProfile,
+                            targetAudience: e.target.value
+                          })}
+                          placeholder="Describe tu audiencia objetivo"
+                        />
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Competitors Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Target className="h-5 w-5" />
+                    <span>Competidores Principales</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Agrega hasta 3 competidores para mejorar tu análisis competitivo
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   {competitors.map((competitor, index) => (
-                    <div key={index} className="grid md:grid-cols-3 gap-3 items-center p-3 bg-white rounded border">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Nombre (opcional)
-                        </label>
-                        <Input
-                          placeholder="Ej: MercadoLibre"
-                          value={competitor.name || ''}
-                          onChange={(e) => {
-                            const newCompetitors = [...competitors];
-                            newCompetitors[index] = { ...newCompetitors[index], name: e.target.value };
-                            setCompetitors(newCompetitors);
-                          }}
-                          className="text-sm"
-                        />
+                    <div key={index} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-medium text-gray-700">
+                          Competidor {index + 1}
+                        </h4>
+                        {competitors.length > 1 && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleRemoveCompetitor(index)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Sitio Web
-                        </label>
-                        <Input
-                          placeholder="https://competidor.com"
-                          value={competitor.website || ''}
-                          onChange={(e) => {
-                            const newCompetitors = [...competitors];
-                            newCompetitors[index] = { ...newCompetitors[index], website: e.target.value };
-                            setCompetitors(newCompetitors);
-                          }}
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Instagram
-                        </label>
-                        <Input
-                          placeholder="@competidor"
-                          value={competitor.instagram || ''}
-                          onChange={(e) => {
-                            const newCompetitors = [...competitors];
-                            newCompetitors[index] = { ...newCompetitors[index], instagram: e.target.value };
-                            setCompetitors(newCompetitors);
-                          }}
-                          className="text-sm"
-                        />
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-xs font-medium text-gray-600 mb-1 block">
+                            Nombre
+                          </label>
+                          <Input
+                            value={competitor.name}
+                            onChange={(e) => handleCompetitorChange(index, 'name', e.target.value)}
+                            placeholder="Nombre del competidor"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-600 mb-1 block">
+                            Sitio Web
+                          </label>
+                          <Input
+                            value={competitor.website}
+                            onChange={(e) => handleCompetitorChange(index, 'website', e.target.value)}
+                            placeholder="https://..."
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-600 mb-1 block">
+                            Instagram
+                          </label>
+                          <Input
+                            value={competitor.instagram}
+                            onChange={(e) => handleCompetitorChange(index, 'instagram', e.target.value)}
+                            placeholder="@usuario"
+                            className="text-sm"
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
-                </div>
-                
-                <p className="text-xs text-orange-600 mt-2">
-                  💡 Esta información nos ayudará a generar estrategias más específicas para tu mercado.
-                </p>
-              </div>
+
+                  {competitors.length < 3 && (
+                    <Button
+                      onClick={handleAddCompetitor}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Agregar Competidor
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
 
               <div className="flex justify-between">
                 <Button 
-                  variant="outline"
+                  variant="outline" 
                   onClick={handlePreviousStep}
+                  disabled={isLoading}
                 >
                   Anterior
                 </Button>
                 <Button 
                   onClick={handleSaveProfile}
-                  disabled={isLoading}
+                  disabled={isLoading || !fullName.trim()}
                   className="min-w-[120px]"
                 >
                   {isLoading ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Guardando...
                     </>
                   ) : (
@@ -1346,8 +1384,8 @@ export default function OnboardingPage() {
                   )}
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </motion.div>
         )}
 
         {currentStep === 4 && !showOTPVerification && (
