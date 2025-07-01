@@ -46,6 +46,7 @@ export async function POST(_request: NextRequest) {
         id,
         email: email || '',
         name: user_metadata?.name || user_metadata?.full_name || '',
+        full_name: user_metadata?.full_name || user_metadata?.name || '',
         image: user_metadata?.avatar_url || user_metadata?.picture || ''
       })
       .select()

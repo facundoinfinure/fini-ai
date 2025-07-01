@@ -99,6 +99,9 @@ export default function OnboardingPage() {
   // Add flag to prevent multiple checkExistingOnboarding calls
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
 
+  // ✨ NEW: Add fullName state
+  const [fullName, setFullName] = useState('');
+
   // Load progress when user is available
   useEffect(() => {
     if (user?.id) {
@@ -147,6 +150,15 @@ export default function OnboardingPage() {
 
     // Mark as checked to prevent re-execution
     setHasCheckedOnboarding(true);
+    
+    // ✨ NEW: Initialize fullName from user auth data if available
+    if (user && !fullName) {
+      // Try to get name from different auth sources
+      const authName = user.user_metadata?.name || 
+                      user.user_metadata?.full_name || 
+                      '';
+      setFullName(authName);
+    }
     
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, loading, router, hasCheckedOnboarding]);
@@ -435,17 +447,37 @@ export default function OnboardingPage() {
     }
   };
 
-  // 🤖 NEW: Save edited business profile
+  // 🤖 NEW: Save edited business profile + full name
   const handleSaveProfile = async () => {
     setIsLoading(true);
     setError("");
     setSuccess("");
 
     try {
-      console.log('[PROFILE-SAVE] Saving business profile:', businessProfile);
+      console.log('[PROFILE-SAVE] Saving business profile and user info:', { businessProfile, fullName });
 
-      // For now, just store in state and continue
-      // In the future, this could save to database
+      // ✨ Save both business profile and full name to database
+      const profileResponse = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          businessProfile: {
+            businessName: businessProfile?.businessName || '',
+            businessType: businessProfile?.category || '',
+            description: businessProfile?.description || '',
+            targetAudience: businessProfile?.targetAudience || '',
+            competitors: competitors.filter(comp => comp.name.trim() !== '')
+          }
+        })
+      });
+
+      const profileData = await profileResponse.json();
+      
+      if (!profileData.success) {
+        throw new Error(profileData.error || 'Error al guardar el perfil');
+      }
+      
       setSuccess('Perfil guardado correctamente');
       
       // Save progress for profile step
@@ -1127,6 +1159,25 @@ export default function OnboardingPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* ✨ NEW: Personal Information Section */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-medium text-blue-900 mb-3">👤 Información Personal</h4>
+                <div>
+                  <label className="block text-sm font-medium text-blue-700 mb-2">
+                    Nombre Completo
+                  </label>
+                  <Input
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Tu nombre completo"
+                    className="bg-white border-blue-300 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-blue-600 mt-1">
+                    Este será tu nombre en tu perfil de Fini AI.
+                  </p>
+                </div>
+              </div>
+
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

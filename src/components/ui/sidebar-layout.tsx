@@ -78,11 +78,6 @@ const navigationItems: NavigationItem[] = [
     label: 'Configuración',
     icon: Settings,
   },
-  {
-    id: 'perfil',
-    label: 'Perfil',
-    icon: User,
-  },
 ];
 
 export function SidebarLayout({ 
@@ -395,16 +390,27 @@ export function SidebarLayout({
         <div className="p-4 border-t border-[#e5e7eb]">
           {user && (
             <div className="space-y-3">
-              <div className="flex items-center gap-3 p-2">
-                <div className="w-8 h-8 bg-[#f3f4f6] rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 text-[#6b7280]" />
+              {/* User Profile Card */}
+              <div className="flex items-center gap-3 p-3 bg-[#f8f9fa] rounded-lg">
+                <div className="w-10 h-10 bg-[#f3f4f6] rounded-full flex items-center justify-center">
+                  <User className="w-5 h-5 text-[#6b7280]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-[#1a1a1a] truncate">
+                    {user.user_metadata?.full_name || user.user_metadata?.name || user.email}
+                  </p>
+                  <p className="text-xs text-[#6b7280] truncate">
                     {user.email}
                   </p>
                   <p className="text-xs text-[#6b7280]">Plan Básico</p>
                 </div>
+                <button
+                  onClick={() => onTabChange?.('perfil')}
+                  className="opacity-70 hover:opacity-100 transition-opacity"
+                  title="Editar perfil"
+                >
+                  <Edit3 className="w-4 h-4 text-[#6b7280]" />
+                </button>
               </div>
               
               <Button

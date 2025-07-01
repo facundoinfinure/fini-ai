@@ -153,12 +153,18 @@ export async function POST() {
         id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
         email TEXT UNIQUE NOT NULL,
         name TEXT,
+        full_name TEXT,
         image TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         onboarding_completed BOOLEAN DEFAULT FALSE,
-        subscription_plan TEXT DEFAULT 'free' CHECK (subscription_plan IN ('free', 'pro', 'enterprise')),
-        subscription_status TEXT DEFAULT 'active' CHECK (subscription_status IN ('active', 'inactive', 'cancelled'))
+        subscription_plan TEXT DEFAULT 'basic' CHECK (subscription_plan IN ('basic', 'pro', 'enterprise')),
+        subscription_status TEXT DEFAULT 'active' CHECK (subscription_status IN ('active', 'inactive', 'cancelled')),
+        business_name TEXT,
+        business_type TEXT,
+        business_description TEXT,
+        target_audience TEXT,
+        competitors JSONB DEFAULT '[]'::jsonb
       );
 
       -- Stores table with multi-platform support
@@ -706,6 +712,39 @@ export async function POST() {
           IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'stores_user_platform_store_unique') THEN
             ALTER TABLE public.stores ADD CONSTRAINT stores_user_platform_store_unique UNIQUE (user_id, platform, platform_store_id);
           END IF;
+        END $$;
+
+        -- Add missing user profile columns
+        DO $$
+        BEGIN
+          -- Add full_name column if it doesn't exist
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'full_name') THEN
+            ALTER TABLE public.users ADD COLUMN full_name TEXT;
+          END IF;
+          
+          -- Add business profile columns if they don't exist
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'business_name') THEN
+            ALTER TABLE public.users ADD COLUMN business_name TEXT;
+          END IF;
+          
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'business_type') THEN
+            ALTER TABLE public.users ADD COLUMN business_type TEXT;
+          END IF;
+          
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'business_description') THEN
+            ALTER TABLE public.users ADD COLUMN business_description TEXT;
+          END IF;
+          
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'target_audience') THEN
+            ALTER TABLE public.users ADD COLUMN target_audience TEXT;
+          END IF;
+          
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'competitors') THEN
+            ALTER TABLE public.users ADD COLUMN competitors JSONB DEFAULT '[]'::jsonb;
+          END IF;
+          
+          -- Update subscription_plan from 'free' to 'basic' for existing users
+          UPDATE public.users SET subscription_plan = 'basic' WHERE subscription_plan = 'free';
         END $$;
       \`
     `

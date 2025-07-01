@@ -42,9 +42,10 @@ export async function GET(request: NextRequest) {
             id,
             email: email || '',
             name: user_metadata?.name || user_metadata?.full_name || '',
+            full_name: user_metadata?.full_name || user_metadata?.name || '',
             image: user_metadata?.avatar_url || user_metadata?.picture || '',
             onboarding_completed: false,
-            subscription_plan: 'free',
+            subscription_plan: 'basic',
             subscription_status: 'active'
           })
 
