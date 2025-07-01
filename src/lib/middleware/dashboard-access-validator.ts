@@ -200,22 +200,133 @@ export async function validateDashboardAccess(userId: string): Promise<Dashboard
 }
 
 /**
+ * Valida si el perfil del usuario está completo (solo información personal + negocio)
+ */
+export async function validateProfileOnly(userId: string): Promise<DashboardAccessResult> {
+  const supabase = createClient();
+  
+  try {
+    console.log('[PROFILE-VALIDATION] Validating profile completeness for user:', userId);
+    
+    // Verificar información del usuario y perfil de negocio
+    const { data: userProfile, error: userError } = await supabase
+      .from('users')
+      .select(`
+        id, 
+        email, 
+        full_name, 
+        business_name, 
+        business_type, 
+        business_description, 
+        onboarding_completed, 
+        subscription_status, 
+        subscription_plan
+      `)
+      .eq('id', userId)
+      .single();
+
+    if (userError || !userProfile) {
+      console.log('[PROFILE-VALIDATION] User profile not found:', userError);
+      return {
+        canAccess: false,
+        missing: ['user_profile'],
+        redirectTo: '/onboarding',
+        details: {
+          hasActiveStore: false,
+          hasVerifiedWhatsApp: false,
+          hasActiveSubscription: false,
+          onboardingCompleted: false,
+          storeCount: 0,
+          whatsappNumbers: 0
+        }
+      };
+    }
+
+    // Validar si tiene información personal completa
+    const hasPersonalInfo = !!(userProfile.full_name && userProfile.full_name.trim());
+    
+    // Validar si tiene información de negocio completa
+    const hasBusinessInfo = !!(
+      userProfile.business_name && userProfile.business_name.trim() &&
+      userProfile.business_type && userProfile.business_type.trim() &&
+      userProfile.business_description && userProfile.business_description.trim()
+    );
+
+    const isProfileComplete = hasPersonalInfo && hasBusinessInfo;
+    
+    // Determinar qué falta
+    const missing: string[] = [];
+    
+    if (!hasPersonalInfo) {
+      missing.push('personal_info');
+    }
+    if (!hasBusinessInfo) {
+      missing.push('business_info');
+    }
+
+    // Determinar redirección apropiada
+    let redirectTo: string | undefined;
+    
+    if (!isProfileComplete) {
+      redirectTo = '/onboarding?step=3'; // Redirigir al paso de perfil
+    }
+
+    const result: DashboardAccessResult = {
+      canAccess: isProfileComplete,
+      missing,
+      redirectTo,
+      details: {
+        hasActiveStore: false, // No importa para validación de perfil
+        hasVerifiedWhatsApp: false, // No importa para validación de perfil
+        hasActiveSubscription: true, // Asumimos true para simplificar
+        onboardingCompleted: userProfile.onboarding_completed === true,
+        userPlan: (userProfile.subscription_plan as 'basic' | 'pro') || 'basic',
+        storeCount: 0, // No importa para validación de perfil
+        whatsappNumbers: 0 // No importa para validación de perfil
+      },
+      user: {
+        id: userProfile.id,
+        email: userProfile.email,
+        name: userProfile.full_name
+      }
+    };
+
+    console.log('[PROFILE-VALIDATION] Profile validation result:', {
+      userId,
+      canAccess: result.canAccess,
+      missing: result.missing,
+      hasPersonalInfo,
+      hasBusinessInfo,
+      isProfileComplete
+    });
+
+    return result;
+
+  } catch (error) {
+    console.error('[PROFILE-VALIDATION] Profile validation error:', error);
+    return {
+      canAccess: false,
+      missing: ['validation_error'],
+      redirectTo: '/onboarding',
+      details: {
+        hasActiveStore: false,
+        hasVerifiedWhatsApp: false,
+        hasActiveSubscription: false,
+        onboardingCompleted: false,
+        storeCount: 0,
+        whatsappNumbers: 0
+      }
+    };
+  }
+}
+
+/**
  * Valida específicamente acceso a la sección de chat
+ * ACTUALIZADO: Solo requiere perfil completo (información personal + negocio)
  */
 export async function validateChatAccess(userId: string): Promise<DashboardAccessResult> {
-  const dashboardAccess = await validateDashboardAccess(userId);
-  
-  // Para chat se requieren TODOS los requisitos
-  const canAccessChat = dashboardAccess.details.hasActiveStore && 
-                       dashboardAccess.details.hasVerifiedWhatsApp && 
-                       dashboardAccess.details.hasActiveSubscription &&
-                       dashboardAccess.details.onboardingCompleted;
-  
-  return {
-    ...dashboardAccess,
-    canAccess: canAccessChat,
-    missing: canAccessChat ? [] : dashboardAccess.missing
-  };
+  // Usar validación simplificada basada solo en perfil
+  return await validateProfileOnly(userId);
 }
 
 /**

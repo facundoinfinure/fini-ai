@@ -608,7 +608,11 @@ export function ChatPreview({
         store_connection: 'Necesitas conectar al menos una tienda de TiendaNube',
         whatsapp_verification: 'Necesitas verificar al menos un número de WhatsApp',
         active_subscription: 'Necesitas una suscripción activa para acceder al chat',
-        onboarding: 'Debes completar el proceso de onboarding primero'
+        onboarding: 'Debes completar el proceso de onboarding primero',
+        personal_info: 'Debes completar tu información personal (nombre completo)',
+        business_info: 'Debes completar la información de tu negocio (nombre, tipo, descripción)',
+        user_profile: 'Debes completar tu perfil de usuario',
+        validation_error: 'Error al validar tu perfil. Intenta nuevamente.'
       };
       return messages[requirement as keyof typeof messages] || requirement;
     };
@@ -620,14 +624,14 @@ export function ChatPreview({
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <AlertCircle className="h-5 w-5 text-amber-500" />
-                <span>Configuración Requerida</span>
+                <span>Perfil Requerido</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Para acceder al chat necesitas completar la configuración de tu cuenta.
+                  Para acceder al chat necesitas completar tu perfil personal y de negocio.
                 </AlertDescription>
               </Alert>
 
