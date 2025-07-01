@@ -517,17 +517,65 @@ export function ChatPreview({
       // 🔥 COORDINATED DELETION: Use parent callback if available (preferred approach)
       if (onConversationUpdate) {
         console.log('[CHAT-PREVIEW] Delegating deletion to parent component for coordination');
-        // Let parent component handle the deletion to maintain consistency
-        onConversationUpdate();
+        
+        // 🔥 IMMEDIATE OPTIMISTIC UPDATE - Remove from UI first
+        const updatedConversations = conversations.filter(c => c.id !== conversationId);
+        setConversations(updatedConversations);
+        
+        // If this was the selected conversation, clear selection
+        if (selectedConversation?.id === conversationId) {
+          setSelectedConversation(null);
+          setMessages([]);
+        }
+        
+        // Make the actual delete request
+        try {
+          const response = await fetch(`/api/conversations/${conversationId}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const data = await response.json();
+          
+          if (!data.success) {
+            throw new Error(data.error || 'Error desconocido eliminando conversación');
+          }
+
+          console.log(`[CHAT-PREVIEW] ✅ Conversation deleted successfully: ${conversationId}`);
+          
+          // Notify parent component to refresh the conversations list
+          onConversationUpdate();
+          
+        } catch (deleteError: any) {
+          console.error(`[CHAT-PREVIEW] Delete request failed:`, deleteError?.message || deleteError);
+          
+          // 🔥 ROLLBACK - Restore the conversation in UI if delete failed
+          setConversations(conversations);
+          if (selectedConversation?.id === conversationId) {
+            setSelectedConversation(selectedConversation);
+            setMessages(messages);
+          }
+          
+          setError(`Error eliminando conversación: ${deleteError?.message || 'Error desconocido'}`);
+        }
+        
         return;
       }
       
-      // 🔥 OPTIMISTIC UI: Update immediately, rollback if fails
+      // 🔥 FALLBACK: Direct deletion if no parent callback
+      // Optimistically update UI
       const currentConversations = conversations;
       const currentSelected = selectedConversation;
       const currentMessages = messages;
       
-      // Optimistically update UI
       const remaining = conversations.filter(c => c.id !== conversationId);
       setConversations(remaining);
       
@@ -536,55 +584,35 @@ export function ChatPreview({
         setMessages([]);
       }
       
-      // 🔄 RETRY LOGIC: Multiple attempts with exponential backoff
-      let retryAttempts = 0;
-      const maxRetries = 2;
-      
-      while (retryAttempts <= maxRetries) {
-        try {
-          console.log(`[CHAT-PREVIEW] Delete attempt ${retryAttempts + 1}/${maxRetries + 1} for conversation: ${conversationId}`);
-          
-          const response = await fetch(`/api/conversations/${conversationId}`, {
-            method: 'DELETE',
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache'
-            }
-          });
-          
-          const result = await response.json();
-          
-          if (response.ok && result.success) {
-            console.log(`[CHAT-PREVIEW] ✅ Conversation deleted successfully: ${conversationId}`);
-            // Keep optimistic update - deletion successful
-            break;
-          } else {
-            throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
+      // Make delete request
+      try {
+        const response = await fetch(`/api/conversations/${conversationId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
           }
-          
-        } catch (error: any) {
-          console.error(`[CHAT-PREVIEW] Delete attempt ${retryAttempts + 1} failed:`, error?.message || error);
-          
-          retryAttempts++;
-          
-          if (retryAttempts > maxRetries) {
-            // 🔥 ROLLBACK: All retries failed, restore previous state
-            console.error(`[CHAT-PREVIEW] All deletion attempts failed for conversation: ${conversationId}`);
-            
-            setConversations(currentConversations);
-            setSelectedConversation(currentSelected);
-            setMessages(currentMessages);
-            
-            // Show user-friendly error
-            setError(`Error eliminando conversación después de ${maxRetries + 1} intentos: ${error?.message || 'Error desconocido'}`);
-            
-          } else {
-            // Wait before retrying (exponential backoff)
-            const delayMs = 1000 * Math.pow(2, retryAttempts - 1); // 1s, 2s, 4s...
-            console.log(`[CHAT-PREVIEW] Retrying deletion in ${delayMs}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delayMs));
-          }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+          console.log(`[CHAT-PREVIEW] ✅ Conversation deleted successfully: ${conversationId}`);
+          // Keep optimistic update - deletion successful
+        } else {
+          throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
         }
+        
+      } catch (deleteError: any) {
+        console.error(`[CHAT-PREVIEW] Delete request failed:`, deleteError?.message || deleteError);
+        
+        // 🔥 ROLLBACK: Restore previous state
+        setConversations(currentConversations);
+        setSelectedConversation(currentSelected);
+        setMessages(currentMessages);
+        
+        setError(`Error eliminando conversación: ${deleteError?.message || 'Error desconocido'}`);
       }
       
     } catch (error) {
@@ -830,12 +858,15 @@ export function ChatPreview({
                 message.direction === 'outbound' ? 'bg-gray-50/50' : ''
               }`}
             >
-              <div className="flex gap-4 max-w-none">
+              {/* 🔥 MODERN LAYOUT: WhatsApp/ChatGPT Style */}
+              <div className={`flex items-start gap-4 ${
+                message.direction === 'inbound' ? 'flex-row-reverse' : 'flex-row'
+              }`}>
                 {/* Avatar */}
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                   message.direction === 'inbound' 
-                    ? 'bg-black text-white' 
-                    : 'bg-green-500 text-white'
+                    ? 'bg-blue-600 text-white' // Usuario: avatar azul a la derecha
+                    : 'bg-green-500 text-white' // Agente: avatar verde a la izquierda
                 }`}>
                   {message.direction === 'inbound' ? (
                     <User className="w-4 h-4" />
@@ -844,8 +875,10 @@ export function ChatPreview({
                   )}
                 </div>
 
-                {/* Message Content */}
-                <div className="flex-1 min-w-0">
+                {/* Message Content Container */}
+                <div className={`flex flex-col max-w-[75%] ${
+                  message.direction === 'inbound' ? 'items-end' : 'items-start'
+                }`}>
                   {/* Agent Badge for AI responses */}
                   {message.direction === 'outbound' && message.agent && (
                     <div className="mb-2">
@@ -853,15 +886,21 @@ export function ChatPreview({
                     </div>
                   )}
 
-                  {/* Message Text */}
-                  <div className="prose prose-sm max-w-none">
-                    <p className="text-gray-900 leading-relaxed whitespace-pre-wrap m-0">
+                  {/* Message Bubble - Modern Style */}
+                  <div className={`rounded-2xl px-4 py-3 max-w-full break-words ${
+                    message.direction === 'inbound'
+                      ? 'bg-blue-600 text-white shadow-sm' // Usuario: burbuja azul
+                      : 'bg-white text-gray-900 border border-gray-200 shadow-sm' // Agente: burbuja blanca
+                  }`}>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap m-0">
                       {message.content}
                     </p>
                   </div>
 
                   {/* Message metadata */}
-                  <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                  <div className={`flex items-center gap-3 mt-2 text-xs text-gray-500 px-1 ${
+                    message.direction === 'inbound' ? 'justify-end' : 'justify-start'
+                  }`}>
                     <span>
                       {format(new Date(message.timestamp), 'HH:mm', { locale: es })}
                     </span>
