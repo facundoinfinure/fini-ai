@@ -17,6 +17,7 @@ import {
 } from '@/lib/lazy-imports';
 import { ChatPreview } from '@/components/dashboard/chat-preview';
 import { DashboardSummary } from '@/components/dashboard/dashboard-summary';
+import { ProfileManagement } from '@/components/dashboard/profile-management';
 import { Store as StoreType } from "@/types/db";
 import { SidebarLayout } from '@/components/ui/sidebar-layout';
 
@@ -615,7 +616,7 @@ function DashboardContent() {
         {activeTab === "perfil" && (
           <DashboardErrorBoundary>
             <Suspense fallback={<DashboardSkeleton />}>
-              <div>Profile component placeholder</div>
+              <ProfileManagement />
             </Suspense>
           </DashboardErrorBoundary>
         )}
