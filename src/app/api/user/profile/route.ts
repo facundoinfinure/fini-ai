@@ -21,11 +21,11 @@ export async function GET(request: NextRequest) {
     
     const supabase = createClient();
     
-    // Get current user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // 🔐 SECURITY FIX: Use getUser() instead of getSession() for server-side auth
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
-      console.log('[USER-PROFILE] No valid session found');
+    if (authError || !user) {
+      console.log('[USER-PROFILE] No valid user found:', authError?.message);
       return NextResponse.json({
         success: false,
         error: 'No authenticated user found'
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
         target_audience,
         competitors
       `)
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError) {
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       }
     };
 
-    console.log('[USER-PROFILE] Profile retrieved successfully for user:', session.user.id);
+    console.log('[USER-PROFILE] Profile retrieved successfully for user:', user.id);
 
     return NextResponse.json({
       success: true,
@@ -103,11 +103,11 @@ export async function PUT(request: NextRequest) {
     
     const supabase = createClient();
     
-    // Get current user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // 🔐 SECURITY FIX: Use getUser() instead of getSession() for server-side auth
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
-      console.log('[USER-PROFILE] No valid session found');
+    if (authError || !user) {
+      console.log('[USER-PROFILE] No valid user found:', authError?.message);
       return NextResponse.json({
         success: false,
         error: 'No authenticated user found'
@@ -146,7 +146,7 @@ export async function PUT(request: NextRequest) {
         competitors: competitors || [],
         updated_at: new Date().toISOString()
       })
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .select()
       .single();
 
@@ -158,7 +158,7 @@ export async function PUT(request: NextRequest) {
       }, { status: 500 });
     }
 
-    console.log('[USER-PROFILE] Profile updated successfully for user:', session.user.id);
+    console.log('[USER-PROFILE] Profile updated successfully for user:', user.id);
 
     // Return updated profile in the same format as GET
     const profileData = {

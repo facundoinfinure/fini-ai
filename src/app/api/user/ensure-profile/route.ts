@@ -7,18 +7,18 @@ export async function POST(_request: NextRequest) {
     
     const supabase = createClient();
     
-    // Get current user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // 🔐 SECURITY FIX: Use getUser() instead of getSession() for server-side auth
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
-      console.error('[ERROR] No authenticated user found:', sessionError);
+    if (authError || !user) {
+      console.error('[ERROR] No authenticated user found:', authError);
       return NextResponse.json({
         success: false,
         error: 'No authenticated user found'
       }, { status: 401 });
     }
 
-    const { id, email, user_metadata } = session.user;
+    const { id, email, user_metadata } = user;
     console.log('[INFO] Checking user profile for:', email, 'ID:', id);
 
     // Check if user exists in public.users
