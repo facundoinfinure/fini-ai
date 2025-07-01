@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import StripePricingTable from "@/components/dashboard/stripe-pricing-table";
 import { motion } from "framer-motion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle, User, Building, Target, X, Plus, Loader2 } from "lucide-react";
+import { CheckCircle, User, Building, Target, X, Plus, Loader2, AlertCircle } from "lucide-react";
 
 export default function OnboardingPage() {
   const router = useRouter();

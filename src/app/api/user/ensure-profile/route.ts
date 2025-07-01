@@ -39,14 +39,21 @@ export async function POST(_request: NextRequest) {
 
     console.log('[INFO] User profile does not exist, creating new profile');
 
-    // Create the user in public.users
+    // Create the user in public.users with proper full name extraction
+    const fullName = user_metadata?.full_name || 
+                     user_metadata?.name || 
+                     user_metadata?.display_name ||
+                     (user_metadata?.first_name && user_metadata?.last_name ? 
+                       `${user_metadata.first_name} ${user_metadata.last_name}` : '') ||
+                     '';
+    
     const { data: newUser, error: insertError } = await supabase
       .from('users')
       .insert({
         id,
         email: email || '',
         name: user_metadata?.name || user_metadata?.full_name || '',
-        full_name: user_metadata?.full_name || user_metadata?.name || '',
+        full_name: fullName,
         image: user_metadata?.avatar_url || user_metadata?.picture || ''
       })
       .select()

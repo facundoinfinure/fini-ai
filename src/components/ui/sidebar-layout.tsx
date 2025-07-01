@@ -397,7 +397,7 @@ export function SidebarLayout({
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-[#1a1a1a] truncate">
-                    {user.user_metadata?.full_name || user.user_metadata?.name || user.email}
+                    {user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Usuario'}
                   </p>
                   <p className="text-xs text-[#6b7280] truncate">
                     {user.email}
@@ -406,7 +406,7 @@ export function SidebarLayout({
                 </div>
                 <button
                   onClick={() => onTabChange?.('perfil')}
-                  className="opacity-70 hover:opacity-100 transition-opacity"
+                  className="opacity-70 hover:opacity-100 transition-opacity p-1 rounded hover:bg-gray-100"
                   title="Editar perfil"
                 >
                   <Edit3 className="w-4 h-4 text-[#6b7280]" />

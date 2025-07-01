@@ -755,6 +755,10 @@ export async function POST() {
           
           -- Update subscription_plan from 'free' to 'basic' for existing users
           UPDATE public.users SET subscription_plan = 'basic' WHERE subscription_plan = 'free';
+          
+          -- Update subscription plan check constraint
+          ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_subscription_plan_check;
+          ALTER TABLE public.users ADD CONSTRAINT users_subscription_plan_check CHECK (subscription_plan IN ('basic', 'pro', 'enterprise'));
         END $$;
       \`
     `
