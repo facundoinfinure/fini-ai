@@ -78,6 +78,11 @@ const navigationItems: NavigationItem[] = [
     label: 'Configuración',
     icon: Settings,
   },
+  {
+    id: 'perfil',
+    label: 'Perfil',
+    icon: User,
+  },
 ];
 
 export function SidebarLayout({ 

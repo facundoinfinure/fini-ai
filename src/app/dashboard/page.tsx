@@ -611,6 +611,14 @@ function DashboardContent() {
             </Suspense>
           </DashboardErrorBoundary>
         )}
+
+        {activeTab === "perfil" && (
+          <DashboardErrorBoundary>
+            <Suspense fallback={<DashboardSkeleton />}>
+              <div>Profile component placeholder</div>
+            </Suspense>
+          </DashboardErrorBoundary>
+        )}
       </div>
     </SidebarLayout>
   );

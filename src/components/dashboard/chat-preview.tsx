@@ -98,6 +98,13 @@ export function ChatPreview({
   const [deletingConversation, setDeletingConversation] = useState<string | null>(null);
   const [generatingTitle, setGeneratingTitle] = useState<string | null>(null);
   
+  // 🔒 CHAT ACCESS VALIDATION
+  const [chatAccessStatus, setChatAccessStatus] = useState<{
+    canAccess: boolean;
+    missing: string[];
+    checking: boolean;
+  }>({ canAccess: false, missing: [], checking: true });
+  
   // Estados para la nueva interfaz moderna
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -105,6 +112,40 @@ export function ChatPreview({
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 🔒 Verificar acceso al chat
+  const checkChatAccess = async () => {
+    setChatAccessStatus(prev => ({ ...prev, checking: true }));
+    try {
+      const response = await fetch('/api/chat/access-validation');
+      if (response.ok) {
+        const data = await response.json();
+        setChatAccessStatus({
+          canAccess: data.canAccess,
+          missing: data.missing || [],
+          checking: false
+        });
+      } else {
+        setChatAccessStatus({
+          canAccess: false,
+          missing: ['validation_error'],
+          checking: false
+        });
+      }
+    } catch (error) {
+      console.error('[CHAT-ACCESS] Error checking access:', error);
+      setChatAccessStatus({
+        canAccess: false,
+        missing: ['validation_error'],
+        checking: false
+      });
+    }
+  };
+
+  // Verificar acceso al cargar el componente
+  useEffect(() => {
+    checkChatAccess();
+  }, []);
 
   // Sincronizar conversaciones desde props
   useEffect(() => {
@@ -543,6 +584,85 @@ export function ChatPreview({
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </CardContent>
       </Card>
+    );
+  }
+
+  // 🔒 MOSTRAR VALIDACIÓN DE ACCESO PRIMERO
+  if (chatAccessStatus.checking) {
+    return (
+      <div className="flex-1 flex flex-col bg-gray-50/30">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center space-x-2">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            <span>Verificando acceso al chat...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Si no tiene acceso completo, mostrar requisitos
+  if (!chatAccessStatus.canAccess) {
+    const getMissingRequirementMessage = (requirement: string) => {
+      const messages = {
+        store_connection: 'Necesitas conectar al menos una tienda de TiendaNube',
+        whatsapp_verification: 'Necesitas verificar al menos un número de WhatsApp',
+        active_subscription: 'Necesitas una suscripción activa para acceder al chat',
+        onboarding: 'Debes completar el proceso de onboarding primero'
+      };
+      return messages[requirement as keyof typeof messages] || requirement;
+    };
+
+    return (
+      <div className="flex-1 flex flex-col bg-gray-50/30">
+        <div className="flex-1 flex items-center justify-center p-8">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <AlertCircle className="h-5 w-5 text-amber-500" />
+                <span>Configuración Requerida</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Para acceder al chat necesitas completar la configuración de tu cuenta.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  Pasos pendientes:
+                </h3>
+                
+                {chatAccessStatus.missing.map((requirement, index) => (
+                  <div key={requirement} className="flex items-center space-x-3 p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center justify-center w-6 h-6 bg-amber-100 rounded-full">
+                      <span className="text-xs font-medium text-amber-600">
+                        {index + 1}
+                      </span>
+                    </div>
+                    <span className="text-sm">
+                      {getMissingRequirementMessage(requirement)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <Button 
+                onClick={checkChatAccess} 
+                variant="outline" 
+                size="sm"
+                className="w-full mt-4"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Verificar configuración nuevamente
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     );
   }
 
