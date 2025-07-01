@@ -280,74 +280,68 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
       return;
     }
 
-    // 🔥 OPTIMISTIC UI: Update immediately, rollback if fails
+    console.log(`[INFO] Starting deletion process for conversation: ${conversationId}`);
     setDeletingConversation(conversationId);
     
-    // Backup current state for potential rollback
-    const currentConversations = conversations;
-    const currentSelected = selectedConversation;
-    const currentMessages = messages;
-    
-    // Optimistically update UI
-    const remaining = conversations.filter(c => c.id !== conversationId);
-    setConversations(remaining);
-    
-    if (selectedConversation?.id === conversationId) {
-      setSelectedConversation(remaining[0] || null);
-      setMessages([]);
-    }
-
-    let retryAttempts = 0;
-    const maxRetries = 2;
-
-    while (retryAttempts <= maxRetries) {
-      try {
-        console.log(`[INFO] Attempting to delete conversation: ${conversationId} (attempt ${retryAttempts + 1}/${maxRetries + 1})`);
-        
-        const response = await fetch(`/api/conversations/${conversationId}`, {
-          method: 'DELETE',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-          }
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          console.log(`[INFO] ✅ Conversation deleted successfully: ${conversationId}`);
-          // Keep the optimistic update - conversation is successfully deleted
-          break;
-        } else {
-          throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
-        }
-
-      } catch (error: any) {
-        console.error(`[ERROR] Delete attempt ${retryAttempts + 1} failed for conversation ${conversationId}:`, error?.message || error);
-        
-        retryAttempts++;
-        
-        if (retryAttempts > maxRetries) {
-          // 🔥 ROLLBACK: All retries failed, restore previous state
-          console.error(`[ERROR] All deletion attempts failed for conversation: ${conversationId}`);
-          
-          setConversations(currentConversations);
-          setSelectedConversation(currentSelected);
-          setMessages(currentMessages);
-          
-          // Show user-friendly error
-          alert(`Error eliminando conversación después de ${maxRetries + 1} intentos: ${error?.message || 'Error desconocido'}`);
-          
-        } else {
-          // Wait before retrying
-          console.log(`[INFO] Retrying deletion in 1 second... (attempt ${retryAttempts + 1}/${maxRetries + 1})`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+    try {
+      // 🔥 IMMEDIATE OPTIMISTIC UPDATE - Remove from UI first
+      const updatedConversations = conversations.filter(c => c.id !== conversationId);
+      setConversations(updatedConversations);
+      
+      // If this was the selected conversation, clear selection
+      if (selectedConversation?.id === conversationId) {
+        setSelectedConversation(null);
+        setMessages([]);
       }
-    }
 
-    // Always clear the deleting state
-    setDeletingConversation(null);
+      // 🔥 MAKE THE DELETE REQUEST
+      const response = await fetch(`/api/conversations/${conversationId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Error desconocido eliminando conversación');
+      }
+
+      console.log(`[INFO] ✅ Conversation deleted successfully: ${conversationId}`);
+      
+      // 🔥 VERIFY DELETION by reloading conversations from server
+      try {
+        await loadConversations();
+        console.log(`[INFO] ✅ Conversations reloaded after deletion`);
+      } catch (reloadError) {
+        console.warn(`[WARNING] Failed to reload conversations after deletion:`, reloadError);
+        // Keep the optimistic update even if reload fails
+      }
+
+    } catch (error: any) {
+      console.error(`[ERROR] Failed to delete conversation ${conversationId}:`, error?.message || error);
+      
+      // 🔥 ROLLBACK - Restore the conversation in UI
+      setConversations(conversations);
+      if (selectedConversation?.id === conversationId) {
+        setSelectedConversation(selectedConversation);
+        setMessages(messages);
+      }
+      
+      // Show user-friendly error
+      alert(`Error eliminando conversación: ${error?.message || 'Error desconocido'}. Por favor intenta nuevamente.`);
+      
+    } finally {
+      // Always clear the deleting state
+      setDeletingConversation(null);
+    }
   };
 
   const handleUpdateTitle = async (conversationId: string, title: string) => {
@@ -676,26 +670,22 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex gap-3 ${message.direction === 'inbound' ? 'flex-row-reverse justify-start' : 'flex-row justify-start'} max-w-[85%] ${
-                message.direction === 'inbound' ? 'ml-auto' : 'mr-auto'
+              className={`flex items-start gap-3 ${
+                message.direction === 'inbound' ? 'justify-end' : 'justify-start'
               }`}
             >
-              {/* Avatar */}
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
-                message.direction === 'inbound' 
-                  ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white' 
-                  : 'bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700 border border-gray-300'
-              }`}>
-                {message.direction === 'inbound' ? (
-                  <User className="w-4 h-4" />
-                ) : (
+              {/* Avatar - Left for agent, Right for user */}
+              {message.direction === 'outbound' && (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-green-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
                   <Bot className="w-4 h-4" />
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Message Content */}
-              <div className="flex flex-col gap-2 max-w-full">
-                {/* Agent Badge & Processing Time */}
+              <div className={`flex flex-col gap-2 max-w-[75%] ${
+                message.direction === 'inbound' ? 'items-end' : 'items-start'
+              }`}>
+                {/* Agent Badge & Processing Time - Only for agent messages */}
                 {message.direction === 'outbound' && message.agent && (
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     {(() => {
@@ -721,30 +711,30 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
                   </div>
                 )}
 
-                {/* Message Bubble */}
-                <div className={`rounded-2xl px-4 py-3 text-sm transition-all duration-200 hover:shadow-sm ${
+                {/* Message Bubble - Modern WhatsApp/ChatGPT style */}
+                <div className={`rounded-2xl px-4 py-3 text-sm max-w-full break-words ${
                   message.direction === 'inbound'
-                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-sm'
-                    : 'bg-white text-gray-900 border border-gray-200 shadow-sm hover:border-gray-300'
+                    ? 'bg-blue-600 text-white shadow-sm' // Usuario: azul a la derecha
+                    : 'bg-white text-gray-900 border border-gray-200 shadow-sm' // Agente: blanco a la izquierda
                 }`}>
-                  <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                  <p className="whitespace-pre-wrap leading-relaxed m-0">{message.content}</p>
                 </div>
 
-                {/* Reasoning Section */}
+                {/* Reasoning Section - Only for agent messages */}
                 {message.reasoning && message.direction === 'outbound' && (
-                  <div className="space-y-2">
+                  <div className="space-y-2 w-full">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => toggleReasoning(message.id)}
-                      className="h-6 px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 -ml-2"
+                      className="h-6 px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100"
                     >
                       <Brain className="w-3 h-3 mr-1" />
                       {expandedReasoning.has(message.id) ? 'Ocultar' : 'Ver'} proceso de análisis
                     </Button>
                     
                     {expandedReasoning.has(message.id) && (
-                      <div className="animate-in slide-in-from-top-2 duration-200 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                      <div className="animate-in slide-in-from-top-2 duration-200 bg-gray-50 border border-gray-200 rounded-lg p-3 max-w-full">
                         <div className="flex items-center gap-2 mb-2">
                           <Brain className="w-4 h-4 text-gray-600" />
                           <span className="text-xs font-medium text-gray-700">Proceso de análisis</span>
@@ -759,7 +749,7 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
 
                 {/* Metadata: Timestamp, Confidence */}
                 <div className={`flex items-center gap-3 text-xs text-gray-500 px-1 ${
-                  message.direction === 'inbound' ? 'flex-row-reverse' : 'flex-row'
+                  message.direction === 'inbound' ? 'justify-end' : 'justify-start'
                 }`}>
                   <span>{format(new Date(message.timestamp), 'HH:mm', { locale: es })}</span>
                   
@@ -771,21 +761,28 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
                   )}
                 </div>
               </div>
+
+              {/* Avatar - Right for user */}
+              {message.direction === 'inbound' && (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <User className="w-4 h-4" />
+                </div>
+              )}
             </div>
           ))}
 
           {/* Typing Indicator */}
           {isTyping && (
-            <div className="flex gap-3 max-w-[85%] mr-auto">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700 border border-gray-300 flex items-center justify-center shadow-sm">
+            <div className="flex items-start gap-3 justify-start">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-green-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
                 <Bot className="w-4 h-4" />
               </div>
               <div className="bg-white rounded-2xl px-4 py-3 border border-gray-200 shadow-sm">
                 <div className="flex items-center gap-2">
                   <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                   </div>
                   <span className="text-sm text-gray-600 ml-2">Analizando tu consulta...</span>
                 </div>

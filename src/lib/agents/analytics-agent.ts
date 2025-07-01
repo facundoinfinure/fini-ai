@@ -66,6 +66,10 @@ export class AnalyticsAgent extends BaseAgent {
       let confidence: number;
 
       switch (queryType.type) {
+        case 'product_pricing':
+          response = await this.generateProductPricing(context, ragContext);
+          confidence = 0.95;
+          break;
         case 'sales_summary':
           response = await this.generateSalesSummary(context, ragContext);
           confidence = 0.9;
@@ -144,6 +148,12 @@ export class AnalyticsAgent extends BaseAgent {
   private identifyQueryType(message: string): { type: string; reasoning: string; confidence: number } {
     const lowerMessage = message.toLowerCase();
 
+    // 🔥 NEW: Product pricing analysis queries
+    if (lowerMessage.includes('caro') || lowerMessage.includes('barato') || 
+        (lowerMessage.includes('producto') && lowerMessage.includes('precio'))) {
+      return { type: 'product_pricing', reasoning: 'Product pricing analysis query detected', confidence: 0.95 };
+    }
+
     // Sales summary queries
     if (lowerMessage.includes('cuánto') && (lowerMessage.includes('vend') || lowerMessage.includes('gané'))) {
       return { type: 'sales_summary', reasoning: 'Sales amount query detected', confidence: 0.9 };
@@ -175,9 +185,9 @@ export class AnalyticsAgent extends BaseAgent {
       return { type: 'trend_analysis', reasoning: 'Trend analysis query', confidence: 0.8 };
     }
 
-    // Comparison
-    if (lowerMessage.includes('comparar') || lowerMessage.includes('vs') || lowerMessage.includes('anterior')) {
-      return { type: 'comparison', reasoning: 'Comparison query', confidence: 0.8 };
+    // Comparison queries
+    if (lowerMessage.includes('comparar') || lowerMessage.includes('vs') || lowerMessage.includes('contra')) {
+      return { type: 'comparison', reasoning: 'Comparison analysis query', confidence: 0.75 };
     }
 
     return { type: 'general', reasoning: 'General analytics query', confidence: 0.5 };
@@ -264,6 +274,66 @@ Realiza un análisis de productos que incluya:
 - Insights sobre demanda y tendencias
 
 Usa datos específicos cuando estén disponibles y proporciona recomendaciones accionables.`;
+
+    return await this.generateResponse(systemPrompt, enhancedPrompt, ragContext);
+  }
+
+  private async generateProductPricing(context: AgentContext, ragContext: string): Promise<string> {
+    const systemPrompt = this.config.prompts.systemPrompt;
+    
+    // Check if we have actual product data
+    const hasData = ragContext && ragContext.length > 50 && !ragContext.includes('No hay datos');
+    
+    if (!hasData) {
+      return `💰 **Análisis de Precios - Sin Productos Disponibles**
+
+**🔍 Estado Actual:**
+No encuentro productos con precios en tu catálogo para analizar.
+
+**📈 Para obtener análisis de precios necesitas:**
+
+**Configuración Básica:**
+- ✅ Productos publicados (no en borrador)
+- ✅ Precios definidos para cada producto
+- ✅ Variantes con precios específicos si aplica
+
+**Una vez configurado, podré responder:**
+- 💎 "¿Cuál es mi producto más caro?"
+- 💰 "¿Cuál es mi producto más barato?"
+- 📊 "Ranking de productos por precio"
+- 📈 "Análisis de precios por categoría"
+- 💡 "Oportunidades de pricing"
+
+**🚀 Pasos rápidos:**
+1. Ve a tu panel de Tienda Nube
+2. Asegúrate que tus productos estén **publicados**
+3. Verifica que tengan **precios definidos**
+4. Regresa y pregunta: "¿cuál es mi producto más caro?"
+
+**💡 Tip:** Si tienes productos con variantes, cada variante debe tener su precio específico.
+
+¿Te ayudo con estrategias de pricing mientras configuras tus productos?`;
+    }
+
+    const userPrompt = this.formatPrompt(this.config.prompts.userPrompt, {
+      userMessage: context.userMessage,
+      context: ragContext
+    });
+
+    const enhancedPrompt = `${userPrompt}
+
+ENFOQUE ESPECÍFICO: ANÁLISIS DE PRECIOS DE PRODUCTOS
+
+La consulta del usuario es sobre precios de productos. Analiza los datos disponibles y proporciona:
+
+1. **Identificación directa del producto solicitado** (más caro, más barato, etc.)
+2. **Precio específico y nombre del producto**
+3. **Contexto adicional relevante** (categoría, comparación con otros productos)
+4. **Insight de pricing** si es relevante
+
+Si hay múltiples productos, muestra el ranking top 3-5.
+Usa números específicos y nombres de productos reales.
+Sé directo y conciso.`;
 
     return await this.generateResponse(systemPrompt, enhancedPrompt, ragContext);
   }

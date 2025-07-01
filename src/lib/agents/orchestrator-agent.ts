@@ -280,24 +280,49 @@ Confidence: 0.9+ (muy seguro), 0.7+ (seguro), 0.5+ (moderado), <0.5 (inseguro)`;
       score += 0.3;
     }
     
-    // ANALYTICS: Solo para PERFORMANCE/MÉTRICAS de productos
+    // 🔥 ENHANCED: PRODUCT ANALYTICS - Queries sobre productos y precios
     if (message.includes('producto') || message.includes('productos')) {
+      // PRICING QUERIES - "producto más caro", "producto más barato"
+      if (message.includes('caro') || message.includes('barato') || message.includes('precio')) {
+        score += 0.8; // ALTA PRIORIDAD para queries de precios
+      }
+      
       // Performance queries (analytics domain) - ALTA PRIORIDAD
       if (message.includes('más vendidos') || message.includes('mas vendidos') || 
           message.includes('top') || message.includes('mejores') ||
           message.includes('vendidos') || message.includes('populares')) {
         score += 0.7; // "productos más vendidos" -> analytics (ALTA PRIORIDAD)
       }
+      
+      // RANKING QUERIES - "cuál es el", "qué producto"
+      if (message.includes('cuál') || message.includes('qué')) {
+        score += 0.6; // Analytics maneja ranking y comparaciones
+      }
+      
       if (message.includes('performance') || message.includes('estadísticas') || 
           message.includes('métricas') || message.includes('análisis de ventas')) {
         score += 0.5;
       }
       
-      // REDUCE score para consultas de catálogo (van a Product Manager)
+      // REDUCE score para consultas de catálogo básico (van a Product Manager)
       if (message.includes('tengo') || message.includes('cargados') || 
-          message.includes('hay') || message.includes('catálogo')) {
+          message.includes('hay') || message.includes('catálogo') ||
+          message.includes('disponible') || message.includes('en stock')) {
         score -= 0.3; // Estas van a Product Manager
       }
+    }
+    
+    // 🔥 ENHANCED: Price and ranking keywords boost
+    if (message.includes('más caro') || message.includes('mas caro') || 
+        message.includes('más costoso') || message.includes('precio alto') ||
+        message.includes('precio máximo') || message.includes('mayor precio')) {
+      score += 0.9; // MÁXIMA PRIORIDAD para queries de producto más caro
+    }
+    
+    if (message.includes('más barato') || message.includes('mas barato') || 
+        message.includes('menor precio') || message.includes('precio bajo') ||
+        message.includes('precio mínimo')) {
+      score += 0.9; // MÁXIMA PRIORIDAD para queries de producto más barato
     }
     
     // Ventas y métricas específicas
