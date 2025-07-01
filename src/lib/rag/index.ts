@@ -51,5 +51,10 @@ export const ragEngine = {
   
   async deleteByStoreId(storeId: string): Promise<any> {
     return this.instance.deleteByStoreId(storeId);
+  },
+
+  // 🔥 CRITICAL: Para eliminar vectores de conversaciones específicas
+  async deleteDocuments(documentIds: string[]): Promise<any> {
+    return this.instance.deleteDocuments(documentIds);
   }
 }; 

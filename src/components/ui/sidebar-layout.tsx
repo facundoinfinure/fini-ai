@@ -203,19 +203,21 @@ export function SidebarLayout({
   const handleConversationDelete = async (conversationId: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevenir que se seleccione la conversación al hacer click en eliminar
     
-    console.log('[SIDEBAR] Iniciando eliminación de conversación:', conversationId);
+    console.log('[SIDEBAR] Initiating conversation deletion:', conversationId);
     
-    // 🔄 USAR CALLBACK DEL PADRE: Preferir método del padre para evitar duplicación
+    // 🔄 COORDINATED DELETION: Always use parent callback when available (preferred approach)
     if (onConversationDelete) {
-      // Usar callback del padre (método recomendado para evitar conflictos)
-      console.log('[SIDEBAR] Delegando eliminación al componente padre');
+      console.log('[SIDEBAR] Delegating deletion to parent component for proper coordination');
       onConversationDelete(conversationId);
       return;
     }
     
-    // Fallback - solo si no hay callback del padre (caso raro)
+    // 🚨 FALLBACK WARNING: This should rarely happen in production
+    console.warn('[SIDEBAR] No parent deletion callback available, using fallback method');
+    
+    // Fallback - only if no callback from parent (rare case)
     try {
-      console.log('[SIDEBAR] Fallback: eliminando directamente desde sidebar');
+      console.log('[SIDEBAR] Executing fallback deletion method');
       
       const response = await fetch(`/api/conversations/${conversationId}`, {
         method: 'DELETE',
@@ -226,15 +228,16 @@ export function SidebarLayout({
       });
       
       const data = await response.json();
-      if (data.success) {
-        console.log('[SIDEBAR] Backend deletion successful');
+      
+      if (response.ok && data.success) {
+        console.log('[SIDEBAR] ✅ Fallback deletion successful');
         
-        // Limpiar selección si era la conversación seleccionada
+        // Clear selection if it was the selected conversation
         if (selectedConversation === conversationId) {
           setSelectedConversation(null);
         }
         
-        // Recargar conversaciones para evitar estado inconsistente
+        // Reload conversations to ensure consistency
         setTimeout(() => {
           loadConversations();
           if (onConversationUpdate) {
@@ -244,11 +247,11 @@ export function SidebarLayout({
         
       } else {
         console.error('[SIDEBAR] Backend deletion failed:', data.error);
-        // NO actualizar UI si el backend falló
+        // Don't update UI if backend failed - keep current state
       }
     } catch (error) {
-      console.error('[SIDEBAR] Network error during deletion:', error);
-      // NO actualizar UI si hubo error de red
+      console.error('[SIDEBAR] Network error during fallback deletion:', error);
+      // Don't update UI if there was a network error
     }
   };
 

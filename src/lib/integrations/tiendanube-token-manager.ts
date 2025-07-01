@@ -16,6 +16,13 @@ import { createClient } from '@/lib/supabase/server';
 import { TiendaNubeAPI } from './tiendanube';
 import { StoreService } from '@/lib/database/client';
 
+interface TokenRefreshResult {
+  success: boolean;
+  accessToken?: string;
+  error?: string;
+  shouldRetry?: boolean;
+}
+
 export interface TokenValidationResult {
   isValid: boolean;
   needsReconnection: boolean;
@@ -34,18 +41,249 @@ export interface StoreReconnectionData {
 
 /**
  * TiendaNube Token Manager
- * Gestiona la validación y reconexión automática de tokens
+ * 🔥 FIXED: Improved token refresh and error handling to prevent API cascading failures
  */
 export class TiendaNubeTokenManager {
   private static instance: TiendaNubeTokenManager;
   private validationCache = new Map<string, { isValid: boolean; lastChecked: number }>();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+  private static tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
   static getInstance(): TiendaNubeTokenManager {
     if (!TiendaNubeTokenManager.instance) {
       TiendaNubeTokenManager.instance = new TiendaNubeTokenManager();
     }
     return TiendaNubeTokenManager.instance;
+  }
+
+  /**
+   * Get valid access token for a store (with automatic refresh)
+   * 🔥 CRITICAL: Non-blocking - doesn't throw if refresh fails
+   */
+  static async getValidToken(storeId: string): Promise<string | null> {
+    try {
+      console.log(`[TOKEN] Getting valid token for store: ${storeId}`);
+      
+      const supabase = createClient();
+      
+      // Get current token from database
+      const { data: store, error } = await supabase
+        .from('tiendanube_stores')
+        .select('access_token, refresh_token, token_expires_at')
+        .eq('store_id', storeId)
+        .single();
+
+      if (error || !store) {
+        console.warn(`[TOKEN] Store not found: ${storeId}`, error?.message);
+        return null;
+      }
+
+      // Check if token is still valid (with 5-minute buffer)
+      const expiresAt = new Date(store.token_expires_at || 0);
+      const now = new Date();
+      const bufferTime = 5 * 60 * 1000; // 5 minutes
+      
+      if (expiresAt.getTime() > now.getTime() + bufferTime) {
+        console.log(`[TOKEN] Token still valid for store: ${storeId}`);
+        return store.access_token;
+      }
+
+      // Token is expired or about to expire, try to refresh
+      console.log(`[TOKEN] Token expired for store ${storeId}, attempting refresh`);
+      
+      const refreshResult = await this.refreshToken(storeId, store.refresh_token);
+      
+      if (refreshResult.success && refreshResult.accessToken) {
+        console.log(`[TOKEN] ✅ Token refreshed successfully for store: ${storeId}`);
+        return refreshResult.accessToken;
+      } else {
+        console.warn(`[TOKEN] ❌ Token refresh failed for store ${storeId}: ${refreshResult.error}`);
+        // Return expired token anyway - API will handle the 401 gracefully
+        return store.access_token;
+      }
+      
+    } catch (error) {
+      console.error(`[TOKEN] Unexpected error getting token for store ${storeId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Refresh access token using refresh token
+   * 🔥 IMPROVED: Better error handling and non-blocking behavior
+   */
+  private static async refreshToken(storeId: string, refreshToken: string): Promise<TokenRefreshResult> {
+    try {
+      console.log(`[TOKEN] Refreshing token for store: ${storeId}`);
+      
+      if (!refreshToken) {
+        return { 
+          success: false, 
+          error: 'No refresh token available',
+          shouldRetry: false
+        };
+      }
+
+      const response = await fetch('https://www.tiendanube.com/apps/authorize/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'Fini-AI/1.0'
+        },
+        body: new URLSearchParams({
+          client_id: process.env.TIENDANUBE_CLIENT_ID!,
+          client_secret: process.env.TIENDANUBE_CLIENT_SECRET!,
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[TOKEN] TiendaNube refresh failed: ${response.status} - ${errorText}`);
+        
+        // Check if this is a permanent failure (invalid refresh token)
+        const isPermanentFailure = response.status === 400 || response.status === 401;
+        
+        return {
+          success: false,
+          error: `Token refresh failed: ${response.status}`,
+          shouldRetry: !isPermanentFailure
+        };
+      }
+
+      const tokenData = await response.json();
+      
+      if (!tokenData.access_token) {
+        return {
+          success: false,
+          error: 'No access token in refresh response',
+          shouldRetry: false
+        };
+      }
+
+      // Calculate expiration time (default to 1 hour if not provided)
+      const expiresIn = tokenData.expires_in || 3600; // seconds
+      const expiresAt = new Date(Date.now() + expiresIn * 1000);
+
+      // Update database with new tokens
+      const supabase = createClient();
+      const { error: updateError } = await supabase
+        .from('tiendanube_stores')
+        .update({
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token || refreshToken, // Keep old refresh token if not provided
+          token_expires_at: expiresAt.toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('store_id', storeId);
+
+      if (updateError) {
+        console.error(`[TOKEN] Failed to update tokens in database:`, updateError);
+        // Still return success since we got the token from TiendaNube
+      }
+
+      console.log(`[TOKEN] ✅ Token refresh successful for store: ${storeId}`);
+      
+      return {
+        success: true,
+        accessToken: tokenData.access_token
+      };
+
+    } catch (error) {
+      console.error(`[TOKEN] Unexpected error during token refresh:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        shouldRetry: true
+      };
+    }
+  }
+
+  /**
+   * 🔥 NEW: Check if a store's tokens are healthy
+   */
+  static async validateStoreTokens(storeId: string): Promise<{ isValid: boolean; needsRefresh: boolean; error?: string }> {
+    try {
+      const supabase = createClient();
+      
+      const { data: store, error } = await supabase
+        .from('tiendanube_stores')
+        .select('access_token, refresh_token, token_expires_at')
+        .eq('store_id', storeId)
+        .single();
+
+      if (error || !store) {
+        return { isValid: false, needsRefresh: false, error: 'Store not found' };
+      }
+
+      if (!store.access_token) {
+        return { isValid: false, needsRefresh: false, error: 'No access token' };
+      }
+
+      const expiresAt = new Date(store.token_expires_at || 0);
+      const now = new Date();
+      const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+
+      const isExpired = expiresAt.getTime() <= now.getTime();
+      const needsRefresh = expiresAt.getTime() <= oneHourFromNow.getTime();
+
+      return {
+        isValid: !isExpired,
+        needsRefresh: needsRefresh,
+        error: isExpired ? 'Token expired' : undefined
+      };
+
+    } catch (error) {
+      return {
+        isValid: false,
+        needsRefresh: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * 🔥 NEW: Proactively refresh tokens that are about to expire
+   */
+  static async refreshExpiringTokens(): Promise<{ refreshed: number; failed: number }> {
+    try {
+      const supabase = createClient();
+      
+      // Find stores with tokens expiring in the next hour
+      const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
+      
+      const { data: stores, error } = await supabase
+        .from('tiendanube_stores')
+        .select('store_id, refresh_token')
+        .lt('token_expires_at', oneHourFromNow.toISOString())
+        .not('refresh_token', 'is', null);
+
+      if (error || !stores) {
+        console.warn('[TOKEN] Failed to fetch expiring tokens:', error?.message);
+        return { refreshed: 0, failed: 0 };
+      }
+
+      let refreshed = 0;
+      let failed = 0;
+
+      for (const store of stores) {
+        const result = await this.refreshToken(store.store_id, store.refresh_token);
+        if (result.success) {
+          refreshed++;
+        } else {
+          failed++;
+        }
+      }
+
+      console.log(`[TOKEN] Proactive refresh completed: ${refreshed} refreshed, ${failed} failed`);
+      
+      return { refreshed, failed };
+
+    } catch (error) {
+      console.error('[TOKEN] Error in proactive token refresh:', error);
+      return { refreshed: 0, failed: 0 };
+    }
   }
 
   /**

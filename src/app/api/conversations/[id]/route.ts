@@ -101,6 +101,7 @@ export async function GET(
 /**
  * DELETE /api/conversations/[id]
  * Eliminar una conversación específica
+ * 🔥 FIXED: Eliminación garantizada incluso si RAG falla
  */
 export async function DELETE(
   request: NextRequest,
@@ -125,7 +126,7 @@ export async function DELETE(
     // Verificar que la conversación pertenece al usuario
     const { data: conversation, error: fetchError } = await supabase
       .from('conversations')
-      .select('id, user_id')
+      .select('id, user_id, title')
       .eq('id', params.id)
       .eq('user_id', user.id)
       .single();
@@ -138,7 +139,10 @@ export async function DELETE(
       );
     }
 
-    // Eliminar mensajes primero (FK constraint)
+    // 🔥 CRITICAL FIX: Base de datos SIEMPRE primero, RAG secundario y opcional
+    console.log(`[INFO] Eliminating database records for conversation: ${params.id}`);
+
+    // 1. ELIMINAR MENSAJES PRIMERO (FK constraint)
     const { error: messagesError } = await supabase
       .from('messages')
       .delete()
@@ -152,7 +156,9 @@ export async function DELETE(
       );
     }
 
-    // Eliminar la conversación
+    console.log(`[INFO] Messages deleted for conversation: ${params.id}`);
+
+    // 2. ELIMINAR LA CONVERSACIÓN
     const { error: deleteError } = await supabase
       .from('conversations')
       .delete()
@@ -167,15 +173,49 @@ export async function DELETE(
       );
     }
 
-    console.log(`[INFO] Successfully deleted conversation: ${params.id}`);
+    console.log(`[INFO] ✅ DATABASE DELETION COMPLETED for conversation: ${params.id}`);
+
+    // 3. 🔥 RAG CLEANUP - OPCIONAL Y NO BLOQUEANTE
+    // Si falla, NO debe impedir que la conversación se considere eliminada
+    try {
+      console.log(`[INFO] Attempting RAG cleanup for conversation: ${params.id}`);
+      
+      // Import dinámico para evitar errores de build
+      const { ragEngine } = await import('@/lib/rag');
+      
+      if (ragEngine && ragEngine.deleteDocuments) {
+        // Intentar limpiar vectores relacionados con la conversación
+        const vectorIds = [`conversation-${params.id}`, `conv-${params.id}`, `msg-${params.id}`];
+        await ragEngine.deleteDocuments(vectorIds);
+        console.log(`[INFO] ✅ RAG cleanup completed for conversation: ${params.id}`);
+      } else {
+        console.warn(`[WARNING] RAG engine or deleteDocuments method not available, skipping vector cleanup for: ${params.id}`);
+      }
+    } catch (ragError: any) {
+      // 🛡️ CRÍTICO: RAG failures NO deben impedir eliminación exitosa
+      console.warn(`[WARNING] RAG cleanup failed for conversation ${params.id}, but deletion was successful:`, ragError?.message || ragError);
+      
+      // Log específico para errores de Pinecone que estaban causando los problemas
+      if (ragError?.message?.includes('Pinecone') || ragError?.message?.includes('deleteVectors')) {
+        console.warn(`[WARNING] Pinecone vector deletion failed - this is expected if vectors don't exist: ${ragError.message}`);
+      }
+      
+      // NO retornar error - la conversación fue eliminada exitosamente de la base de datos
+    }
+
+    console.log(`[INFO] ✅ CONVERSATION DELETION COMPLETED SUCCESSFULLY: ${params.id}`);
 
     return NextResponse.json({
       success: true,
-      message: 'Conversación eliminada exitosamente'
+      message: 'Conversación eliminada exitosamente',
+      deletedConversation: {
+        id: params.id,
+        title: conversation.title
+      }
     });
 
   } catch (error) {
-    console.error('[ERROR] Failed to delete conversation:', error);
+    console.error('[ERROR] Unexpected error during conversation deletion:', error);
     return NextResponse.json(
       { success: false, error: 'Error interno del servidor' },
       { status: 500 }

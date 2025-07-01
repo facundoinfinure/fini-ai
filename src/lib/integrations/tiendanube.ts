@@ -6,6 +6,7 @@ import type {
   TiendaNubeCustomer,
   TiendaNubeOrderProduct
 } from '@/types/tiendanube';
+import { TiendaNubeTokenManager } from './tiendanube-token-manager';
 
 const TIENDA_NUBE_API_BASE = 'https://api.tiendanube.com/v1';
 const CLIENT_ID = process.env.TIENDANUBE_CLIENT_ID || "";
@@ -26,37 +27,107 @@ export class TiendaNubeAPI {
   }
 
   /**
-   * Make authenticated request to Tienda Nube API
+   * 🔥 FIXED: Improved API request method with better token management and error handling
    */
-  private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${TIENDA_NUBE_API_BASE}/${this.storeId}${endpoint}`;
-    
+  async makeRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
     try {
-      console.warn(`[INFO] TiendaNube API request: ${url}`);
+      // 🔥 CRITICAL: Use new token manager for automatic refresh
+      const accessToken = await TiendaNubeTokenManager.getValidToken(this.storeId);
+      
+      if (!accessToken) {
+        // 🛡️ NON-BLOCKING: If no token, return empty result instead of throwing
+        console.warn(`[TIENDANUBE] No valid token available for store ${this.storeId}, returning empty result`);
+        return { data: [], empty: true, reason: 'no_token' } as T;
+      }
+
+      const url = `${TIENDA_NUBE_API_BASE}/${this.storeId}/${endpoint}`;
+      
+      console.log(`[INFO] TiendaNube API request: ${url}`);
       
       const response = await fetch(url, {
         ...options,
         headers: {
-          'Authentication': `bearer ${this.accessToken}`,
-          'User-Agent': 'FiniAI/1.0 (WhatsApp Analytics for TiendaNube)',
+          'Authentication': `bearer ${accessToken}`,
+          'User-Agent': 'Fini-AI/1.0',
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
           ...options.headers,
         },
       });
 
+      // 🔥 CRITICAL: Handle 401 errors gracefully without throwing
+      if (response.status === 401) {
+        console.warn(`[WARNING] TiendaNube API 401 for store ${this.storeId} - token may be expired`);
+        
+        // Log the specific error for debugging
+        const errorText = await response.text();
+        console.warn(`[ERROR] TiendaNube API error: 401 Unauthorized - ${errorText}`);
+        
+        // Try token refresh one more time
+        console.log(`[INFO] Attempting one-time token refresh for store ${this.storeId}`);
+        const freshToken = await TiendaNubeTokenManager.getValidToken(this.storeId);
+        
+        if (freshToken && freshToken !== accessToken) {
+          console.log(`[INFO] Got fresh token, retrying request for store ${this.storeId}`);
+          
+          // Retry with fresh token
+          const retryResponse = await fetch(url, {
+            ...options,
+            headers: {
+              'Authentication': `bearer ${freshToken}`,
+              'User-Agent': 'Fini-AI/1.0',
+              'Content-Type': 'application/json',
+              ...options.headers,
+            },
+          });
+          
+          if (retryResponse.ok) {
+            console.log(`[INFO] ✅ Retry successful for store ${this.storeId}`);
+            return retryResponse.json();
+          } else {
+            console.warn(`[WARNING] Retry also failed for store ${this.storeId}: ${retryResponse.status}`);
+          }
+        }
+        
+        // 🛡️ GRACEFUL DEGRADATION: Return empty result instead of throwing
+                 return { 
+           data: [], 
+           empty: true, 
+           reason: 'auth_failed',
+           httpStatus: 401,
+           message: 'Token authentication failed - store may need reconnection'
+         } as T;
+      }
+
+      // Handle other HTTP errors
       if (!response.ok) {
         const errorText = await response.text();
-        console.warn(`[ERROR] TiendaNube API error: ${response.status} ${response.statusText} - ${errorText}`);
-        throw new Error(`TiendaNube API error: ${response.status} ${response.statusText}`);
+        console.error(`[ERROR] TiendaNube API request failed: ${response.status} - ${errorText}`);
+        
+        // For non-auth errors, also return empty result instead of throwing
+                 return {
+           data: [],
+           empty: true,
+           reason: 'api_error',
+           httpStatus: response.status,
+           message: `API error: ${response.status} ${response.statusText}`
+         } as T;
       }
 
       const data = await response.json();
-      console.warn(`[DEBUG] TiendaNube API response received for ${endpoint}`);
+      console.log(`[INFO] ✅ TiendaNube API request successful for store ${this.storeId}`);
+      
       return data;
+
     } catch (error) {
-      console.warn(`[ERROR] TiendaNube API request failed:`, error);
-      throw error;
+      console.error(`[ERROR] TiendaNube API request failed: ${error}`);
+      
+      // 🛡️ GRACEFUL DEGRADATION: Return empty result instead of throwing
+             return {
+         data: [],
+         empty: true,
+         reason: 'network_error',
+         message: error instanceof Error ? error.message : 'Unknown network error'
+       } as T;
     }
   }
 

@@ -504,29 +504,92 @@ export function ChatPreview({
   // 🗑️ Eliminar conversación
   const handleDeleteConversation = async (conversationId: string) => {
     try {
+      console.log('[CHAT-PREVIEW] Initiating conversation deletion:', conversationId);
+      
+      // 🔥 PREVENT MULTIPLE SIMULTANEOUS DELETIONS
+      if (deletingConversation === conversationId) {
+        console.warn(`[CHAT-PREVIEW] Deletion already in progress for conversation: ${conversationId}`);
+        return;
+      }
+      
       setDeletingConversation(conversationId);
       
-      const response = await fetch(`/api/conversations/${conversationId}`, {
-        method: 'DELETE'
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        // Remover de la lista local
-        setConversations(prev => prev.filter(c => c.id !== conversationId));
-        
-        // Si era la conversación seleccionada, limpiar selección
-        if (selectedConversation?.id === conversationId) {
-          setSelectedConversation(null);
-        }
-        
-        console.log('Conversación eliminada:', conversationId);
-      } else {
-        console.error('Error eliminando conversación:', result.error);
+      // 🔥 COORDINATED DELETION: Use parent callback if available (preferred approach)
+      if (onConversationUpdate) {
+        console.log('[CHAT-PREVIEW] Delegating deletion to parent component for coordination');
+        // Let parent component handle the deletion to maintain consistency
+        onConversationUpdate();
+        return;
       }
+      
+      // 🔥 OPTIMISTIC UI: Update immediately, rollback if fails
+      const currentConversations = conversations;
+      const currentSelected = selectedConversation;
+      const currentMessages = messages;
+      
+      // Optimistically update UI
+      const remaining = conversations.filter(c => c.id !== conversationId);
+      setConversations(remaining);
+      
+      if (selectedConversation?.id === conversationId) {
+        setSelectedConversation(remaining[0] || null);
+        setMessages([]);
+      }
+      
+      // 🔄 RETRY LOGIC: Multiple attempts with exponential backoff
+      let retryAttempts = 0;
+      const maxRetries = 2;
+      
+      while (retryAttempts <= maxRetries) {
+        try {
+          console.log(`[CHAT-PREVIEW] Delete attempt ${retryAttempts + 1}/${maxRetries + 1} for conversation: ${conversationId}`);
+          
+          const response = await fetch(`/api/conversations/${conversationId}`, {
+            method: 'DELETE',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            }
+          });
+          
+          const result = await response.json();
+          
+          if (response.ok && result.success) {
+            console.log(`[CHAT-PREVIEW] ✅ Conversation deleted successfully: ${conversationId}`);
+            // Keep optimistic update - deletion successful
+            break;
+          } else {
+            throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+        } catch (error: any) {
+          console.error(`[CHAT-PREVIEW] Delete attempt ${retryAttempts + 1} failed:`, error?.message || error);
+          
+          retryAttempts++;
+          
+          if (retryAttempts > maxRetries) {
+            // 🔥 ROLLBACK: All retries failed, restore previous state
+            console.error(`[CHAT-PREVIEW] All deletion attempts failed for conversation: ${conversationId}`);
+            
+            setConversations(currentConversations);
+            setSelectedConversation(currentSelected);
+            setMessages(currentMessages);
+            
+            // Show user-friendly error
+            setError(`Error eliminando conversación después de ${maxRetries + 1} intentos: ${error?.message || 'Error desconocido'}`);
+            
+          } else {
+            // Wait before retrying (exponential backoff)
+            const delayMs = 1000 * Math.pow(2, retryAttempts - 1); // 1s, 2s, 4s...
+            console.log(`[CHAT-PREVIEW] Retrying deletion in ${delayMs}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
+        }
+      }
+      
     } catch (error) {
-      console.error('Error eliminando conversación:', error);
+      console.error('[CHAT-PREVIEW] Unexpected error during conversation deletion:', error);
+      setError('Error inesperado eliminando conversación');
     } finally {
       setDeletingConversation(null);
     }

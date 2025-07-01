@@ -373,6 +373,29 @@ export class FiniRAGEngine implements RAGEngine {
   }
 
   /**
+   * Delete specific documents by IDs
+   * 🔥 CRITICAL: Para eliminar vectores de conversaciones específicas
+   */
+  async deleteDocuments(documentIds: string[]): Promise<void> {
+    try {
+      console.warn(`[RAG:engine] Deleting ${documentIds.length} documents from vector store`);
+      
+      if (documentIds.length === 0) {
+        console.warn('[RAG:engine] No documents to delete');
+        return;
+      }
+
+      // Use vector store delete method
+      await this.vectorStore.delete(documentIds);
+      
+      console.warn(`[RAG:engine] Successfully deleted ${documentIds.length} documents`);
+    } catch (error) {
+      console.warn('[ERROR] Failed to delete documents from vector store:', error);
+      throw new Error(`Document deletion failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
    * Get RAG engine statistics
    */
   async getStats(): Promise<{

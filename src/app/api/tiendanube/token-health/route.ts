@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { tiendaNubeTokenManager, validateUserTiendaNubeStores } from '@/lib/integrations/tiendanube-token-manager';
+import { TiendaNubeTokenManager } from '@/lib/integrations/tiendanube-token-manager';
 
 /**
  * 🔄 TIENDANUBE TOKEN HEALTH ENDPOINT
@@ -18,62 +19,141 @@ export const revalidate = 0;
  */
 export async function GET(request: NextRequest) {
   try {
-    console.log('[INFO] TiendaNube token health check requested');
+    console.log('[INFO] Starting TiendaNube token health check');
     
     const supabase = createClient();
     
-    // Get current user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // Get user authentication (only for manual checks)
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
-      console.error('[ERROR] No authenticated user found:', sessionError);
-      return NextResponse.json({
-        success: false,
-        error: 'No authenticated user found'
-      }, { status: 401 });
+    if (userError || !user) {
+      console.error('[ERROR] Authentication failed:', userError?.message);
+      return NextResponse.json(
+        { success: false, error: 'Usuario no autenticado' },
+        { status: 401 }
+      );
     }
 
-    const userId = session.user.id;
-    console.log('[INFO] Running token validation for user:', userId);
+    // Get all user's stores
+    const { data: stores, error: storesError } = await supabase
+      .from('tiendanube_stores')
+      .select('store_id, name, access_token, refresh_token, token_expires_at')
+      .eq('user_id', user.id);
 
-    // Check all user's TiendaNube stores
-    const storesNeedingReconnection = await validateUserTiendaNubeStores(userId);
+    if (storesError) {
+      console.error('[ERROR] Failed to fetch user stores:', storesError.message);
+      return NextResponse.json(
+        { success: false, error: 'Error obteniendo tiendas' },
+        { status: 500 }
+      );
+    }
 
-    if (storesNeedingReconnection.length === 0) {
+    if (!stores || stores.length === 0) {
       return NextResponse.json({
         success: true,
-        data: {
-          allTokensValid: true,
-          storesNeedingReconnection: [],
-          message: 'Todos los tokens de TiendaNube están válidos'
-        }
+        message: 'No hay tiendas conectadas',
+        results: []
       });
     }
 
-    // Generate reconnection URLs for invalid stores
-    const reconnectionInfo = storesNeedingReconnection.map(store => ({
-      ...store,
-      reconnectionUrl: tiendaNubeTokenManager.generateReconnectionUrl(store)
-    }));
+    console.log(`[INFO] Checking token health for ${stores.length} stores`);
 
-    console.log(`[WARNING] Found ${storesNeedingReconnection.length} stores needing reconnection for user:`, userId);
+    const results = [];
+    let totalRefreshed = 0;
+    let totalFailed = 0;
+
+    for (const store of stores) {
+      try {
+        console.log(`[INFO] Checking token health for store: ${store.store_id}`);
+        
+        const validation = await TiendaNubeTokenManager.validateStoreTokens(store.store_id);
+        
+        let status = 'healthy';
+        let action = 'none';
+        let newToken = null;
+
+        if (!validation.isValid) {
+          console.warn(`[WARNING] Store ${store.store_id} has invalid token, attempting refresh`);
+          
+          // Try to get a fresh token (includes automatic refresh)
+          newToken = await TiendaNubeTokenManager.getValidToken(store.store_id);
+          
+          if (newToken && newToken !== store.access_token) {
+            status = 'refreshed';
+            action = 'token_refreshed';
+            totalRefreshed++;
+            console.log(`[INFO] ✅ Token refreshed for store: ${store.store_id}`);
+          } else {
+            status = 'failed';
+            action = 'refresh_failed';
+            totalFailed++;
+            console.error(`[ERROR] ❌ Token refresh failed for store: ${store.store_id}`);
+          }
+        } else if (validation.needsRefresh) {
+          console.log(`[INFO] Store ${store.store_id} token needs proactive refresh`);
+          
+          // Proactively refresh token that's about to expire
+          newToken = await TiendaNubeTokenManager.getValidToken(store.store_id);
+          
+          if (newToken && newToken !== store.access_token) {
+            status = 'proactive_refresh';
+            action = 'proactive_refresh';
+            totalRefreshed++;
+            console.log(`[INFO] ✅ Proactive refresh for store: ${store.store_id}`);
+          }
+        }
+
+        results.push({
+          storeId: store.store_id,
+          storeName: store.name,
+          status,
+          action,
+          isValid: validation.isValid,
+          needsRefresh: validation.needsRefresh,
+          error: validation.error,
+          expiresAt: store.token_expires_at
+        });
+
+      } catch (error) {
+        console.error(`[ERROR] Failed to check token health for store ${store.store_id}:`, error);
+        
+        results.push({
+          storeId: store.store_id,
+          storeName: store.name,
+          status: 'error',
+          action: 'check_failed',
+          isValid: false,
+          needsRefresh: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        
+        totalFailed++;
+      }
+    }
+
+    const summary = {
+      totalStores: stores.length,
+      healthyStores: results.filter(r => r.status === 'healthy').length,
+      refreshedStores: totalRefreshed,
+      failedStores: totalFailed,
+      storesNeedingAttention: results.filter(r => r.status === 'failed' || r.status === 'error').length
+    };
+
+    console.log(`[INFO] ✅ Token health check completed:`, summary);
 
     return NextResponse.json({
       success: true,
-      data: {
-        allTokensValid: false,
-        storesNeedingReconnection: reconnectionInfo,
-        totalStoresAffected: storesNeedingReconnection.length,
-        message: `${storesNeedingReconnection.length} tienda(s) necesita(n) reconexión`
-      }
+      message: 'Health check completado',
+      summary,
+      results
     });
 
   } catch (error) {
-    console.error('[ERROR] Token health check failed:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to check token health'
-    }, { status: 500 });
+    console.error('[ERROR] Unexpected error during token health check:', error);
+    return NextResponse.json(
+      { success: false, error: 'Error interno del servidor' },
+      { status: 500 }
+    );
   }
 }
 
@@ -82,57 +162,35 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    console.log('[INFO] Global TiendaNube health check requested');
+    console.log('[INFO] Starting forced token refresh operation');
     
-    // Check authorization header for admin access
-    const authHeader = request.headers.get('authorization');
-    const adminKey = process.env.ADMIN_API_KEY;
+    // This could be protected with admin authentication in the future
+    const { refreshAll = false } = await request.json();
     
-    if (!adminKey || authHeader !== `Bearer ${adminKey}`) {
-      console.warn('[WARNING] Unauthorized global health check attempt');
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized: Admin access required'
-      }, { status: 403 });
+    if (!refreshAll) {
+      return NextResponse.json(
+        { success: false, error: 'Parámetro refreshAll requerido' },
+        { status: 400 }
+      );
     }
 
-    // Run global health check
-    const healthCheckResult = await tiendaNubeTokenManager.runHealthCheck();
-
-    console.log('[INFO] Global health check completed:', healthCheckResult);
-
-    // If there are stores needing reconnection, we might want to send notifications
-    if (healthCheckResult.reconnectionRequired.length > 0) {
-      console.log(`[WARNING] Global health check found ${healthCheckResult.reconnectionRequired.length} stores needing reconnection`);
-      
-      // TODO: Here you could send notifications, emails, etc.
-      // For now, just log the affected users
-      const affectedUsers = [...new Set(healthCheckResult.reconnectionRequired.map(s => s.userId))];
-      console.log('[INFO] Affected users needing notification:', affectedUsers);
-    }
+    const result = await TiendaNubeTokenManager.refreshExpiringTokens();
+    
+    console.log(`[INFO] ✅ Forced refresh completed: ${result.refreshed} refreshed, ${result.failed} failed`);
 
     return NextResponse.json({
       success: true,
-      data: {
-        healthCheck: healthCheckResult,
-        timestamp: new Date().toISOString(),
-        summary: {
-          totalStores: healthCheckResult.totalStores,
-          healthyStores: healthCheckResult.validStores,
-          unhealthyStores: healthCheckResult.invalidStores,
-          reconnectionRate: healthCheckResult.totalStores > 0 
-            ? Math.round((healthCheckResult.invalidStores / healthCheckResult.totalStores) * 100)
-            : 0
-        }
-      }
+      message: 'Refresh masivo completado',
+      refreshed: result.refreshed,
+      failed: result.failed
     });
 
   } catch (error) {
-    console.error('[ERROR] Global health check failed:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to run global health check'
-    }, { status: 500 });
+    console.error('[ERROR] Unexpected error during forced token refresh:', error);
+    return NextResponse.json(
+      { success: false, error: 'Error interno del servidor' },
+      { status: 500 }
+    );
   }
 }
 

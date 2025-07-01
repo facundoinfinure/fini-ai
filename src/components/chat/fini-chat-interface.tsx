@@ -274,6 +274,12 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
   };
 
   const handleDeleteConversation = async (conversationId: string) => {
+    // 🔥 PREVENT MULTIPLE SIMULTANEOUS DELETIONS
+    if (deletingConversation === conversationId) {
+      console.warn(`[WARNING] Deletion already in progress for conversation: ${conversationId}`);
+      return;
+    }
+
     // 🔥 OPTIMISTIC UI: Update immediately, rollback if fails
     setDeletingConversation(conversationId);
     
@@ -291,31 +297,57 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
       setMessages([]);
     }
 
-    try {
-      const response = await fetch(`/api/conversations/${conversationId}`, {
-        method: 'DELETE'
-      });
+    let retryAttempts = 0;
+    const maxRetries = 2;
 
-      if (!response.ok) {
-        throw new Error('Failed to delete conversation');
+    while (retryAttempts <= maxRetries) {
+      try {
+        console.log(`[INFO] Attempting to delete conversation: ${conversationId} (attempt ${retryAttempts + 1}/${maxRetries + 1})`);
+        
+        const response = await fetch(`/api/conversations/${conversationId}`, {
+          method: 'DELETE',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          console.log(`[INFO] ✅ Conversation deleted successfully: ${conversationId}`);
+          // Keep the optimistic update - conversation is successfully deleted
+          break;
+        } else {
+          throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+      } catch (error: any) {
+        console.error(`[ERROR] Delete attempt ${retryAttempts + 1} failed for conversation ${conversationId}:`, error?.message || error);
+        
+        retryAttempts++;
+        
+        if (retryAttempts > maxRetries) {
+          // 🔥 ROLLBACK: All retries failed, restore previous state
+          console.error(`[ERROR] All deletion attempts failed for conversation: ${conversationId}`);
+          
+          setConversations(currentConversations);
+          setSelectedConversation(currentSelected);
+          setMessages(currentMessages);
+          
+          // Show user-friendly error
+          alert(`Error eliminando conversación después de ${maxRetries + 1} intentos: ${error?.message || 'Error desconocido'}`);
+          
+        } else {
+          // Wait before retrying
+          console.log(`[INFO] Retrying deletion in 1 second... (attempt ${retryAttempts + 1}/${maxRetries + 1})`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
-
-      console.log('[INFO] Conversation deleted successfully:', conversationId);
-      
-    } catch (error) {
-      console.error('[ERROR] Failed to delete conversation:', error);
-      
-      // 🔥 ROLLBACK: Restore previous state
-      setConversations(currentConversations);
-      setSelectedConversation(currentSelected);
-      setMessages(currentMessages);
-      
-      // TODO: Show error toast to user
-      alert('Error al eliminar la conversación. Inténtalo de nuevo.');
-      
-    } finally {
-      setDeletingConversation(null);
     }
+
+    // Always clear the deleting state
+    setDeletingConversation(null);
   };
 
   const handleUpdateTitle = async (conversationId: string, title: string) => {
