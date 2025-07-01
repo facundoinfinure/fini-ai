@@ -143,8 +143,7 @@ export async function PUT(request: NextRequest) {
         business_type: businessType,
         business_description: description,
         target_audience: targetAudience,
-        competitors: competitors || [],
-        updated_at: new Date().toISOString()
+        competitors: competitors || []
       })
       .eq('id', user.id)
       .select()
