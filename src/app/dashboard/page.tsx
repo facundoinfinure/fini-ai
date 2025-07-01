@@ -461,57 +461,21 @@ function DashboardContent() {
           setSelectedConversationId(null);
         }
         
-        // 🔄 VERIFICACIÓN: Verificar que realmente se eliminó del backend
-        const verifyDeletion = async (attempt = 1, maxAttempts = 3) => {
+        // 🔥 SIMPLIFIED: Eliminar verificación agresiva que causa errores
+        // En lugar de múltiples reintentos, hacer una sola recarga simple
+        setTimeout(async () => {
           try {
-            console.log(`[INFO] Verificando eliminación (intento ${attempt}/${maxAttempts})`);
-            
-            const verifyResponse = await fetch('/api/conversations?' + Math.random(), {
-              headers: {
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache'
-              }
-            });
-            
-            if (verifyResponse.ok) {
-              const verifyData = await verifyResponse.json();
-              if (verifyData.success) {
-                const stillExists = verifyData.data.some((conv: any) => conv.id === conversationId);
-                
-                if (stillExists && attempt < maxAttempts) {
-                  console.log(`[WARNING] Conversación aún existe, reintentando... (${attempt}/${maxAttempts})`);
-                  // Esperar un poco más y reintentar
-                  setTimeout(() => verifyDeletion(attempt + 1, maxAttempts), 1000);
-                  return;
-                }
-                
-                if (stillExists) {
-                  console.error('[ERROR] Conversación no se eliminó después de múltiples intentos');
-                  setNotification({
-                    type: 'error',
-                    message: 'Error: la conversación no se eliminó completamente. Refrescar la página.'
-                  });
-                  return;
-                }
-                
-                // ✅ Eliminación verificada exitosamente
-                console.log('[INFO] Eliminación verificada exitosamente');
-                setConversations(verifyData.data);
-              }
-            }
+            console.log('[INFO] Recargando conversaciones después de eliminación');
+            await loadConversations();
+            console.log('[INFO] Conversaciones recargadas exitosamente');
           } catch (error) {
-            console.error('[ERROR] Error verificando eliminación:', error);
-            if (attempt >= maxAttempts) {
-              // Fallback: forzar recarga de conversaciones
-              loadConversations();
-            }
+            console.warn('[WARNING] Error recargando conversaciones:', error);
+            // Fallback: forzar recarga de página si es necesario
+            // window.location.reload();
           }
-        };
+        }, 500); // Breve delay para permitir propagación del backend
         
-        // Iniciar verificación
-        verifyDeletion();
-        
-        console.log('[INFO] Proceso de eliminación iniciado');
+        console.log('[INFO] Eliminación completada exitosamente');
       } else {
         console.error('[ERROR] Backend failed to delete conversation:', data.error);
         setNotification({

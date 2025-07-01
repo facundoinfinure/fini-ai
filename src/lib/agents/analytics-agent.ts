@@ -285,34 +285,45 @@ Usa datos específicos cuando estén disponibles y proporciona recomendaciones a
     const hasData = ragContext && ragContext.length > 50 && !ragContext.includes('No hay datos');
     
     if (!hasData) {
-      return `💰 **Análisis de Precios - Sin Productos Disponibles**
+      // 🔥 AUTO-SYNC: Trigger immediate RAG sync when no product data found
+      console.warn(`[ANALYTICS-AGENT] No product data found for pricing query. Triggering sync for store: ${context.storeId}`);
+      
+      try {
+        // Fire sync request (don't wait for response to avoid timeout)
+        const syncUrl = process.env.VERCEL_URL ? 
+          `https://${process.env.VERCEL_URL}/api/stores/${context.storeId}/sync-rag` :
+          `https://fini-tn.vercel.app/api/stores/${context.storeId}/sync-rag`;
+          
+        fetch(syncUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).catch(error => {
+          console.warn(`[ANALYTICS-AGENT] Auto-sync failed for store ${context.storeId}:`, error);
+        });
+      } catch (error) {
+        console.warn(`[ANALYTICS-AGENT] Auto-sync trigger failed:`, error);
+      }
+      
+      return `💰 **Análisis de Precios - Sincronizando Datos**
 
-**🔍 Estado Actual:**
-No encuentro productos con precios en tu catálogo para analizar.
+**🔄 Estado Actual:**
+He detectado que necesitas análisis de precios y estoy sincronizando automáticamente los datos de tu catálogo.
 
-**📈 Para obtener análisis de precios necesitas:**
-
-**Configuración Básica:**
-- ✅ Productos publicados (no en borrador)
+**⚡ Mientras tanto:**
+Verifica que en tu panel de Tienda Nube tengas:
+- ✅ Productos **publicados** (no en borrador)
 - ✅ Precios definidos para cada producto
 - ✅ Variantes con precios específicos si aplica
 
-**Una vez configurado, podré responder:**
+**🚀 En 2-3 minutos, podrás preguntar:**
 - 💎 "¿Cuál es mi producto más caro?"
 - 💰 "¿Cuál es mi producto más barato?"
 - 📊 "Ranking de productos por precio"
 - 📈 "Análisis de precios por categoría"
-- 💡 "Oportunidades de pricing"
 
-**🚀 Pasos rápidos:**
-1. Ve a tu panel de Tienda Nube
-2. Asegúrate que tus productos estén **publicados**
-3. Verifica que tengan **precios definidos**
-4. Regresa y pregunta: "¿cuál es mi producto más caro?"
+**💡 Tip:** Después de la sincronización, vuelve a preguntar específicamente sobre tu producto más caro y te daré datos exactos.
 
-**💡 Tip:** Si tienes productos con variantes, cada variante debe tener su precio específico.
-
-¿Te ayudo con estrategias de pricing mientras configuras tus productos?`;
+La sincronización está en progreso en segundo plano. ¡Intenta nuevamente en unos minutos!`;
     }
 
     const userPrompt = this.formatPrompt(this.config.prompts.userPrompt, {

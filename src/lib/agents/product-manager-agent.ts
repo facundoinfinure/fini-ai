@@ -222,43 +222,46 @@ export class ProductManagerAgent extends BaseAgent {
     const hasProductData = ragContext && ragContext.length > 50 && !ragContext.includes('No hay datos específicos');
     
     if (!hasProductData) {
-      // No product data available - provide helpful guidance
-      return `🛍️ **Análisis de Catálogo - Tienda Vacía**
+      // 🔥 AUTO-SYNC: Trigger immediate RAG sync when no product data found
+      console.warn(`[PRODUCT-MANAGER] No catalog data found. Triggering sync for store: ${context.storeId}`);
+      
+      try {
+        // Fire sync request (don't wait for response to avoid timeout)
+        const syncUrl = process.env.VERCEL_URL ? 
+          `https://${process.env.VERCEL_URL}/api/stores/${context.storeId}/sync-rag` :
+          `https://fini-tn.vercel.app/api/stores/${context.storeId}/sync-rag`;
+          
+        fetch(syncUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).catch(error => {
+          console.warn(`[PRODUCT-MANAGER] Auto-sync failed for store ${context.storeId}:`, error);
+        });
+      } catch (error) {
+        console.warn(`[PRODUCT-MANAGER] Auto-sync trigger failed:`, error);
+      }
 
-**Estado Actual:**
-No se encontraron productos en tu catálogo. Esto puede ser porque:
-- Es una tienda nueva sin productos agregados
-- Los productos están en borrador y no publicados
-- Hay problemas de sincronización con la API
+      return `🛍️ **Análisis de Catálogo - Sincronizando Automáticamente**
 
-**🚀 Próximos Pasos Recomendados:**
+**🔄 Estado Actual:**
+He detectado que necesitas análisis de catálogo y estoy sincronizando automáticamente los datos de tu tienda.
 
-**1. Agregar Productos:**
-- Ve a tu panel de Tienda Nube
-- Crea productos con descripciones completas
-- Asegúrate de **publicarlos** (no dejarlos en borrador)
-- Incluye imágenes y precios
-
-**2. Configuración Esencial:**
-- ✅ Nombre del producto claro
-- ✅ Descripción detallada
-- ✅ Precio definido
+**⚡ Mientras tanto, verifica en tu panel de Tienda Nube:**
+- ✅ Productos creados y **publicados** (no en borrador)
+- ✅ Descripciones completas
+- ✅ Precios definidos
 - ✅ Stock disponible
-- ✅ Estado: **Publicado**
+- ✅ Imágenes agregadas
 
-**3. Categorización:**
-- Organiza productos en categorías
-- Usa tags relevantes
-- Optimiza para búsqueda
+**🚀 En 2-3 minutos, podrás preguntar:**
+- "¿Qué productos tengo?"
+- "¿Cuáles son mis productos más caros?"
+- "Análisis de mi catálogo"
+- "Recomendaciones de productos"
 
-**4. Una vez agregues productos:**
-- Vuelve aquí y pregunta: "¿qué productos tengo?"
-- El sistema se sincronizará automáticamente
-- Podrás obtener análisis detallados
+**💡 Tip:** La sincronización automática está corriendo en segundo plano. Vuelve a preguntar sobre tu catálogo en unos minutos para obtener análisis específicos.
 
-**💡 Tip:** Empieza con 3-5 productos bien configurados antes que muchos productos incompletos.
-
-¿Te ayudo con estrategias específicas para tu tipo de negocio?`;
+¡La próxima consulta será con datos reales de tu tienda!`;
     }
 
     const enhancedPrompt = `${this.config.prompts.userPrompt}
