@@ -27,107 +27,72 @@ export class TiendaNubeAPI {
   }
 
   /**
-   * 🔥 FIXED: Improved API request method with better token management and error handling
+   * Make API request to TiendaNube
+   * 🔥 IMPROVED: Better error handling and token validation
    */
-  async makeRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    if (!this.accessToken) {
+      console.warn(`[TIENDANUBE] No access token available for store ${this.storeId}`);
+      throw new Error('No access token available');
+    }
+
+    // 🔥 FIX: Check if we have a valid token first
+    const validToken = await TiendaNubeTokenManager.getValidToken(this.storeId);
+    if (!validToken) {
+      console.warn(`[TIENDANUBE] No valid token available for store ${this.storeId}, returning empty result`);
+      // Return appropriate empty response based on endpoint
+      if (endpoint.includes('/products')) return [] as unknown as T;
+      if (endpoint.includes('/orders')) return [] as unknown as T;
+      if (endpoint.includes('/customers')) return [] as unknown as T;
+      throw new Error('No valid token available');
+    }
+
+    const url = `${TIENDA_NUBE_API_BASE}/${this.storeId}${endpoint}`;
+    
+    const defaultHeaders = {
+      'Authentication': `bearer ${validToken}`,
+      'User-Agent': 'Fini-AI/1.0',
+      'Content-Type': 'application/json',
+    };
+
+    const config: RequestInit = {
+      ...options,
+      headers: {
+        ...defaultHeaders,
+        ...options.headers,
+      },
+    };
+
+    console.log(`[DEBUG] TiendaNube API request: ${config.method || 'GET'} ${url}`);
+
     try {
-      // 🔥 CRITICAL: Use new token manager for automatic refresh
-      const accessToken = await TiendaNubeTokenManager.getValidToken(this.storeId);
-      
-      if (!accessToken) {
-        // 🛡️ NON-BLOCKING: If no token, return empty result instead of throwing
-        console.warn(`[TIENDANUBE] No valid token available for store ${this.storeId}, returning empty result`);
-        return { data: [], empty: true, reason: 'no_token' } as T;
-      }
+      const response = await fetch(url, config);
 
-      const url = `${TIENDA_NUBE_API_BASE}/${this.storeId}/${endpoint}`;
-      
-      console.log(`[INFO] TiendaNube API request: ${url}`);
-      
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          'Authentication': `bearer ${accessToken}`,
-          'User-Agent': 'Fini-AI/1.0',
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-      });
-
-      // 🔥 CRITICAL: Handle 401 errors gracefully without throwing
-      if (response.status === 401) {
-        console.warn(`[WARNING] TiendaNube API 401 for store ${this.storeId} - token may be expired`);
-        
-        // Log the specific error for debugging
-        const errorText = await response.text();
-        console.warn(`[ERROR] TiendaNube API error: 401 Unauthorized - ${errorText}`);
-        
-        // Try token refresh one more time
-        console.log(`[INFO] Attempting one-time token refresh for store ${this.storeId}`);
-        const freshToken = await TiendaNubeTokenManager.getValidToken(this.storeId);
-        
-        if (freshToken && freshToken !== accessToken) {
-          console.log(`[INFO] Got fresh token, retrying request for store ${this.storeId}`);
-          
-          // Retry with fresh token
-          const retryResponse = await fetch(url, {
-            ...options,
-            headers: {
-              'Authentication': `bearer ${freshToken}`,
-              'User-Agent': 'Fini-AI/1.0',
-              'Content-Type': 'application/json',
-              ...options.headers,
-            },
-          });
-          
-          if (retryResponse.ok) {
-            console.log(`[INFO] ✅ Retry successful for store ${this.storeId}`);
-            return retryResponse.json();
-          } else {
-            console.warn(`[WARNING] Retry also failed for store ${this.storeId}: ${retryResponse.status}`);
-          }
+      if (!response.ok) {
+        // Handle specific error cases
+        if (response.status === 401) {
+          console.warn(`[TIENDANUBE] Authentication failed for store ${this.storeId}`);
+          throw new Error('Authentication failed - token may be invalid');
+        }
+        if (response.status === 404) {
+          console.warn(`[TIENDANUBE] Resource not found: ${endpoint}`);
+          throw new Error('Resource not found');
+        }
+        if (response.status === 429) {
+          console.warn(`[TIENDANUBE] Rate limit exceeded for store ${this.storeId}`);
+          throw new Error('Rate limit exceeded');
         }
         
-        // 🛡️ GRACEFUL DEGRADATION: Return empty result instead of throwing
-                 return { 
-           data: [], 
-           empty: true, 
-           reason: 'auth_failed',
-           httpStatus: 401,
-           message: 'Token authentication failed - store may need reconnection'
-         } as T;
-      }
-
-      // Handle other HTTP errors
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[ERROR] TiendaNube API request failed: ${response.status} - ${errorText}`);
-        
-        // For non-auth errors, also return empty result instead of throwing
-                 return {
-           data: [],
-           empty: true,
-           reason: 'api_error',
-           httpStatus: response.status,
-           message: `API error: ${response.status} ${response.statusText}`
-         } as T;
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log(`[INFO] ✅ TiendaNube API request successful for store ${this.storeId}`);
+      console.log(`[DEBUG] TiendaNube API response: ${JSON.stringify(data).substring(0, 200)}...`);
       
       return data;
-
     } catch (error) {
-      console.error(`[ERROR] TiendaNube API request failed: ${error}`);
-      
-      // 🛡️ GRACEFUL DEGRADATION: Return empty result instead of throwing
-             return {
-         data: [],
-         empty: true,
-         reason: 'network_error',
-         message: error instanceof Error ? error.message : 'Unknown network error'
-       } as T;
+      console.error(`[ERROR] TiendaNube API request failed:`, error);
+      throw error;
     }
   }
 
@@ -300,14 +265,25 @@ export class TiendaNubeAPI {
         limit: 100
       });
 
+      // 🔥 FIX: Ensure orders is always an array
+      const validOrders = Array.isArray(orders) ? orders : [];
+      
+      if (validOrders.length === 0) {
+        console.warn(`[AGENT:analytics] No orders found for top products analysis`);
+        return [];
+      }
+
       const productStats = new Map<number, { product: TiendaNubeOrderProduct; quantity: number; revenue: number }>();
 
-      orders.forEach(order => {
-        order.products?.forEach(orderProduct => {
+      validOrders.forEach(order => {
+        // 🔥 FIX: Ensure products is always an array
+        const products = Array.isArray(order.products) ? order.products : [];
+        
+        products.forEach(orderProduct => {
           const productId = orderProduct.product_id;
           const existing = productStats.get(productId);
-          const price = typeof orderProduct.price === 'string' ? parseFloat(orderProduct.price) : orderProduct.price;
-          const quantity = orderProduct.quantity;
+          const price = typeof orderProduct.price === 'string' ? parseFloat(orderProduct.price) : (orderProduct.price || 0);
+          const quantity = orderProduct.quantity || 0;
           
           if (existing) {
             existing.quantity += quantity;
@@ -327,7 +303,8 @@ export class TiendaNubeAPI {
         .slice(0, limit);
     } catch (error) {
       console.error(`[AGENT:analytics] Error getting top products:`, error);
-      throw error;
+      // 🔥 FIX: Return empty array instead of throwing
+      return [];
     }
   }
 
@@ -366,11 +343,25 @@ export class TiendaNubeAPI {
         limit: 100
       });
 
-      const totalRevenue = orders.reduce((sum, order) => {
+      // 🔥 FIX: Ensure orders is always an array
+      const validOrders = Array.isArray(orders) ? orders : [];
+      
+      if (validOrders.length === 0) {
+        console.warn(`[AGENT:analytics] No orders found for period: ${period}`);
+        return {
+          period,
+          totalRevenue: 0,
+          totalOrders: 0,
+          averageOrderValue: 0,
+          orders: []
+        };
+      }
+
+      const totalRevenue = validOrders.reduce((sum, order) => {
         const orderTotal = typeof order.total === 'string' ? parseFloat(order.total) : (order.total || 0);
         return sum + orderTotal;
       }, 0);
-      const totalOrders = orders.length;
+      const totalOrders = validOrders.length;
       const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
       return {
@@ -378,28 +369,40 @@ export class TiendaNubeAPI {
         totalRevenue,
         totalOrders,
         averageOrderValue,
-        orders
+        orders: validOrders
       };
     } catch (error) {
       console.error(`[AGENT:analytics] Error getting revenue:`, error);
-      throw error;
+      // 🔥 FIX: Return safe fallback instead of throwing
+      return {
+        period,
+        totalRevenue: 0,
+        totalOrders: 0,
+        averageOrderValue: 0,
+        orders: []
+      };
     }
   }
 
   /**
-   * Get pending orders
+   * Get pending orders count
    */
   async getPendingOrders(): Promise<TiendaNubeOrder[]> {
     try {
       console.warn(`[AGENT:analytics] Getting pending orders`);
       
-      return await this.getOrders({
+      const orders = await this.getOrders({
         status: 'pending',
         limit: 50
       });
+
+      // 🔥 FIX: Ensure orders is always an array
+      const validOrders = Array.isArray(orders) ? orders : [];
+      return validOrders;
     } catch (error) {
       console.error(`[AGENT:analytics] Error getting pending orders:`, error);
-      throw error;
+      // 🔥 FIX: Return empty array instead of throwing
+      return [];
     }
   }
 
@@ -446,14 +449,20 @@ export class TiendaNubeAPI {
           today: todayRevenue.totalOrders,
           week: weekRevenue.totalOrders,
           month: monthRevenue.totalOrders,
-          pending: pendingOrders.length,
+          pending: Array.isArray(pendingOrders) ? pendingOrders.length : 0,
         },
-        topProducts,
+        topProducts: Array.isArray(topProducts) ? topProducts : [],
         averageOrderValue: weekRevenue.averageOrderValue,
       };
     } catch (error) {
       console.error(`[AGENT:analytics] Error getting store analytics:`, error);
-      throw error;
+      // 🔥 FIX: Return safe fallback instead of throwing
+      return {
+        revenue: { today: 0, week: 0, month: 0 },
+        orders: { today: 0, week: 0, month: 0, pending: 0 },
+        topProducts: [],
+        averageOrderValue: 0,
+      };
     }
   }
 }

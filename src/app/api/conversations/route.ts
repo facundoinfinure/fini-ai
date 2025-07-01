@@ -20,6 +20,33 @@ export async function GET() {
       );
     }
 
+    // 🔥 BACKGROUND RAG SYNC: Non-blocking, fail-safe
+    // This runs in the background and doesn't affect the main response
+    setImmediate(async () => {
+      try {
+        // Get user's stores for RAG sync
+        const { data: stores } = await supabase
+          .from('stores')
+          .select('id, tiendanube_store_id, access_token')
+          .eq('user_id', user.id)
+          .eq('is_active', true);
+
+        if (stores && stores.length > 0) {
+          const { ragEngine } = await import('@/lib/rag');
+          
+          // Sync only the first store to avoid overwhelming the system
+          const store = stores[0];
+          if (store.access_token && ragEngine) {
+            console.log(`[RAG:background] Starting background sync for store: ${store.id}`);
+            await ragEngine.indexStoreData(store.id, store.access_token);
+          }
+        }
+      } catch (ragError) {
+        // 🔥 CRITICAL: RAG errors should not affect conversation loading
+        console.warn('[WARNING] Background RAG sync failed (non-critical):', ragError instanceof Error ? ragError.message : ragError);
+      }
+    });
+
     // Obtener conversaciones del usuario con sus mensajes
     const { data: conversations, error: conversationsError } = await supabase
       .from('conversations')
@@ -52,43 +79,28 @@ export async function GET() {
       );
     }
 
-    // Transformar los datos para el formato esperado por el frontend
-    const formattedConversations = (conversations || []).map(conv => {
-      const messages = (conv.messages || []).map((msg: any) => ({
+    // Formatear conversaciones
+    const formattedConversations = (conversations || []).map(conv => ({
+      id: conv.id,
+      title: conv.title || `Cliente ${conv.customer_number?.slice(-4) || 'Desconocido'}`,
+      customerName: `Cliente ${conv.customer_number?.slice(-4) || 'Desconocido'}`,
+      customerPhone: conv.customer_number || '',
+      status: conv.status || 'active',
+      lastMessageTime: conv.last_message_at,
+      messageCount: conv.message_count || 0,
+      messages: (conv.messages || []).map((msg: any) => ({
         id: msg.id,
-        content: msg.body,
-        timestamp: msg.created_at,
+        body: msg.body,
         direction: msg.direction,
-        type: 'text',
-        status: 'read'
-      }));
+        created_at: msg.created_at
+      }))
+    }));
 
-      const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-
-      return {
-        id: conv.id,
-        title: conv.title || `Cliente ${conv.customer_number.slice(-4)}`, // Usar título si existe, sino usar cliente
-        customerName: `Cliente ${conv.customer_number.slice(-4)}`, // Mostrar solo últimos 4 dígitos
-        customerPhone: conv.customer_number,
-        lastMessage: lastMessage?.content || 'Sin mensajes',
-        lastMessageTime: conv.last_message_at,
-        status: conv.status,
-        unreadCount: 0, // TODO: Implementar conteo de no leídos
-        messages
-      };
-    });
-
-    console.log(`[INFO] Found ${formattedConversations.length} conversations for user ${user.id}`);
+    console.log(`[INFO] Successfully fetched ${formattedConversations.length} conversations`);
 
     return NextResponse.json({
       success: true,
       data: formattedConversations
-    }, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
     });
 
   } catch (error) {

@@ -56,5 +56,10 @@ export const ragEngine = {
   // 🔥 CRITICAL: Para eliminar vectores de conversaciones específicas
   async deleteDocuments(documentIds: string[]): Promise<any> {
     return this.instance.deleteDocuments(documentIds);
+  },
+
+  // 🔥 FIX: Add missing indexStoreData method
+  async indexStoreData(storeId: string, accessToken?: string): Promise<void> {
+    return this.instance.indexStoreData(storeId, accessToken);
   }
 }; 

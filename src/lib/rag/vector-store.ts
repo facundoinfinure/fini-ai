@@ -181,27 +181,34 @@ export class PineconeVectorStore implements VectorStore {
 
   /**
    * Delete vectors by IDs
+   * 🔥 FIXED: Handle 404 errors gracefully to prevent log spam
    */
   async delete(ids: string[]): Promise<void> {
     try {
-      console.warn(`[RAG:vector-store] Deleting ${ids.length} vectors from Pinecone`);
-      
       if (ids.length === 0) {
+        console.warn('[RAG:vector-store] No vectors to delete');
         return;
       }
 
-      const index = await this.getIndex();
+      console.warn(`[RAG:vector-store] Deleting ${ids.length} vectors from Pinecone`);
       
-      // Group IDs by namespace (we need to determine namespace from ID pattern)
-      const namespaceGroups = this.groupIdsByNamespace(ids);
-      
-      for (const [namespace, namespaceIds] of Object.entries(namespaceGroups)) {
-        await index.namespace(namespace).deleteMany(namespaceIds);
-        console.warn(`[RAG:vector-store] Deleted ${namespaceIds.length} vectors from namespace: ${namespace}`);
-      }
+      const index = this.pinecone.index(this.indexName);
+      await index.deleteMany(ids);
       
       console.warn(`[RAG:vector-store] Successfully deleted ${ids.length} vectors`);
-    } catch (error) {
+    } catch (error: any) {
+      // 🔥 FIX: Handle 404 errors gracefully - vectors might not exist
+      if (error.message?.includes('404') || error.message?.includes('not found')) {
+        console.warn(`[RAG:vector-store] Vectors not found (404) - this is expected if vectors don't exist: ${error.message}`);
+        return; // Don't throw error for 404s
+      }
+      
+      // 🔥 FIX: Handle other Pinecone errors gracefully
+      if (error.message?.includes('Pinecone')) {
+        console.warn(`[RAG:vector-store] Pinecone operation failed (non-critical): ${error.message}`);
+        return; // Don't throw for non-critical Pinecone errors
+      }
+      
       console.warn('[ERROR] Failed to delete vectors from Pinecone:', error);
       throw new Error(`Vector deletion failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

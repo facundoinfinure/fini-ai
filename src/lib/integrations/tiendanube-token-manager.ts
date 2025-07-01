@@ -66,15 +66,26 @@ export class TiendaNubeTokenManager {
       
       const supabase = createClient();
       
-      // Get current token from database
+      // 🔥 FIX: Handle missing table gracefully
       const { data: store, error } = await supabase
         .from('tiendanube_stores')
         .select('access_token, refresh_token, token_expires_at')
         .eq('store_id', storeId)
         .single();
 
-      if (error || !store) {
-        console.warn(`[TOKEN] Store not found: ${storeId}`, error?.message);
+      if (error) {
+        // 🔥 FIX: Handle table not exists gracefully
+        if (error.message?.includes('does not exist')) {
+          console.warn(`[TOKEN] TiendaNube stores table not found - this is expected for stores table setup: ${error.message}`);
+          return null;
+        }
+        
+        console.warn(`[TOKEN] Store not found: ${storeId}`, error.message);
+        return null;
+      }
+
+      if (!store) {
+        console.warn(`[TOKEN] Store ${storeId} not found in database`);
         return null;
       }
 

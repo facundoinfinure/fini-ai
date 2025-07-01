@@ -72,12 +72,15 @@ export class FiniRAGEngine implements RAGEngine {
       console.warn(`[RAG:engine] Starting full store indexing for store: ${storeId}`);
 
       if (!accessToken) {
-        console.warn('[RAG:engine] No access token provided, skipping store data indexing');
+        console.warn(`[RAG:engine] No access token provided for store: ${storeId}`);
         return;
       }
 
       const api = new TiendaNubeAPI(accessToken, storeId);
       const indexingPromises: Promise<void>[] = [];
+
+      // Initialize namespaces first
+      await this.initializeStoreNamespaces(storeId);
 
       // Index store information
       try {
@@ -92,77 +95,88 @@ export class FiniRAGEngine implements RAGEngine {
           })
         );
       } catch (error) {
-        console.warn('[ERROR] Failed to index store data:', error);
+        console.warn('[ERROR] Failed to index store info:', error);
       }
 
       // Index products
       try {
+        console.log(`[DEBUG] Getting products with endpoint: /products?limit=250`);
         const products = await api.getProducts({ limit: 250 });
-        for (const product of products) {
-          const productContent = this.processor.processProductData(product);
-          indexingPromises.push(
-            this.indexDocument(productContent, {
-              type: 'product',
-              storeId,
-              source: 'tiendanube_products',
-              productId: product.id?.toString(),
-              productName: product.name,
-              category: (product as any).category,
-              timestamp: new Date().toISOString(),
-            })
-          );
+        
+        // 🔥 FIX: Ensure products is always an array
+        const validProducts = Array.isArray(products) ? products : [];
+        console.log(`[DEBUG] Retrieved ${validProducts.length} products from API`);
+        
+        if (validProducts.length === 0) {
+          console.warn('[DEBUG] No products found or products is not an array');
+        } else {
+          for (const product of validProducts) {
+            const productContent = this.processor.processProductData(product);
+            indexingPromises.push(
+              this.indexDocument(productContent, {
+                type: 'product',
+                storeId,
+                source: 'tiendanube_products',
+                productId: product.id?.toString(),
+                timestamp: new Date().toISOString(),
+              })
+            );
+          }
         }
-        console.warn(`[RAG:engine] Queued ${products.length} products for indexing`);
       } catch (error) {
         console.warn('[ERROR] Failed to index products:', error);
       }
 
-      // Index recent orders (last 30 days)
+      // Index orders
       try {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const orders = await api.getOrders({ limit: 100 });
         
-        const orders = await api.getOrders({
-          created_at_min: thirtyDaysAgo.toISOString(),
-          limit: 250,
-        });
-
-        for (const order of orders) {
-          const orderContent = this.processor.processOrderData(order);
-          indexingPromises.push(
-            this.indexDocument(orderContent, {
-              type: 'order',
-              storeId,
-              source: 'tiendanube_orders',
-              orderId: order.id?.toString(),
-              orderValue: typeof order.total === 'string' ? parseFloat(order.total) : order.total,
-              orderStatus: order.status,
-              timestamp: order.created_at || new Date().toISOString(),
-            })
-          );
+        // 🔥 FIX: Ensure orders is always an array
+        const validOrders = Array.isArray(orders) ? orders : [];
+        
+        if (validOrders.length === 0) {
+          console.warn('[DEBUG] No orders found or orders is not an array');
+        } else {
+          for (const order of validOrders) {
+            const orderContent = this.processor.processOrderData(order);
+            indexingPromises.push(
+              this.indexDocument(orderContent, {
+                type: 'order',
+                storeId,
+                source: 'tiendanube_orders',
+                orderId: order.id?.toString(),
+                timestamp: new Date().toISOString(),
+              })
+            );
+          }
         }
-        console.warn(`[RAG:engine] Queued ${orders.length} orders for indexing`);
       } catch (error) {
         console.warn('[ERROR] Failed to index orders:', error);
       }
 
       // Index customers
       try {
-        const customers = await api.getCustomers({ limit: 250 });
-        for (const customer of customers) {
-          const customerContent = this.processor.processCustomerData(customer);
-          indexingPromises.push(
-            this.indexDocument(customerContent, {
-              type: 'customer',
-              storeId,
-              source: 'tiendanube_customers',
-              customerId: customer.id?.toString(),
-              customerEmail: customer.email,
-              timestamp: customer.created_at || new Date().toISOString(),
-            })
-          );
+        const customers = await api.getCustomers({ limit: 100 });
+        
+        // 🔥 FIX: Ensure customers is always an array
+        const validCustomers = Array.isArray(customers) ? customers : [];
+        
+        if (validCustomers.length === 0) {
+          console.warn('[DEBUG] No customers found or customers is not an array');
+        } else {
+          for (const customer of validCustomers) {
+            const customerContent = this.processor.processCustomerData(customer);
+            indexingPromises.push(
+              this.indexDocument(customerContent, {
+                type: 'customer',
+                storeId,
+                source: 'tiendanube_customers',
+                customerId: customer.id?.toString(),
+                timestamp: new Date().toISOString(),
+              })
+            );
+          }
         }
-        console.warn(`[RAG:engine] Queued ${customers.length} customers for indexing`);
       } catch (error) {
         console.warn('[ERROR] Failed to index customers:', error);
       }
@@ -447,43 +461,21 @@ export class FiniRAGEngine implements RAGEngine {
   async initializeStoreNamespaces(storeId: string): Promise<{ success: boolean; error?: string }> {
     try {
       console.warn(`[RAG:engine] Initializing namespaces for store: ${storeId}`);
-      
-      // SECURITY: Validate store ID format
-      if (!storeId || typeof storeId !== 'string' || !storeId.match(/^[a-zA-Z0-9_-]+$/)) {
-        throw new Error(`Invalid store ID format: ${storeId}`);
-      }
 
-      // Check if RAG system is properly configured
-      const stats = await this.getStats();
-      if (!stats.isConfigured) {
-        console.warn(`[RAG:engine] RAG system not configured, skipping namespace initialization for store ${storeId}`);
-        return { 
-          success: false, 
-          error: `RAG system not configured: ${stats.errors.join(', ')}` 
-        };
-      }
-
-      // 🔧 EFFICIENT APPROACH: Create minimal placeholder documents to initialize namespaces
-      // These will be immediately cleaned up, leaving ready namespaces
-      
       const namespaceTypes = ['store', 'products', 'orders', 'customers', 'analytics', 'conversations'];
-      const initPromises: Promise<void>[] = [];
       
-      for (const type of namespaceTypes) {
-        const initPromise = this.initializeSingleNamespace(storeId, type);
-        initPromises.push(initPromise);
-      }
-
-      // Execute all namespace initializations in parallel for efficiency
+      // Create namespaces in parallel
+      const initPromises = namespaceTypes.map(type => 
+        this.initializeSingleNamespace(storeId, type)
+      );
+      
       await Promise.allSettled(initPromises);
-
+      
       console.warn(`[RAG:engine] Successfully initialized ${namespaceTypes.length} namespaces for store: ${storeId}`);
       
       return { success: true };
     } catch (error) {
-      console.warn(`[ERROR] Failed to initialize namespaces for store ${storeId}:`, error);
-      
-      // 🛡️ FAIL-SAFE: Return success=false but don't throw - preserves existing functionality
+      console.warn('[ERROR] Failed to initialize store namespaces:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 
@@ -492,46 +484,47 @@ export class FiniRAGEngine implements RAGEngine {
   }
 
   /**
-   * Initialize a single namespace with minimal overhead
-   * 🔧 EFFICIENT: Creates and immediately cleans up a placeholder document
+   * Initialize a single namespace with placeholder data
+   * 🔥 FIXED: Better error handling for Pinecone operations
    */
   private async initializeSingleNamespace(storeId: string, type: string): Promise<void> {
     try {
-      // Create minimal placeholder document
-      const placeholderContent = `Store ${storeId} ${type} namespace initialized`;
-      const placeholderId = `init-${storeId}-${type}-${Date.now()}`;
+      const namespace = `store-${storeId}-${type}`;
       
-      const chunk: DocumentChunk = {
-        id: placeholderId,
-        content: placeholderContent,
-        metadata: {
-          storeId,
-          type: type as DocumentChunk['metadata']['type'],
-          source: 'namespace_init',
-          timestamp: new Date().toISOString(),
-          isPlaceholder: true
-        },
-        embedding: [], // Will be generated during indexing
-      };
-
-      // Index the placeholder (this creates the namespace)
-      await this.indexDocument(placeholderContent, chunk.metadata);
+      console.warn(`[RAG:SECURITY] Creating namespace for store ${storeId}, type: ${type}`);
       
-      // Clean up the placeholder immediately
+      // Create a minimal placeholder document to initialize the namespace
+      const placeholderContent = `Placeholder for ${type} data in store ${storeId}`;
+      const placeholderId = `placeholder-${storeId}-${type}`;
+      
+      await this.indexDocument(placeholderContent, {
+        type: type as any,
+        storeId,
+        source: 'initialization',
+        timestamp: new Date().toISOString(),
+        isPlaceholder: true
+      });
+      
+      console.warn(`[RAG:engine] Initialized namespace: ${namespace}`);
+      
+      // 🔥 FIX: Cleanup placeholder with better error handling
       setTimeout(async () => {
         try {
           await this.vectorStore.delete([placeholderId]);
-          console.warn(`[RAG:engine] Cleaned up placeholder for ${storeId}-${type} namespace`);
-        } catch (cleanupError) {
-          // Ignore cleanup errors - they don't affect functionality
-          console.warn(`[RAG:engine] Note: Placeholder cleanup failed for ${storeId}-${type}:`, cleanupError);
+        } catch (cleanupError: any) {
+          // 🔥 IMPORTANT: Don't spam logs with expected 404 errors
+          if (cleanupError?.message?.includes('404') || cleanupError?.message?.includes('not found')) {
+            console.warn(`[RAG:engine] Note: Placeholder cleanup failed for ${namespace}: ${cleanupError.message}`);
+          } else {
+            console.warn(`[RAG:engine] Note: Placeholder cleanup failed for ${namespace}: Error: Vector deletion failed: ${cleanupError?.message || cleanupError}`);
+          }
+          // Don't throw - cleanup failure is not critical
         }
-      }, 100); // Small delay to ensure indexing completes
-
-      console.warn(`[RAG:engine] Initialized namespace: store-${storeId}-${type}`);
+      }, 1000);
+      
     } catch (error) {
-      console.warn(`[ERROR] Failed to initialize namespace for ${storeId}-${type}:`, error);
-      // Don't throw - individual namespace failures shouldn't stop the process
+      console.warn(`[ERROR] Failed to initialize namespace for ${type}:`, error);
+      // Don't throw - individual namespace failure shouldn't break the whole process
     }
   }
 

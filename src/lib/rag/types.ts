@@ -108,7 +108,7 @@ export interface VectorStore {
 
 export interface RAGEngine {
   indexDocument(content: string, metadata: Partial<DocumentChunk['metadata']>): Promise<void>;
-  indexStoreData(storeId: string): Promise<void>;
+  indexStoreData(storeId: string, accessToken?: string): Promise<void>;
   search(query: RAGQuery): Promise<RAGResult>;
   getRelevantContext(query: string, context: RAGQuery['context']): Promise<string>;
   deleteStoreData(storeId: string): Promise<void>;
