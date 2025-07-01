@@ -35,33 +35,65 @@ export async function middleware(request: NextRequest) {
 
     // Check if user profile exists in public.users for protected routes
     if (pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding')) {
-      const { data: userProfile, error: profileError } = await supabase
-        .from('users')
-        .select('id, onboarding_completed')
-        .eq('id', session.user.id)
-        .single();
+      try {
+        const { data: userProfile, error: profileError } = await supabase
+          .from('users')
+          .select('id, onboarding_completed')
+          .eq('id', session.user.id)
+          .single();
 
-      // If user profile doesn't exist, allow the request to proceed
-      // The page components will handle profile creation via ensure-profile endpoint
-      if (!userProfile || profileError) {
-        console.log('[INFO] User profile not found, but allowing request to proceed for profile creation');
+        // If user profile doesn't exist, allow the request to proceed
+        // The page components will handle profile creation via ensure-profile endpoint
+        if (!userProfile || profileError) {
+          console.log('[INFO] User profile not found, but allowing request to proceed for profile creation');
+          return response;
+        }
+
+        // Handle onboarding redirects for users with profiles
+        if (pathname.startsWith('/dashboard')) {
+          // Check if user has stores
+          const { data: stores } = await supabase
+            .from('stores')
+            .select('id')
+            .eq('user_id', session.user.id)
+            .limit(1);
+
+          // Log user dashboard access info
+          console.log('[INFO] User accessing dashboard with profile:', {
+            onboarding_completed: userProfile.onboarding_completed,
+            has_stores: stores && stores.length > 0
+          });
+        }
+      } catch (schemaError) {
+        console.log('[WARNING] Schema error when checking onboarding_completed, using fallback logic:', schemaError);
+        
+        // Fallback: Check if user has stores and allow dashboard access if they do
+        if (pathname.startsWith('/dashboard')) {
+          try {
+            const { data: stores } = await supabase
+              .from('stores')
+              .select('id')
+              .eq('user_id', session.user.id)
+              .limit(1);
+
+            // If user has stores, consider them "onboarded" and allow dashboard access
+            if (stores && stores.length > 0) {
+              console.log('[INFO] User has stores, allowing dashboard access despite schema issues');
+              return response;
+            } else {
+              // No stores, redirect to onboarding  
+              console.log('[INFO] No stores found, redirecting to onboarding');
+              return NextResponse.redirect(`${request.nextUrl.origin}/onboarding`);
+            }
+          } catch (fallbackError) {
+            console.error('[ERROR] Fallback logic also failed:', fallbackError);
+            // If everything fails, allow the request to proceed to avoid infinite loops
+            return response;
+          }
+        }
+        
+        // For onboarding page access, allow it to proceed
         return response;
-      }
-
-      // Handle onboarding redirects for users with profiles
-      if (pathname.startsWith('/dashboard')) {
-        // Check if user has stores
-        const { data: stores } = await supabase
-          .from('stores')
-          .select('id')
-          .eq('user_id', session.user.id)
-          .limit(1);
-
-        // Log user dashboard access info
-        console.log('[INFO] User accessing dashboard with profile:', {
-          onboarding_completed: userProfile.onboarding_completed,
-          has_stores: stores && stores.length > 0
-        });
       }
     }
 

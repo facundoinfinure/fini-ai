@@ -60,17 +60,38 @@ export async function GET(request: NextRequest) {
       } else {
         console.log('[INFO] Existing user profile found for:', email)
         
-        // Check if user has completed onboarding and has stores
-        const { data: stores } = await supabase
-          .from('stores')
-          .select('id')
-          .eq('user_id', id)
-          .limit(1)
+        try {
+          // Check if user has completed onboarding and has stores
+          const { data: stores } = await supabase
+            .from('stores')
+            .select('id')
+            .eq('user_id', id)
+            .limit(1)
 
-        // If user has completed onboarding AND has stores, redirect to dashboard
-        if (existingUser.onboarding_completed && stores && stores.length > 0) {
-          console.log('[INFO] User has completed onboarding and has stores, redirecting to dashboard')
-          return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+          // If user has completed onboarding AND has stores, redirect to dashboard
+          if (existingUser.onboarding_completed && stores && stores.length > 0) {
+            console.log('[INFO] User has completed onboarding and has stores, redirecting to dashboard')
+            return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+          }
+        } catch (schemaError) {
+          console.log('[WARNING] Schema error checking onboarding_completed, using fallback logic:', schemaError)
+          
+          // Fallback: If user has stores, consider them ready for dashboard
+          try {
+            const { data: stores } = await supabase
+              .from('stores')
+              .select('id')
+              .eq('user_id', id)
+              .limit(1)
+
+            if (stores && stores.length > 0) {
+              console.log('[INFO] User has stores, redirecting to dashboard despite schema issues')
+              return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+            }
+          } catch (fallbackError) {
+            console.error('[ERROR] Fallback logic failed in auth callback:', fallbackError)
+            // Continue to onboarding as fallback
+          }
         }
       }
 

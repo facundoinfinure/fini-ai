@@ -97,15 +97,40 @@ export async function GET(_request: NextRequest) {
 
     const userId = session.user.id;
 
-    // Check if user has completed onboarding
-    const userResult = await UserService.getUserById(userId);
+    // Check if user has completed onboarding (with graceful fallback)
+    let onboardingCompleted = false;
+    let userProfile = null;
     
-    if (!userResult.success) {
-      console.error('[ERROR] Failed to get user:', userResult.error);
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to get user data'
-      }, { status: 500 });
+    try {
+      const userResult = await UserService.getUserById(userId);
+      
+      if (userResult.success && userResult.user) {
+        userProfile = userResult.user;
+        onboardingCompleted = userResult.user.onboarding_completed || false;
+      }
+    } catch (schemaError) {
+      console.log('[WARNING] Schema error checking onboarding_completed, using fallback logic:', schemaError);
+      
+      // Fallback: Check if user exists and has basic profile info
+      try {
+        const { data: basicUser, error: basicError } = await supabase
+          .from('users')
+          .select('id, email, name, full_name')
+          .eq('id', userId)
+          .single();
+
+        if (!basicError && basicUser) {
+          userProfile = basicUser;
+          // Consider onboarding complete if user has a name and stores (checked below)
+          onboardingCompleted = !!(basicUser.name || basicUser.full_name);
+        }
+      } catch (fallbackError) {
+        console.error('[ERROR] Fallback user check failed:', fallbackError);
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to get user data'
+        }, { status: 500 });
+      }
     }
 
     // Check if user has stores
@@ -119,13 +144,25 @@ export async function GET(_request: NextRequest) {
       }, { status: 500 });
     }
 
-    const completed = userResult.user?.onboarding_completed && storesResult.stores && storesResult.stores.length > 0;
+    // Final determination: user is complete if they have onboarding_completed=true OR (have name and stores)
+    const hasStores = storesResult.stores && storesResult.stores.length > 0;
+    const hasBasicProfile = !!(userProfile?.name || userProfile?.full_name);
+    
+    const completed = onboardingCompleted || (hasBasicProfile && hasStores);
+
+    console.log('[INFO] Onboarding status determined:', {
+      userId,
+      onboardingCompleted,
+      hasStores,
+      hasBasicProfile,
+      finalCompleted: completed
+    });
 
     return NextResponse.json({
       success: true,
       data: {
         completed,
-        user: userResult.user,
+        user: userProfile,
         stores: storesResult.stores
       }
     });

@@ -45,6 +45,29 @@ export async function GET() {
     
     const results: SchemaValidationResult[] = [];
     let overallValid = true;
+    const missingColumns: string[] = [];
+    const criticalIssues: string[] = [];
+
+    // Test critical columns that are causing redirect issues
+    console.log('[INFO] Testing critical columns for user authentication...');
+    
+    try {
+      const { data: userTest, error: userError } = await supabase
+        .from('users')
+        .select('id, email, onboarding_completed')
+        .limit(1);
+        
+      if (userError) {
+        if (userError.message.includes('onboarding_completed')) {
+          missingColumns.push('users.onboarding_completed');
+          criticalIssues.push('CRITICAL: onboarding_completed column missing - causing infinite redirect to onboarding');
+          overallValid = false;
+        }
+      }
+    } catch (error) {
+      criticalIssues.push('Cannot access users table');
+      overallValid = false;
+    }
 
     for (const [tableName, expectedColumns] of Object.entries(EXPECTED_TABLES)) {
       try {
@@ -94,16 +117,49 @@ export async function GET() {
       valid_tables: results.filter(r => r.status === 'valid').length,
       invalid_tables: results.filter(r => r.status === 'invalid').length,
       missing_tables: results.filter(r => r.status === 'missing').length,
-      overall_valid: overallValid
+      overall_valid: overallValid,
+      missing_columns: missingColumns,
+      critical_issues: criticalIssues
     };
 
     console.log('[INFO] Schema validation completed:', summary);
+
+    // Provide fix instructions if there are critical issues
+    let fixInstructions = null;
+    if (criticalIssues.length > 0) {
+      fixInstructions = {
+        issue: 'Missing onboarding_completed column causing redirect loops',
+        solution: 'Run database migration to add missing columns',
+        manual_sql: `
+-- Add missing onboarding_completed column
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE;
+
+-- Add other missing user profile columns
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS business_name TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS business_type TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS business_description TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+-- Update existing users to have onboarding_completed=true if they have stores
+UPDATE public.users 
+SET onboarding_completed = true 
+WHERE id IN (
+  SELECT DISTINCT user_id 
+  FROM public.stores 
+  WHERE user_id IS NOT NULL
+);
+        `,
+        api_endpoint: 'POST /api/setup-database'
+      };
+    }
 
     return NextResponse.json({
       success: true,
       schema_validation: {
         summary,
         results,
+        fix_instructions: fixInstructions,
         timestamp: new Date().toISOString()
       }
     });
