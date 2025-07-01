@@ -615,6 +615,7 @@ function DashboardContent() {
                 conversations={conversations}
                 selectedConversationId={selectedConversationId}
                 onConversationUpdate={handleConversationUpdate}
+                onConversationDelete={handleConversationDelete}
               />
             </Suspense>
           </DashboardErrorBoundary>

@@ -82,13 +82,15 @@ interface ChatPreviewProps {
   conversations?: Conversation[];
   selectedConversationId?: string | null;
   onConversationUpdate?: () => void;
+  onConversationDelete?: (conversationId: string) => void;
 }
 
 export function ChatPreview({ 
   selectedStore,
   conversations: propConversations,
   selectedConversationId,
-  onConversationUpdate
+  onConversationUpdate,
+  onConversationDelete
 }: ChatPreviewProps) {
   const [conversations, setConversations] = useState<Conversation[]>(propConversations || []);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -515,57 +517,11 @@ export function ChatPreview({
       setDeletingConversation(conversationId);
       
       // 🔥 COORDINATED DELETION: Use parent callback if available (preferred approach)
-      if (onConversationUpdate) {
+      if (onConversationDelete) {
         console.log('[CHAT-PREVIEW] Delegating deletion to parent component for coordination');
         
-        // 🔥 IMMEDIATE OPTIMISTIC UPDATE - Remove from UI first
-        const updatedConversations = conversations.filter(c => c.id !== conversationId);
-        setConversations(updatedConversations);
-        
-        // If this was the selected conversation, clear selection
-        if (selectedConversation?.id === conversationId) {
-          setSelectedConversation(null);
-          setMessages([]);
-        }
-        
-        // Make the actual delete request
-        try {
-          const response = await fetch(`/api/conversations/${conversationId}`, {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache'
-            }
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-
-          const data = await response.json();
-          
-          if (!data.success) {
-            throw new Error(data.error || 'Error desconocido eliminando conversación');
-          }
-
-          console.log(`[CHAT-PREVIEW] ✅ Conversation deleted successfully: ${conversationId}`);
-          
-          // Notify parent component to refresh the conversations list
-          onConversationUpdate();
-          
-        } catch (deleteError: any) {
-          console.error(`[CHAT-PREVIEW] Delete request failed:`, deleteError?.message || deleteError);
-          
-          // 🔥 ROLLBACK - Restore the conversation in UI if delete failed
-          setConversations(conversations);
-          if (selectedConversation?.id === conversationId) {
-            setSelectedConversation(selectedConversation);
-            setMessages(messages);
-          }
-          
-          setError(`Error eliminando conversación: ${deleteError?.message || 'Error desconocido'}`);
-        }
+        // Delegate to parent component for coordinated deletion
+        await onConversationDelete(conversationId);
         
         return;
       }

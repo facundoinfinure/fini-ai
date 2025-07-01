@@ -1,30 +1,34 @@
 # Responsabilidades de Agentes - Fini AI
 
 ## 📊 **Analytics Agent**
-**Especialidad**: Análisis de datos, métricas y reportes
+**Especialidad**: Performance, métricas y resultados de ventas
 
 ### ✅ **Maneja:**
 - Métricas de ventas (`¿Cuánto vendí ayer?`)
-- Performance de productos (`¿Cuáles son mis productos MÁS VENDIDOS?`)
+- **Performance de productos** (`¿Cuáles son mis productos MÁS VENDIDOS?`)
 - Estadísticas y reportes (`Dame un reporte de ventas`)
 - Comparaciones temporales (`¿Cómo van las ventas vs el mes pasado?`)
 - KPIs y conversiones (`¿Cuál es mi tasa de conversión?`)
 - Análisis de tendencias (`¿Qué tendencias veo en mis ventas?`)
 - Forecasting (`¿Cuánto voy a vender este mes?`)
+- **Productos que generan más revenue** (`¿Qué productos me dan más ganancia?`)
 
 ### ❌ **NO maneja:**
-- Gestión de catálogo
-- Agregar/quitar productos
-- Configuración de precios
+- **Información de catálogo** (precios, características, qué productos tengo)
+- Gestión de productos
+- **Precios de productos** (eso es Product Manager)
 - Gestión de inventario
 
 ---
 
 ## 🛍️ **Product Manager Agent**  
-**Especialidad**: Gestión de catálogo y productos
+**Especialidad**: Información del catálogo y características de productos
 
 ### ✅ **Maneja:**
-- Catálogo actual (`¿Qué productos tengo cargados?`)
+- **Información del catálogo** (`¿Qué productos tengo cargados?`)
+- **Precios y características** (`¿Cuál es el producto MÁS CARO/BARATO?`)
+- **Stock disponible** (`¿Cuánto stock tiene el producto X?`)
+- **Detalles de productos** (`¿Qué características tiene este producto?`)
 - Gestión de portfolio (`¿Debería agregar este producto?`)
 - Estrategia de productos (`¿Qué productos me faltan?`)
 - Análisis de gaps (`¿Qué categorías no tengo cubierta?`)
@@ -33,9 +37,10 @@
 - Lifecycle de productos (`¿Cuándo descontinuar un producto?`)
 
 ### ❌ **NO maneja:**
-- Métricas de ventas
-- Reportes estadísticos
-- Performance histórico
+- **Performance de ventas** (cuáles son los más vendidos)
+- Métricas de revenue y ganancias
+- Reportes estadísticos de ventas
+- Performance histórico de productos
 
 ---
 
@@ -142,13 +147,17 @@
 
 ## 🎯 **Ejemplos de Routing Correcto:**
 
-### Analytics Agent:
+### Analytics Agent (PERFORMANCE):
 - "¿Cuánto vendí ayer?" → Analytics
-- "¿Cuáles son mis productos más vendidos?" → Analytics  
+- "¿Cuáles son mis productos MÁS VENDIDOS?" → Analytics  
 - "Dame un reporte de ventas" → Analytics
+- "¿Qué productos me generan más revenue?" → Analytics
 
-### Product Manager Agent:
+### Product Manager Agent (INFORMACIÓN):
 - "¿Qué productos tengo cargados?" → Product Manager
+- "¿Cuál es el producto MÁS CARO?" → Product Manager
+- "¿Qué precio tiene el producto X?" → Product Manager
+- "¿Cuánto stock tengo del producto Y?" → Product Manager
 - "¿Debería agregar más productos?" → Product Manager
 - "¿Cómo optimizo mi catálogo?" → Product Manager
 

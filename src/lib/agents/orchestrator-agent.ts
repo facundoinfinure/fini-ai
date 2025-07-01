@@ -118,16 +118,35 @@ En la implementación completa, esto se enrutaría automáticamente al agente es
   private async analyzeIntentWithOpenAI(userMessage: string): Promise<OrchestratorDecision> {
     const systemPrompt = `Eres un experto en análisis de intención para un sistema multi-agente de e-commerce argentino.
 
-AGENTES DISPONIBLES:
-- analytics: Métricas, ventas, reportes, estadísticas, performance (¿Cuánto vendí? ¿Cuáles productos más vendidos?)
-- product_manager: Gestión de catálogo, qué productos tengo, portfolio (¿Qué productos tengo? ¿Debería agregar productos?)
-- stock_manager: Inventario, stock, reposición (¿Qué está sin stock? ¿Qué reponer?)
-- financial_advisor: Rentabilidad, márgenes, costos, ROI (¿Productos más rentables? ¿Márgenes?)
-- marketing: Estrategias, campañas, promociones (¿Cómo aumentar ventas? ¿Qué promoción?)
-- customer_service: Atención al cliente, problemas, soporte (Quejas, devoluciones, problemas)
-- business_consultant: Estrategia empresarial, planes, análisis FODA (Estrategia de negocio)
-- operations_manager: Procesos, logística, automatización (Optimizar procesos, envíos)
-- sales_coach: Técnicas de venta, conversión, coaching (Mejorar conversión, técnicas)
+AGENTES DISPONIBLES Y SUS ESPECIALIDADES:
+
+📊 analytics: PERFORMANCE y resultados de ventas
+- Métricas, estadísticas, reportes de ventas
+- ¿Cuánto vendí? ¿Cuáles son mis productos MÁS VENDIDOS? ¿Qué performance tienen?
+- Revenue, conversiones, KPIs, tendencias temporales
+
+🛍️ product_manager: INFORMACIÓN del catálogo y características de productos  
+- ¿Qué productos tengo? ¿Cuál es el producto MÁS CARO/BARATO? ¿Qué precio tiene X?
+- Gestión de catálogo, características, stock disponible, portfolio
+- Información sobre productos (no performance de ventas)
+
+📦 stock_manager: Gestión operativa de inventario
+- Reposición, alertas de stock, gestión de almacén
+- ¿Qué reponer? ¿Qué está agotado?
+
+💰 financial_advisor: Análisis financiero y rentabilidad
+- ROI, márgenes, costos, flujo de caja
+- ¿Qué productos son más RENTABLES? (diferente de más caros)
+
+🎯 marketing: Estrategias de promoción y marketing
+🔧 customer_service: Atención al cliente y soporte
+📈 business_consultant: Estrategia empresarial de alto nivel
+⚙️ operations_manager: Procesos y logística
+🎪 sales_coach: Técnicas de venta y conversión
+
+IMPORTANTE: 
+- "¿cuál es el producto más CARO?" → product_manager (información del catálogo)
+- "¿cuáles son mis productos más VENDIDOS?" → analytics (performance de ventas)
 
 RESPONDE SOLO EN JSON:
 {
@@ -280,55 +299,50 @@ Confidence: 0.9+ (muy seguro), 0.7+ (seguro), 0.5+ (moderado), <0.5 (inseguro)`;
       score += 0.3;
     }
     
-    // 🔥 ENHANCED: PRODUCT ANALYTICS - Queries sobre productos y precios
+    // 🔥 CORRECTED: ANALYTICS maneja PERFORMANCE, no características
     if (message.includes('producto') || message.includes('productos')) {
-      // PRICING QUERIES - "producto más caro", "producto más barato"
-      if (message.includes('caro') || message.includes('barato') || message.includes('precio')) {
-        score += 0.8; // ALTA PRIORIDAD para queries de precios
-      }
-      
       // Performance queries (analytics domain) - ALTA PRIORIDAD
       if (message.includes('más vendidos') || message.includes('mas vendidos') || 
-          message.includes('top') || message.includes('mejores') ||
-          message.includes('vendidos') || message.includes('populares')) {
-        score += 0.7; // "productos más vendidos" -> analytics (ALTA PRIORIDAD)
+          message.includes('top vendidos') || message.includes('mejores vendidos') ||
+          message.includes('populares') || message.includes('bestsellers')) {
+        score += 0.8; // "productos más vendidos" -> analytics (PERFORMANCE)
       }
       
-      // RANKING QUERIES - "cuál es el", "qué producto"
-      if (message.includes('cuál') || message.includes('qué')) {
-        score += 0.6; // Analytics maneja ranking y comparaciones
+      // Sales performance queries
+      if (message.includes('vendí') || message.includes('vendi') || 
+          message.includes('venden') || message.includes('venta de') ||
+          message.includes('ventas de')) {
+        score += 0.8; // Cualquier consulta sobre VENTAS de productos
+      }
+      
+      // Revenue/profit performance
+      if (message.includes('más rentable') || message.includes('genera más') || 
+          message.includes('mejor margen') || message.includes('más ganancia') ||
+          message.includes('ganan más') || message.includes('dan más') ||
+          message.includes('me dan') || message.includes('me generan')) {
+        score += 0.7; // Performance financiera
       }
       
       if (message.includes('performance') || message.includes('estadísticas') || 
           message.includes('métricas') || message.includes('análisis de ventas')) {
-        score += 0.5;
+        score += 0.6;
       }
       
-      // REDUCE score para consultas de catálogo básico (van a Product Manager)
-      if (message.includes('tengo') || message.includes('cargados') || 
+      // REDUCE score para consultas de CARACTERÍSTICAS/CATÁLOGO (van a Product Manager)
+      if (message.includes('caro') || message.includes('barato') || message.includes('precio') ||
+          message.includes('tengo') || message.includes('cargados') || 
           message.includes('hay') || message.includes('catálogo') ||
-          message.includes('disponible') || message.includes('en stock')) {
-        score -= 0.3; // Estas van a Product Manager
+          message.includes('disponible') || message.includes('stock') ||
+          message.includes('cuál es') || message.includes('qué es')) {
+        score -= 0.5; // Estas son consultas de INFORMACIÓN, van a Product Manager
       }
-    }
-    
-    // 🔥 ENHANCED: Price and ranking keywords boost
-    if (message.includes('más caro') || message.includes('mas caro') || 
-        message.includes('más costoso') || message.includes('precio alto') ||
-        message.includes('precio máximo') || message.includes('mayor precio')) {
-      score += 0.9; // MÁXIMA PRIORIDAD para queries de producto más caro
-    }
-    
-    if (message.includes('más barato') || message.includes('mas barato') || 
-        message.includes('menor precio') || message.includes('precio bajo') ||
-        message.includes('precio mínimo')) {
-      score += 0.9; // MÁXIMA PRIORIDAD para queries de producto más barato
     }
     
     // Ventas y métricas específicas
-    if ((message.includes('cuánto') || message.includes('cuántas')) && 
-        (message.includes('ventas') || message.includes('vendí') || message.includes('facturé'))) {
-      score += 0.5;
+    if ((message.includes('cuánto') || message.includes('cuántas') || message.includes('cuanto')) && 
+        (message.includes('ventas') || message.includes('vendí') || message.includes('vendi') || 
+         message.includes('facturé') || message.includes('facture'))) {
+      score += 0.7; // Consultas sobre cantidades de ventas
     }
 
     return Math.min(Math.max(score, 0), 1.0);
@@ -452,26 +466,54 @@ Confidence: 0.9+ (muy seguro), 0.7+ (seguro), 0.5+ (moderado), <0.5 (inseguro)`;
     const _keywordCheck = this.hasKeywords(message, ROUTING_KEYWORDS.product_manager);
     let score = _keywordCheck.score;
 
-    // PRODUCT MANAGER: Gestión de catálogo y portfolio
+    // PRODUCT MANAGER: Gestión de catálogo, información y características de productos
     
-    // ALTA PRIORIDAD: Consultas de catálogo actual
+    // MÁXIMA PRIORIDAD: Información y características de productos
     if (message.includes('producto') || message.includes('productos')) {
-      // "¿Qué productos tengo?" es 100% Product Manager
-      if (message.includes('tengo') || message.includes('cargados') || message.includes('hay')) {
-        score += 0.6; // ALTA prioridad para gestión de catálogo
+      // PRECIOS Y CARACTERÍSTICAS - "¿cuál es el producto más caro?"
+      if (message.includes('caro') || message.includes('barato') || 
+          message.includes('precio') || message.includes('cuesta') ||
+          message.includes('vale') || message.includes('costoso')) {
+        score += 0.9; // MÁXIMA PRIORIDAD para información de precios
+      }
+      
+      // INFORMACIÓN DEL CATÁLOGO - "¿qué productos tengo?"
+      if (message.includes('tengo') || message.includes('cargados') || 
+          message.includes('hay') || message.includes('disponible')) {
+        score += 0.8; // ALTA prioridad para gestión de catálogo
+      }
+      
+      // CARACTERÍSTICAS Y DETALLES
+      if (message.includes('cuál es') || message.includes('qué es') ||
+          message.includes('características') || message.includes('detalles') ||
+          message.includes('descripción') || message.includes('especificaciones')) {
+        score += 0.8; // Información específica de productos
+      }
+      
+      // STOCK E INVENTARIO (información, no gestión)
+      if (message.includes('stock') || message.includes('inventario') ||
+          message.includes('cantidad') || message.includes('disponible')) {
+        score += 0.7; // Información de stock
       }
       
       // Gestión de portfolio
       if (message.includes('agregar') || message.includes('añadir') || message.includes('incorporar')) {
-        score += 0.5;
+        score += 0.6;
       }
       if (message.includes('quitar') || message.includes('eliminar') || message.includes('descontinuar')) {
-        score += 0.5;
+        score += 0.6;
       }
       
       // Estrategia de productos (NO métricas)
       if (message.includes('estrategia') || message.includes('plan') || message.includes('roadmap')) {
-        score += 0.4;
+        score += 0.5;
+      }
+      
+      // REDUCE para performance queries (van a Analytics)
+      if (message.includes('más vendidos') || message.includes('mas vendidos') ||
+          message.includes('bestsellers') || message.includes('populares') ||
+          message.includes('performance') || message.includes('estadísticas')) {
+        score -= 0.4; // Estas van a Analytics
       }
     }
     
