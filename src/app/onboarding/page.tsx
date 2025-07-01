@@ -450,6 +450,29 @@ export default function OnboardingPage() {
     }
   };
 
+  // Competitor handling functions
+  const handleAddCompetitor = () => {
+    if (competitors.length < 3) {
+      setCompetitors([...competitors, {}]);
+    }
+  };
+
+  const handleRemoveCompetitor = (index: number) => {
+    if (competitors.length > 1) {
+      const newCompetitors = competitors.filter((_, i) => i !== index);
+      setCompetitors(newCompetitors);
+    }
+  };
+
+  const handleCompetitorChange = (index: number, field: 'name' | 'website' | 'instagram', value: string) => {
+    const newCompetitors = [...competitors];
+    newCompetitors[index] = {
+      ...newCompetitors[index],
+      [field]: value
+    };
+    setCompetitors(newCompetitors);
+  };
+
   // 🤖 NEW: Save edited business profile + full name
   const handleSaveProfile = async () => {
     setIsLoading(true);
@@ -470,7 +493,9 @@ export default function OnboardingPage() {
             businessType: businessProfile?.category || '',
             description: businessProfile?.description || '',
             targetAudience: businessProfile?.targetAudience || '',
-            competitors: competitors.filter(comp => comp.name.trim() !== '')
+            competitors: competitors.filter(comp => 
+              comp.name?.trim() || comp.website?.trim() || comp.instagram?.trim()
+            )
           }
         })
       });
