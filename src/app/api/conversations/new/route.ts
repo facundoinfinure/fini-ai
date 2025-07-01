@@ -24,21 +24,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    let body;
+    try {
+      const rawBody = await request.text();
+      if (!rawBody.trim()) {
+        console.log('[INFO] Empty request body, using default values');
+        body = {};
+      } else {
+        body = JSON.parse(rawBody);
+      }
+    } catch (parseError) {
+      console.error('[ERROR] Invalid JSON in request body:', parseError);
+      return NextResponse.json(
+        { success: false, error: 'Formato de request inválido' },
+        { status: 400 }
+      );
+    }
+
     const { storeId, title = null } = body;
 
     if (!storeId) {
-      return NextResponse.json(
-        { success: false, error: 'Store ID es requerido' },
-        { status: 400 }
-      );
+      // Si no hay storeId, intentar obtener la primera tienda del usuario
+      console.log('[INFO] No storeId provided, finding user\'s first store');
+      
+      const { data: userStores, error: storesError } = await supabase
+        .from('stores')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'connected')
+        .limit(1);
+
+      if (storesError || !userStores || userStores.length === 0) {
+        console.error('[ERROR] No connected stores found for user:', user.id);
+        return NextResponse.json(
+          { success: false, error: 'No tienes tiendas conectadas. Conecta una tienda primero.' },
+          { status: 400 }
+        );
+      }
+
+      body.storeId = userStores[0].id;
+      console.log('[INFO] Using user\'s first store:', body.storeId);
     }
 
     // Verificar que el store pertenece al usuario
     const { data: store, error: storeError } = await supabase
       .from('stores')
       .select('id, user_id')
-      .eq('id', storeId)
+      .eq('id', body.storeId)
       .eq('user_id', user.id)
       .single();
 
@@ -53,10 +85,10 @@ export async function POST(request: NextRequest) {
     // Crear conversación nueva
     const newConversation = {
       user_id: user.id,
-      store_id: storeId,
+      store_id: body.storeId,
       whatsapp_number: process.env.TWILIO_PHONE_NUMBER || 'dashboard-new',
       customer_number: user.email || 'new-conversation',
-      conversation_id: `new_${user.id}_${storeId}_${Date.now()}`,
+      conversation_id: `new_${user.id}_${body.storeId}_${Date.now()}`,
       title: title || null, // Si no se proporciona título, será auto-generado después
       status: 'active' as const,
       last_message_at: new Date().toISOString(),

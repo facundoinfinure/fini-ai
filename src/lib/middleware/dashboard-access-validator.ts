@@ -217,10 +217,7 @@ export async function validateProfileOnly(userId: string): Promise<DashboardAcce
         full_name, 
         business_name, 
         business_type, 
-        business_description, 
-        onboarding_completed, 
-        subscription_status, 
-        subscription_plan
+        business_description
       `)
       .eq('id', userId)
       .single();
@@ -278,9 +275,9 @@ export async function validateProfileOnly(userId: string): Promise<DashboardAcce
       details: {
         hasActiveStore: false, // No importa para validación de perfil
         hasVerifiedWhatsApp: false, // No importa para validación de perfil
-        hasActiveSubscription: true, // Asumimos true para simplificar
-        onboardingCompleted: userProfile.onboarding_completed === true,
-        userPlan: (userProfile.subscription_plan as 'basic' | 'pro') || 'basic',
+        hasActiveSubscription: true, // Asumimos true para validación de perfil
+        onboardingCompleted: true, // Asumimos true si el perfil está completo
+        userPlan: 'basic', // Plan por defecto
         storeCount: 0, // No importa para validación de perfil
         whatsappNumbers: 0 // No importa para validación de perfil
       },
