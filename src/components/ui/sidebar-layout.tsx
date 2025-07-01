@@ -201,39 +201,42 @@ export function SidebarLayout({
   const handleConversationDelete = async (conversationId: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevenir que se seleccione la conversación al hacer click en eliminar
     
-    // Actualizar estado local INMEDIATAMENTE para UX responsiva
-    setConversations(prev => prev.filter(c => c.id !== conversationId));
+    console.log('[SIDEBAR] Iniciando eliminación de conversación:', conversationId);
     
-    // Si era la conversación seleccionada, limpiar selección
-    if (selectedConversation === conversationId) {
-      setSelectedConversation(null);
-    }
-    
-    // Llamar al callback del padre para eliminar del backend
+    // 🔄 BACKEND FIRST: Eliminar del backend PRIMERO, luego actualizar UI
     if (onConversationDelete) {
+      // Usar callback del padre (método recomendado)
       onConversationDelete(conversationId);
     } else {
-      // Fallback - eliminar del backend directamente si no hay callback del padre
+      // Fallback - eliminar del backend directamente
       try {
         const response = await fetch(`/api/conversations/${conversationId}`, {
           method: 'DELETE'
         });
         
         const data = await response.json();
-        if (!data.success) {
-          // Si falló la eliminación del backend, restaurar en el estado local
-          console.error('Error eliminando del backend:', data.error);
-          // Recargar conversaciones para sincronizar estado
+        if (data.success) {
+          console.log('[SIDEBAR] Backend deletion successful');
+          
+          // Actualizar estado local SOLO después de éxito del backend
+          setConversations(prev => prev.filter(c => c.id !== conversationId));
+          
+          // Si era la conversación seleccionada, limpiar selección
+          if (selectedConversation === conversationId) {
+            setSelectedConversation(null);
+          }
+          
+          // Sincronizar con componente padre
           if (onConversationUpdate) {
             onConversationUpdate();
           }
+        } else {
+          console.error('[SIDEBAR] Backend deletion failed:', data.error);
+          // NO actualizar UI si el backend falló
         }
       } catch (error) {
-        console.error('Error deleting conversation:', error);
-        // Recargar conversaciones para sincronizar estado
-        if (onConversationUpdate) {
-          onConversationUpdate();
-        }
+        console.error('[SIDEBAR] Network error during deletion:', error);
+        // NO actualizar UI si hubo error de red
       }
     }
   };

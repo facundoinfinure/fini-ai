@@ -165,11 +165,6 @@ export function ChatPreview({
         setSelectedConversation(selected);
         loadConversationMessages(selected);
       }
-    } else if (!selectedConversationId && conversations.length > 0) {
-      // Si no hay conversación seleccionada, seleccionar la primera
-      const first = conversations[0];
-      setSelectedConversation(first);
-      loadConversationMessages(first);
     }
   }, [selectedConversationId, conversations]);
 
@@ -222,11 +217,12 @@ export function ChatPreview({
       if (conversationsData.success) {
         setConversations(conversationsData.data || []);
         
+        // 🚫 REMOVIDO: Auto-selección en fetchChatData
         // Set first conversation as selected if available
-        if (conversationsData.data && conversationsData.data.length > 0) {
-          setSelectedConversation(conversationsData.data[0]);
-          loadConversationMessages(conversationsData.data[0]);
-        }
+        // if (conversationsData.data && conversationsData.data.length > 0) {
+        //   setSelectedConversation(conversationsData.data[0]);
+        //   loadConversationMessages(conversationsData.data[0]);
+        // }
       } else {
         throw new Error(conversationsData.error || 'Failed to load chat data');
       }

@@ -141,10 +141,11 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
       
       if (data.success && data.data) {
         setConversations(data.data);
-        // Auto-select first conversation if none selected
-        if (data.data.length > 0 && !selectedConversation) {
-          setSelectedConversation(data.data[0]);
-        }
+        // 🚫 REMOVIDO: Auto-selección automática de primera conversación
+        // El chat debe empezar limpio, sin auto-seleccionar conversaciones
+        // if (data.data.length > 0 && !selectedConversation) {
+        //   setSelectedConversation(data.data[0]);
+        // }
       }
     } catch (error) {
       console.error('Error loading conversations:', error);

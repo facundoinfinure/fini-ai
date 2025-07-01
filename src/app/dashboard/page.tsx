@@ -348,10 +348,11 @@ function DashboardContent() {
       if (data.success && data.data) {
         setConversations(data.data);
         
-        // Auto-seleccionar primera conversación si no hay una seleccionada
-        if (!selectedConversationId && data.data.length > 0) {
-          setSelectedConversationId(data.data[0].id);
-        }
+        // 🚫 REMOVIDO: Auto-selección automática de primera conversación
+        // El chat debe empezar limpio, sin auto-seleccionar conversaciones
+        // if (!selectedConversationId && data.data.length > 0) {
+        //   setSelectedConversationId(data.data[0].id);
+        // }
       }
     } catch (error) {
       console.error('Error loading conversations:', error);
@@ -436,12 +437,16 @@ function DashboardContent() {
 
   const handleConversationDelete = async (conversationId: string) => {
     try {
+      console.log('[INFO] Eliminando conversación:', conversationId);
+      
       const response = await fetch(`/api/conversations/${conversationId}`, {
         method: 'DELETE'
       });
       
       const data = await response.json();
       if (data.success) {
+        console.log('[INFO] Conversación eliminada exitosamente del backend:', conversationId);
+        
         // Remover de la lista local
         setConversations(prev => prev.filter(c => c.id !== conversationId));
         
@@ -450,18 +455,33 @@ function DashboardContent() {
           setSelectedConversationId(null);
         }
         
-        console.log('Conversación eliminada:', conversationId);
+        // 🔄 REFRESH: Recargar conversaciones para asegurar sincronización con backend
+        setTimeout(() => {
+          loadConversations();
+        }, 500); // Pequeño delay para asegurar que el backend procesó la eliminación
+        
+        console.log('[INFO] Conversación eliminada y estado sincronizado');
       } else {
-        console.error('Error eliminando conversación:', data.error);
+        console.error('[ERROR] Backend failed to delete conversation:', data.error);
+        // Mostrar error al usuario
+        setNotification({
+          type: 'error',
+          message: `Error eliminando conversación: ${data.error}`
+        });
       }
     } catch (error) {
-      console.error('Error deleting conversation:', error);
+      console.error('[ERROR] Network error deleting conversation:', error);
+      setNotification({
+        type: 'error', 
+        message: 'Error de red al eliminar conversación. Verifica tu conexión.'
+      });
     }
   };
 
-  // Load conversations when chat tab is active
+  // 🔄 LOAD CONVERSATIONS: Solo cargar una vez al inicio, no en cada navegación al chat
   useEffect(() => {
-    if (activeTab === 'chat' && user) {
+    if (activeTab === 'chat' && user && conversations.length === 0) {
+      // Solo cargar si no hay conversaciones cargadas aún
       loadConversations();
     }
   }, [activeTab, user]);
