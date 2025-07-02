@@ -1,7 +1,7 @@
 /**
  * TiendaNube Token Auto-Refresh System
  */
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 import { TiendaNubeTokenManager } from './tiendanube-token-manager';
 
 export class TiendaNubeAutoRefresh {
@@ -17,8 +17,11 @@ export class TiendaNubeAutoRefresh {
   
   async getValidToken(storeId: string, userId: string): Promise<string> {
     try {
-      const tokenManager = TiendaNubeTokenManager.getInstance();
-      return await tokenManager.getValidToken(storeId, userId);
+      const token = await TiendaNubeTokenManager.getValidToken(storeId);
+      if (!token) {
+        throw new Error('Token not found - user needs to reconnect TiendaNube');
+      }
+      return token;
     } catch (error: any) {
       if (error.message?.includes('401') || error.message?.includes('expired')) {
         console.log('[AUTO-REFRESH] Token expired, attempting refresh...');
@@ -49,7 +52,10 @@ export class TiendaNubeAutoRefresh {
   }
   
   private async performTokenRefresh(storeId: string, userId: string): Promise<string> {
-    const supabase = createServerSupabaseClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
     
     const { data: tokenData, error } = await supabase
       .from('tiendanube_tokens')
