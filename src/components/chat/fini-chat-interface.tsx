@@ -316,6 +316,9 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
 
       console.log(`[INFO] ✅ Conversation deleted successfully: ${conversationId}`);
       
+      // 🔥 IMMEDIATE FEEDBACK: Show success message to user
+      alert(`✅ Conversación eliminada correctamente`);
+      
       // 🔥 VERIFY DELETION by reloading conversations from server
       try {
         await loadConversations();

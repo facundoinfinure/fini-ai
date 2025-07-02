@@ -500,6 +500,15 @@ function DashboardContent() {
     }
   }, [activeTab, user]);
 
+  // 🔥 FORCE REFRESH ON MOUNT - Only once to ensure fresh data
+  useEffect(() => {
+    const hasRefreshed = sessionStorage.getItem('dashboard_refreshed');
+    if (!hasRefreshed) {
+      sessionStorage.setItem('dashboard_refreshed', 'true');
+      window.location.reload();
+    }
+  }, []);
+
   // Show loading while checking auth
   if (loading) {
     return <DashboardSkeleton />;

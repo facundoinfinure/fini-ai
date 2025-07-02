@@ -555,6 +555,8 @@ export function ChatPreview({
         
         if (response.ok && result.success) {
           console.log(`[CHAT-PREVIEW] ✅ Conversation deleted successfully: ${conversationId}`);
+          // 🔥 IMMEDIATE FEEDBACK: Show success message to user
+          alert(`✅ Conversación "${result.deletedConversation?.title || conversationId}" eliminada correctamente`);
           // Keep optimistic update - deletion successful
         } else {
           throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
