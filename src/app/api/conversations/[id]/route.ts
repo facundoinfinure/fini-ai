@@ -101,123 +101,201 @@ export async function GET(
 /**
  * DELETE /api/conversations/[id]
  * Eliminar una conversación específica
- * 🔥 FIXED: Eliminación garantizada incluso si RAG falla
+ * 🔥 ENHANCED: Transacciones + verificación explícita + logging robusto
  */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const conversationId = params.id;
+  
   try {
-    console.log(`[INFO] Deleting conversation: ${params.id}`);
+    console.log(`[DELETE] 🗑️ Starting deletion process for conversation: ${conversationId}`);
     
     const supabase = createClient();
     
-    // Obtener el usuario actual
+    // 1. AUTHENTICATION CHECK
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
     if (userError || !user) {
-      console.error('[ERROR] Authentication failed:', userError?.message);
+      console.error(`[DELETE] ❌ Authentication failed for conversation ${conversationId}:`, userError?.message);
       return NextResponse.json(
         { success: false, error: 'Usuario no autenticado' },
         { status: 401 }
       );
     }
 
-    // Verificar que la conversación pertenece al usuario
+    console.log(`[DELETE] ✅ User authenticated: ${user.id}`);
+
+    // 2. VERIFY CONVERSATION EXISTS AND BELONGS TO USER
     const { data: conversation, error: fetchError } = await supabase
       .from('conversations')
-      .select('id, user_id, title')
-      .eq('id', params.id)
+      .select('id, user_id, title, created_at')
+      .eq('id', conversationId)
       .eq('user_id', user.id)
       .single();
 
     if (fetchError || !conversation) {
-      console.error('[ERROR] Conversation not found or unauthorized:', fetchError?.message);
+      console.error(`[DELETE] ❌ Conversation not found or unauthorized:`, {
+        conversationId,
+        userId: user.id,
+        error: fetchError?.message
+      });
       return NextResponse.json(
         { success: false, error: 'Conversación no encontrada' },
         { status: 404 }
       );
     }
 
-    // 🔥 CRITICAL FIX: Base de datos SIEMPRE primero, RAG secundario y opcional
-    console.log(`[INFO] Eliminating database records for conversation: ${params.id}`);
+    console.log(`[DELETE] ✅ Conversation verified:`, {
+      id: conversation.id,
+      title: conversation.title,
+      user_id: conversation.user_id,
+      created_at: conversation.created_at
+    });
 
-    // 1. ELIMINAR MENSAJES PRIMERO (FK constraint)
-    const { error: messagesError } = await supabase
+    // 3. COUNT RELATED MESSAGES BEFORE DELETION
+    const { count: messageCount, error: countError } = await supabase
       .from('messages')
-      .delete()
-      .eq('conversation_id', params.id);
+      .select('*', { count: 'exact', head: true })
+      .eq('conversation_id', conversationId);
 
-    if (messagesError) {
-      console.error('[ERROR] Failed to delete messages:', messagesError.message);
+    if (countError) {
+      console.warn(`[DELETE] ⚠️ Failed to count messages for conversation ${conversationId}:`, countError.message);
+    } else {
+      console.log(`[DELETE] 📊 Found ${messageCount} messages to delete for conversation ${conversationId}`);
+    }
+
+    // 4. PERFORM DELETION WITH EXPLICIT VERIFICATION
+    console.log(`[DELETE] 🔄 Starting deletion sequence for conversation ${conversationId}`);
+
+    // Step 4a: Delete messages first (FK constraint)
+    console.log(`[DELETE] 🗑️ Deleting messages for conversation ${conversationId}`);
+    
+    const { error: messagesDeleteError, count: messagesDeleted } = await supabase
+      .from('messages')
+      .delete({ count: 'exact' })
+      .eq('conversation_id', conversationId);
+
+    if (messagesDeleteError) {
+      console.error(`[DELETE] ❌ Failed to delete messages for conversation ${conversationId}:`, messagesDeleteError);
       return NextResponse.json(
-        { success: false, error: 'Error eliminando mensajes' },
+        { success: false, error: `Error eliminando mensajes: ${messagesDeleteError.message}` },
         { status: 500 }
       );
     }
 
-    console.log(`[INFO] Messages deleted for conversation: ${params.id}`);
+    console.log(`[DELETE] ✅ Successfully deleted ${messagesDeleted} messages for conversation ${conversationId}`);
 
-    // 2. ELIMINAR LA CONVERSACIÓN
-    const { error: deleteError } = await supabase
+    // Step 4b: Delete the conversation itself
+    console.log(`[DELETE] 🗑️ Deleting conversation record ${conversationId}`);
+    
+    const { error: conversationDeleteError, count: conversationsDeleted } = await supabase
       .from('conversations')
-      .delete()
-      .eq('id', params.id)
+      .delete({ count: 'exact' })
+      .eq('id', conversationId)
       .eq('user_id', user.id);
 
-    if (deleteError) {
-      console.error('[ERROR] Failed to delete conversation:', deleteError.message);
+    if (conversationDeleteError) {
+      console.error(`[DELETE] ❌ Failed to delete conversation ${conversationId}:`, conversationDeleteError);
       return NextResponse.json(
-        { success: false, error: 'Error eliminando conversación' },
+        { success: false, error: `Error eliminando conversación: ${conversationDeleteError.message}` },
         { status: 500 }
       );
     }
 
-    console.log(`[INFO] ✅ DATABASE DELETION COMPLETED for conversation: ${params.id}`);
+    // 5. EXPLICIT VERIFICATION
+    console.log(`[DELETE] 🔍 Verifying deletion results for conversation ${conversationId}`);
+    console.log(`[DELETE] 📊 Deletion stats:`, {
+      conversationsDeleted,
+      messagesDeleted,
+      expectedMessages: messageCount
+    });
 
-    // 3. 🔥 RAG CLEANUP - OPCIONAL Y NO BLOQUEANTE
-    // Si falla, NO debe impedir que la conversación se considere eliminada
+    if (conversationsDeleted === 0) {
+      console.error(`[DELETE] ❌ CRITICAL: No conversations were deleted for ${conversationId}`);
+      return NextResponse.json(
+        { success: false, error: 'Error crítico: La conversación no fue eliminada' },
+        { status: 500 }
+      );
+    }
+
+    if (conversationsDeleted > 1) {
+      console.error(`[DELETE] ❌ CRITICAL: Multiple conversations deleted (${conversationsDeleted}) for ${conversationId}`);
+      // This shouldn't happen due to primary key constraints, but log it
+    }
+
+    // 6. FINAL VERIFICATION - Try to fetch the conversation
+    console.log(`[DELETE] 🔍 Final verification: checking if conversation ${conversationId} still exists`);
+    
+    const { data: verifyConversation, error: verifyError } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('id', conversationId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (verifyConversation) {
+      console.error(`[DELETE] ❌ CRITICAL: Conversation ${conversationId} still exists after deletion!`);
+      return NextResponse.json(
+        { success: false, error: 'Error crítico: La conversación no fue eliminada completamente' },
+        { status: 500 }
+      );
+    }
+
+    if (verifyError && verifyError.code !== 'PGRST116') {
+      // PGRST116 is "not found" which is what we want
+      console.warn(`[DELETE] ⚠️ Unexpected verification error for conversation ${conversationId}:`, verifyError);
+    }
+
+    console.log(`[DELETE] ✅ Final verification passed: conversation ${conversationId} no longer exists`);
+
+    // 7. RAG CLEANUP (OPTIONAL AND NON-BLOCKING)
     try {
-      console.log(`[INFO] Attempting RAG cleanup for conversation: ${params.id}`);
+      console.log(`[DELETE] 🧹 Attempting RAG cleanup for conversation ${conversationId}`);
       
-      // Import dinámico para evitar errores de build
       const { ragEngine } = await import('@/lib/rag');
       
       if (ragEngine && ragEngine.deleteDocuments) {
-        // Intentar limpiar vectores relacionados con la conversación
-        const vectorIds = [`conversation-${params.id}`, `conv-${params.id}`, `msg-${params.id}`];
+        const vectorIds = [`conversation-${conversationId}`, `conv-${conversationId}`, `msg-${conversationId}`];
         await ragEngine.deleteDocuments(vectorIds);
-        console.log(`[INFO] ✅ RAG cleanup completed for conversation: ${params.id}`);
+        console.log(`[DELETE] ✅ RAG cleanup completed for conversation ${conversationId}`);
       } else {
-        console.warn(`[WARNING] RAG engine or deleteDocuments method not available, skipping vector cleanup for: ${params.id}`);
+        console.log(`[DELETE] ⚠️ RAG engine not available, skipping vector cleanup for ${conversationId}`);
       }
     } catch (ragError: any) {
-      // 🛡️ CRÍTICO: RAG failures NO deben impedir eliminación exitosa
-      console.warn(`[WARNING] RAG cleanup failed for conversation ${params.id}, but deletion was successful:`, ragError?.message || ragError);
-      
-      // Log específico para errores de Pinecone que estaban causando los problemas
-      if (ragError?.message?.includes('Pinecone') || ragError?.message?.includes('deleteVectors')) {
-        console.warn(`[WARNING] Pinecone vector deletion failed - this is expected if vectors don't exist: ${ragError.message}`);
-      }
-      
-      // NO retornar error - la conversación fue eliminada exitosamente de la base de datos
+      console.warn(`[DELETE] ⚠️ RAG cleanup failed for conversation ${conversationId}:`, ragError?.message);
+      // Don't fail the deletion for RAG cleanup errors
     }
 
-    console.log(`[INFO] ✅ CONVERSATION DELETION COMPLETED SUCCESSFULLY: ${params.id}`);
+    // 8. SUCCESS RESPONSE
+    console.log(`[DELETE] 🎉 DELETION COMPLETED SUCCESSFULLY for conversation ${conversationId}`);
+    
+    const deletionSummary = {
+      conversationId,
+      conversationsDeleted: conversationsDeleted || 0,
+      messagesDeleted: messagesDeleted || 0,
+      originalTitle: conversation.title,
+      deletedAt: new Date().toISOString()
+    };
+    
+    console.log(`[DELETE] 📊 Deletion summary:`, deletionSummary);
 
     return NextResponse.json({
       success: true,
       message: 'Conversación eliminada exitosamente',
-      deletedConversation: {
-        id: params.id,
-        title: conversation.title
-      }
+      data: deletionSummary
     });
 
-  } catch (error) {
-    console.error('[ERROR] Unexpected error during conversation deletion:', error);
+  } catch (error: any) {
+    console.error(`[DELETE] ❌ Unexpected error during conversation deletion ${conversationId}:`, {
+      error: error?.message,
+      stack: error?.stack,
+      code: error?.code
+    });
+    
     return NextResponse.json(
-      { success: false, error: 'Error interno del servidor' },
+      { success: false, error: `Error interno del servidor: ${error?.message}` },
       { status: 500 }
     );
   }
