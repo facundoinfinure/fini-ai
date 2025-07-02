@@ -376,7 +376,12 @@ Contexto: ${ragContext || 'No hay datos específicos disponibles'}`;
    */
   private async checkSyncStatus(storeId: string): Promise<{ needsSync: boolean; lastSync?: string } | null> {
     try {
-      const response = await fetch(`/api/stores/sync-status`, {
+      // 🔥 FIX: Use absolute URL for server-side fetch
+      const baseUrl = process.env.VERCEL_URL ? 
+        `https://${process.env.VERCEL_URL}` : 
+        'https://fini-tn.vercel.app';
+        
+      const response = await fetch(`${baseUrl}/api/stores/sync-status`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -402,8 +407,13 @@ Contexto: ${ragContext || 'No hay datos específicos disponibles'}`;
    * 🚀 Trigger intelligent sync for a store
    */
   private triggerIntelligentSync(storeId: string): void {
+    // 🔥 FIX: Use absolute URL for server-side fetch
+    const baseUrl = process.env.VERCEL_URL ? 
+      `https://${process.env.VERCEL_URL}` : 
+      'https://fini-tn.vercel.app';
+      
     // Fire-and-forget sync trigger
-    fetch(`/api/stores/sync-status`, {
+    fetch(`${baseUrl}/api/stores/sync-status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ storeIds: [storeId] })
