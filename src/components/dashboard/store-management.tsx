@@ -41,6 +41,10 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
     storeUrl: ''
   });
   
+  // Nuevo estado para conectar tienda desde configuración
+  const [storeUrl, setStoreUrl] = useState('');
+  const [isConnecting, setIsConnecting] = useState(false);
+  
   const { showConfirmation, ConfirmationDialog } = useConfirmationDialog();
 
   const handleAddStore = async () => {
@@ -49,6 +53,75 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
       window.location.href = '/onboarding';
     } catch (err) {
       setError('Failed to redirect to onboarding');
+    }
+  };
+
+  // Nueva función para conectar tienda directamente desde configuración
+  const handleConnectStore = async () => {
+    if (!storeUrl.trim()) {
+      setError('Por favor ingresa la URL de tu tienda');
+      return;
+    }
+
+    // Validar formato de URL de Tienda Nube
+    if (!storeUrl.includes('tiendanube.com') && !storeUrl.includes('mitiendanube.com')) {
+      setError('La URL debe ser de Tienda Nube (ej: mitienda.mitiendanube.com)');
+      return;
+    }
+
+    try {
+      setIsConnecting(true);
+      setError(null);
+
+      // Extraer nombre de la tienda de la URL
+      let storeName = 'Mi Tienda';
+      try {
+        const urlParts = storeUrl.replace(/^https?:\/\//, '').split('.');
+        if (urlParts.length >= 2) {
+          storeName = urlParts[0];
+        }
+      } catch (e) {
+        console.log('[DEBUG] Could not extract store name from URL, using default');
+      }
+
+      console.log('[INFO] Starting store connection from configuration:', { storeUrl, storeName });
+
+      // Llamar al endpoint de OAuth para generar la URL de autorización
+      const response = await fetch('/api/tiendanube/oauth/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          storeUrl: storeUrl.trim(),
+          storeName: storeName
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Error al iniciar la conexión con Tienda Nube');
+      }
+
+      if (data.data?.authUrl) {
+        console.log('[INFO] Redirecting to Tienda Nube OAuth from configuration');
+        // Guardar URL en sessionStorage para referencia
+        sessionStorage.setItem('configStoreUrl', storeUrl);
+        sessionStorage.setItem('configStoreName', storeName);
+        
+        // Redirigir a OAuth de Tienda Nube
+        window.location.href = data.data.authUrl;
+      } else {
+        throw new Error('No se recibió la URL de autorización de Tienda Nube');
+      }
+
+    } catch (err) {
+      console.error('[ERROR] Error connecting store from configuration:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Error al conectar la tienda. Intenta nuevamente.';
+      setError(errorMessage);
+    } finally {
+      setIsConnecting(false);
     }
   };
 
@@ -289,13 +362,42 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
           <p className="text-gray-600 mb-8 max-w-md mx-auto leading-relaxed">
             Conecta tu tienda de Tienda Nube para comenzar a usar Fini AI y automatizar tus analytics por WhatsApp.
           </p>
-          <Button 
-            onClick={handleAddStore}
-            className="btn-primary"
-          >
-            <Plus className="mr-2 h-5 w-5" />
-            Conectar Tienda
-          </Button>
+          
+          {/* Formulario para conectar tienda */}
+          <div className="max-w-md mx-auto space-y-4">
+            <div>
+              <label htmlFor="storeUrl" className="block text-sm font-medium text-gray-700 mb-2">
+                URL de tu tienda
+              </label>
+              <Input
+                id="storeUrl"
+                type="url"
+                value={storeUrl}
+                onChange={(e) => setStoreUrl(e.target.value)}
+                placeholder="https://mitienda.mitiendanube.com"
+                className="w-full"
+                disabled={isConnecting}
+              />
+            </div>
+            
+            <Button 
+              onClick={handleConnectStore}
+              disabled={isConnecting || !storeUrl.trim()}
+              className="btn-primary w-full"
+            >
+              {isConnecting ? (
+                <>
+                  <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+                  Conectando...
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-5 w-5" />
+                  Conectar Tienda
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       )}
 
