@@ -1,110 +1,87 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { TiendaNubeAPI } from '@/lib/integrations/tiendanube';
-import { createTwilioWhatsAppService } from '@/lib/integrations/twilio-whatsapp';
+import { createClient } from '@supabase/supabase-js';
 
-// Forzar renderizado dinámico
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+interface HealthCheck {
+  service: string;
+  status: 'healthy' | 'warning' | 'critical';
+  message: string;
+  details?: any;
+}
 
 export async function GET(_request: NextRequest) {
+  const checks: HealthCheck[] = [];
+  let overallStatus: 'healthy' | 'warning' | 'critical' = 'healthy';
+  
   try {
-    console.log('[INFO] Health check requested');
+    // Database Check
+    try {
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      const { error } = await supabase.from('users').select('count').limit(1);
+      if (error) throw error;
+      checks.push({ service: 'Database', status: 'healthy', message: 'Connection successful' });
+    } catch (error: any) {
+      checks.push({ service: 'Database', status: 'critical', message: 'Connection failed: ' + error.message });
+      overallStatus = 'critical';
+    }
     
-    const health = {
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      services: {
-        database: 'unknown',
-        tiendanube: 'unknown',
-        whatsapp: 'unknown'
-      }
-    };
-
-    // Test database connection
+    // Stripe Webhook Check
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      checks.push({ service: 'Stripe Webhook', status: 'critical', message: 'STRIPE_WEBHOOK_SECRET not configured' });
+      overallStatus = 'critical';
+    } else if (!webhookSecret.startsWith('whsec_')) {
+      checks.push({ service: 'Stripe Webhook', status: 'critical', message: 'Invalid STRIPE_WEBHOOK_SECRET format' });
+      overallStatus = 'critical';
+    } else {
+      checks.push({ service: 'Stripe Webhook', status: 'healthy', message: 'Webhook secret configured correctly' });
+    }
+    
+    // TiendaNube Token Check
     try {
-      console.log('[INFO] Testing database connection');
-      const supabase = createClient();
-      const { data: _usersTable, error: dbError } = await supabase
-        .from('users')
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      const { data: expiredTokens, error } = await supabase
+        .from('tiendanube_tokens')
         .select('count')
-        .limit(1);
-
-      if (dbError) {
-        console.error('[ERROR] Database connection failed:', dbError);
-        health.services.database = 'unhealthy';
-        health.status = 'degraded';
-      } else {
-        console.log('[INFO] Database connection successful');
-        health.services.database = 'healthy';
-      }
-    } catch (error) {
-      console.error('[ERROR] Database test failed:', error);
-      health.services.database = 'unhealthy';
-      health.status = 'degraded';
-    }
-
-    // Test Tienda Nube API
-    try {
-      console.log('[INFO] Testing Tienda Nube API connection');
-      const tiendanubeResponse = await fetch('https://api.tiendanube.com/v1/');
+        .lt('expires_at', new Date().toISOString())
+        .eq('status', 'active');
+        
+      if (error) throw error;
+      const expiredCount = expiredTokens?.[0]?.count || 0;
       
-      // Tienda Nube API returns 401 when no auth token is provided, which is expected and means it's healthy
-      if (tiendanubeResponse.status === 401 || tiendanubeResponse.ok) {
-        console.log('[INFO] Tienda Nube API connection successful');
-        health.services.tiendanube = 'healthy';
+      if (expiredCount > 0) {
+        checks.push({
+          service: 'TiendaNube Tokens',
+          status: 'warning',
+          message: expiredCount + ' expired tokens require refresh',
+          details: { expiredCount }
+        });
+        if (overallStatus === 'healthy') overallStatus = 'warning';
       } else {
-        console.error('[ERROR] Tienda Nube API connection failed:', tiendanubeResponse.status);
-        health.services.tiendanube = 'unhealthy';
-        health.status = 'degraded';
+        checks.push({ service: 'TiendaNube Tokens', status: 'healthy', message: 'All tokens are valid' });
       }
-    } catch (error) {
-      console.error('[ERROR] Tiendanube API test failed:', error);
-      health.services.tiendanube = 'unhealthy';
-      health.status = 'degraded';
+    } catch (error: any) {
+      checks.push({ service: 'TiendaNube Tokens', status: 'warning', message: 'Health check failed: ' + error.message });
+      if (overallStatus === 'healthy') overallStatus = 'warning';
     }
-
-    // Test WhatsApp/Twilio API
-    try {
-      console.log('[INFO] Testing WhatsApp API connection');
-      const twilioResponse = await fetch('https://api.twilio.com/2010-04-01/Accounts');
-      
-      if (twilioResponse.status === 401) {
-        // 401 is expected without auth, means API is reachable
-        console.log('[INFO] WhatsApp API connection successful');
-        health.services.whatsapp = 'healthy';
-      } else {
-        console.error('[ERROR] WhatsApp API connection failed:', twilioResponse.status);
-        health.services.whatsapp = 'unhealthy';
-        health.status = 'degraded';
-      }
-    } catch (error) {
-      console.error('[ERROR] WhatsApp API test failed:', error);
-      health.services.whatsapp = 'unhealthy';
-      health.status = 'degraded';
-    }
-
-    console.log('[INFO] Health check completed:', health.status);
-
-    return NextResponse.json(health);
-
-  } catch (error) {
-    console.error('[ERROR] Health check failed:', error);
+    
     return NextResponse.json({
-      status: 'unhealthy',
+      status: overallStatus,
       timestamp: new Date().toISOString(),
-      error: 'Health check failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      checks,
+      summary: {
+        total: checks.length,
+        healthy: checks.filter(c => c.status === 'healthy').length,
+        warning: checks.filter(c => c.status === 'warning').length,
+        critical: checks.filter(c => c.status === 'critical').length
+      }
+    });
+    
+  } catch (error: any) {
+    return NextResponse.json({
+      status: 'critical',
+      timestamp: new Date().toISOString(),
+      error: error.message,
+      checks
     }, { status: 500 });
   }
 }
-
-// Endpoint específico para load balancers (más simple)
-export async function HEAD() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-    },
-  });
-} 

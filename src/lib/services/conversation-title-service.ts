@@ -114,7 +114,7 @@ EJEMPLOS:
     
     // Truncar si es muy largo (máximo 50 chars)
     if (cleaned.length > 50) {
-      cleaned = cleaned.substring(0, 47) + '...';
+      cleaned = `${cleaned.substring(0, 47)  }...`;
     }
     
     // Si está vacío, usar fallback

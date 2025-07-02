@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
         agentResponse.response || 'Lo siento, no pude procesar tu mensaje en este momento. Por favor intenta nuevamente.',
         messageType,
         {
-          storeName: storeName,
+          storeName,
           errorType: agentResponse.error ? 'temporal' : undefined,
           displayName: 'Usuario'
         }

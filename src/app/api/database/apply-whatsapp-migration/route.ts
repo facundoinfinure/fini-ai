@@ -102,7 +102,7 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       message: 'WhatsApp migration applied successfully',
-      data: data,
+      data,
       tables_created: tables?.map(t => t.table_name) || []
     });
 

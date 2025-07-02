@@ -154,7 +154,7 @@ export async function sendWelcomeMessage(userId: string, subscriptionData?: {
     const context = {
       phoneNumber: whatsappNumber,
       storeId: stores[0].id,
-      userId: userId
+      userId
     };
     
     const templateResult = await smartTemplateService.sendProactiveNotification(

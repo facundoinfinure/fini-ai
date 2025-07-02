@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     diagnostics.headers = {
       hasSignature: !!signature,
-      signatureValue: signature ? signature.substring(0, 20) + '...' : null,
+      signatureValue: signature ? `${signature.substring(0, 20)  }...` : null,
       contentType,
       contentLength,
       userAgent,

@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       userId,
       storeUrl: storeData.storeUrl,
       storeName: storeData.storeName,
-      context: context,
+      context,
       timestamp: Date.now()
     };
     

@@ -434,7 +434,7 @@ export function UnifiedChat({
             </div>
           )}
 
-          {messages.map((message) => (
+          {messages.map((_message) => (
             <div
               key={message.id}
               className={`flex ${
@@ -538,7 +538,7 @@ export function UnifiedChat({
               ref={inputRef}
               type="text"
               value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
+              onChange={(_e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder={`Escribe tu mensaje... ${syncStatus.syncEnabled ? '(se enviará también por WhatsApp)' : '(solo dashboard)'}`}
               className="flex-1 text-sm"

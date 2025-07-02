@@ -940,7 +940,7 @@ export default function OnboardingPage() {
                   title: "No estoy seguro",
                   description: "Explorar todas las opciones disponibles"
                 }
-              ].map((goal) => (
+              ].map((_goal) => (
                 <button
                   key={goal.id}
                   onClick={() => setSelectedGoal(goal.id)}
@@ -996,7 +996,7 @@ export default function OnboardingPage() {
                     type="url"
                     placeholder="https://tu-tienda.tiendanube.com"
                     value={storeUrl}
-                    onChange={(e) => handleStoreUrlChange(e.target.value)}
+                    onChange={(_e) => handleStoreUrlChange(e.target.value)}
                     className="w-full"
                   />
                   {isExtractingInfo && (
@@ -1037,7 +1037,7 @@ export default function OnboardingPage() {
                     type="text"
                     placeholder="Mi Tienda Increíble"
                     value={storeName}
-                    onChange={(e) => setStoreName(e.target.value)}
+                    onChange={(_e) => setStoreName(e.target.value)}
                     className="w-full"
                   />
                   <p className="text-xs text-gray-500 mt-1">
@@ -1225,7 +1225,7 @@ export default function OnboardingPage() {
                     </label>
                     <Input
                       value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
+                      onChange={(_e) => setFullName(e.target.value)}
                       placeholder="Tu nombre completo"
                       required
                     />
@@ -1250,7 +1250,7 @@ export default function OnboardingPage() {
                         </label>
                         <Input
                           value={businessProfile.businessName}
-                          onChange={(e) => setBusinessProfile({
+                          onChange={(_e) => setBusinessProfile({
                             ...businessProfile,
                             businessName: e.target.value
                           })}
@@ -1264,7 +1264,7 @@ export default function OnboardingPage() {
                         </label>
                         <Input
                           value={businessProfile.category}
-                          onChange={(e) => setBusinessProfile({
+                          onChange={(_e) => setBusinessProfile({
                             ...businessProfile,
                             category: e.target.value
                           })}
@@ -1278,7 +1278,7 @@ export default function OnboardingPage() {
                         </label>
                         <textarea
                           value={businessProfile.description}
-                          onChange={(e) => setBusinessProfile({
+                          onChange={(_e) => setBusinessProfile({
                             ...businessProfile,
                             description: e.target.value
                           })}
@@ -1293,7 +1293,7 @@ export default function OnboardingPage() {
                         </label>
                         <Input
                           value={businessProfile.targetAudience}
-                          onChange={(e) => setBusinessProfile({
+                          onChange={(_e) => setBusinessProfile({
                             ...businessProfile,
                             targetAudience: e.target.value
                           })}
@@ -1341,7 +1341,7 @@ export default function OnboardingPage() {
                           </label>
                           <Input
                             value={competitor.name}
-                            onChange={(e) => handleCompetitorChange(index, 'name', e.target.value)}
+                            onChange={(_e) => handleCompetitorChange(index, 'name', e.target.value)}
                             placeholder="Nombre del competidor"
                             className="text-sm"
                           />
@@ -1352,7 +1352,7 @@ export default function OnboardingPage() {
                           </label>
                           <Input
                             value={competitor.website}
-                            onChange={(e) => handleCompetitorChange(index, 'website', e.target.value)}
+                            onChange={(_e) => handleCompetitorChange(index, 'website', e.target.value)}
                             placeholder="https://..."
                             className="text-sm"
                           />
@@ -1363,7 +1363,7 @@ export default function OnboardingPage() {
                           </label>
                           <Input
                             value={competitor.instagram}
-                            onChange={(e) => handleCompetitorChange(index, 'instagram', e.target.value)}
+                            onChange={(_e) => handleCompetitorChange(index, 'instagram', e.target.value)}
                             placeholder="@usuario"
                             className="text-sm"
                           />
@@ -1431,7 +1431,7 @@ export default function OnboardingPage() {
                   type="tel"
                   placeholder="+54 9 11 1234-5678"
                   value={whatsappNumber}
-                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  onChange={(_e) => setWhatsappNumber(e.target.value)}
                   className="w-full"
                 />
                 <p className="text-xs text-gray-500 mt-1">
@@ -1499,7 +1499,7 @@ export default function OnboardingPage() {
                   type="text"
                   placeholder="123456"
                   value={otpCode}
-                  onChange={(e) => {
+                  onChange={(_e) => {
                     const value = e.target.value.replace(/\D/g, '').slice(0, 6);
                     setOtpCode(value);
                     setOtpError("");

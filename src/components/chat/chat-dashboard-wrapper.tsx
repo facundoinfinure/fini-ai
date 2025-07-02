@@ -309,7 +309,7 @@ export function ChatDashboardWrapper() {
                   { key: 'customer_service', icon: User, label: 'Support AI', desc: 'Atención al cliente', color: 'bg-green-500' },
                   { key: 'stock_manager', icon: Package, label: 'Inventario AI', desc: 'Gestión de stock', color: 'bg-orange-500' },
                   { key: 'financial_advisor', icon: DollarSign, label: 'Finanzas AI', desc: 'Análisis financiero', color: 'bg-emerald-500' }
-                ].map((agent) => {
+                ].map((_agent) => {
                   const Icon = agent.icon;
                   return (
                     <div key={agent.key} className="flex items-center gap-3 p-2 bg-white rounded-lg border border-gray-100">

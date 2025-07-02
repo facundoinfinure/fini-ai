@@ -284,7 +284,7 @@ export function SidebarLayout({
 
         {/* Navigation - Origin Style */}
         <nav className="flex-1 p-4 space-y-1">
-          {navigationItems.map((item) => {
+          {navigationItems.map((_item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             
@@ -336,7 +336,7 @@ export function SidebarLayout({
 
                     {/* Conversations List */}
                     <div className="max-h-48 overflow-y-auto">
-                      {conversations.map((conversation) => (
+                      {conversations.map((_conversation) => (
                         <div
                           key={conversation.id}
                           className={cn(
@@ -367,7 +367,7 @@ export function SidebarLayout({
                                 className="opacity-0 group-hover:opacity-100 
                                          transition-opacity duration-200 flex-shrink-0 
                                          p-1 rounded hover:bg-gray-100 hover:text-gray-700"
-                                onClick={(e) => e.stopPropagation()}
+                                onClick={(_e) => e.stopPropagation()}
                                 title="Opciones de conversación"
                               >
                                 <MoreHorizontal className="w-3 h-3" />
@@ -375,7 +375,7 @@ export function SidebarLayout({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48">
                               <DropdownMenuItem 
-                                onClick={(e) => {
+                                onClick={(_e) => {
                                   e.stopPropagation();
                                   // TODO: Implementar edición de título si se necesita
                                   console.log('Editar título:', conversation.id);
@@ -386,7 +386,7 @@ export function SidebarLayout({
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
-                                onClick={(e) => {
+                                onClick={(_e) => {
                                   e.stopPropagation();
                                   handleConversationDelete(conversation.id, e);
                                 }}

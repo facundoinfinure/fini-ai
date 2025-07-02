@@ -248,7 +248,7 @@ export async function POST(request: NextRequest) {
           .from('whatsapp_store_connections')
           .insert({
             whatsapp_number_id: newNumber.id,
-            store_id: store_id,
+            store_id,
             is_active: true,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()

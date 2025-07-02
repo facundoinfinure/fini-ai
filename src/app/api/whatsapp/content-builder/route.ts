@@ -125,8 +125,8 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         contentSid: contentTemplate.sid,
-        friendlyName: friendlyName,
-        templateType: templateType,
+        friendlyName,
+        templateType,
         message: 'Template created successfully'
       }
     });

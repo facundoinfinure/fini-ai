@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      console.log('[INFO] Starting token exchange with code:', code.substring(0, 10) + '...');
+      console.log('[INFO] Starting token exchange with code:', `${code.substring(0, 10)  }...`);
       
       // Exchange authorization code for access token
       const authResponse = await exchangeCodeForToken(code);
@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
       }
 
       console.log('[INFO] Store info retrieved:', {
-        actualStoreId: actualStoreId,
+        actualStoreId,
         storeId: storeInfo.id,
         storeName: storeInfo.name || 'No name available'
       });
@@ -227,9 +227,9 @@ export async function GET(request: NextRequest) {
       const totalTime = Date.now() - startTime;
       console.log('[INFO] Tienda Nube store connected successfully:', {
         storeName: finalStoreName,
-        actualStoreId: actualStoreId,
+        actualStoreId,
         storeId: storeInfo.id,
-        context: context,
+        context,
         totalTime: `${totalTime}ms`
       });
 
@@ -246,8 +246,8 @@ export async function GET(request: NextRequest) {
       const totalTime = Date.now() - startTime;
       console.error('[ERROR] OAuth token exchange failed:', {
         error: oauthError instanceof Error ? oauthError.message : oauthError,
-        code: code ? code.substring(0, 10) + '...' : 'missing',
-        context: context,
+        code: code ? `${code.substring(0, 10)  }...` : 'missing',
+        context,
         totalTime: `${totalTime}ms`,
         stack: oauthError instanceof Error ? oauthError.stack : undefined
       });

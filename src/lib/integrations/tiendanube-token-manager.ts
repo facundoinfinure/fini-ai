@@ -256,7 +256,7 @@ export class TiendaNubeTokenManager {
 
       return {
         isValid: !isExpired,
-        needsRefresh: needsRefresh,
+        needsRefresh,
         error: isExpired ? 'Token expired' : undefined
       };
 

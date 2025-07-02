@@ -33,7 +33,7 @@ export async function GET() {
     console.log('[TEST] Initializing Pinecone client with new SDK...');
     
     const pinecone = new Pinecone({
-      apiKey: apiKey
+      apiKey
     });
     
     console.log('[TEST] Pinecone client created successfully');

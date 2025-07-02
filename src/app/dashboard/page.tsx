@@ -156,7 +156,7 @@ function DashboardContent() {
           }
         } else {
           logger.error('Failed to fetch stores', { error: storesData.error });
-          setError('Error al cargar las tiendas: ' + storesData.error);
+          setError(`Error al cargar las tiendas: ${  storesData.error}`);
         }
       } else {
         logger.error('Stores API call failed', { status: storesResponse.status });

@@ -627,7 +627,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
           {configs && configs.length > 0 ? (
             <div className="p-6">
               <div className="space-y-3">
-              {configs.map((config) => {
+              {configs.map((_config) => {
                 const StatusIcon = getStatusIcon(config.is_active, config.is_configured);
                 
                 return (
@@ -777,7 +777,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                   countryCallingCodeEditable={false}
                   defaultCountry="AR"
                   value={phoneValue}
-                  onChange={(value) => {
+                  onChange={(_value) => {
                     setPhoneValue(value || '');
                     setPhoneError(null);
                   }}
@@ -808,7 +808,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                 id="displayName"
                 type="text"
                 value={formDisplayName}
-                onChange={(e) => setFormDisplayName(e.target.value)}
+                onChange={(_e) => setFormDisplayName(e.target.value)}
                  placeholder="Ej: Juan Pérez - Tienda Principal"
                  className="border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 rounded-xl h-12"
               />
@@ -823,10 +823,10 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                 <select
                   id="storeSelect"
                   value={selectedStoreId || ''}
-                  onChange={(e) => setSelectedStoreId(e.target.value)}
+                  onChange={(_e) => setSelectedStoreId(e.target.value)}
                      className="w-full h-12 px-4 pr-10 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white appearance-none"
                 >
-                  {stores.map((store) => (
+                  {stores.map((_store) => (
                     <option key={store.id} value={store.id}>
                       {store.name}
                     </option>
@@ -927,7 +927,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
       )}
 
        {/* OTP Verification Dialog */}
-       <Dialog open={showOTPDialog} onOpenChange={(open) => {
+       <Dialog open={showOTPDialog} onOpenChange={(_open) => {
         console.log('[DEBUG] Dialog onOpenChange called with:', open);
         if (!open && !isVerifying) {
           setShowOTPDialog(false);
@@ -973,7 +973,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                 id="otpCode"
                 type="text"
                 value={otpCode}
-                onChange={(e) => {
+                onChange={(_e) => {
                   const value = e.target.value.replace(/\D/g, '').slice(0, 6);
                   setOtpCode(value);
                   setOtpError(null);

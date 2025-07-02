@@ -91,7 +91,7 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
               sampleContent: searchResult.documents.slice(0, 2).map(doc => ({
                 type: doc.metadata.type,
                 relevanceScore: doc.metadata.relevanceScore,
-                contentPreview: doc.content.substring(0, 150) + '...'
+                contentPreview: `${doc.content.substring(0, 150)  }...`
               }))
             };
           } catch (searchError) {

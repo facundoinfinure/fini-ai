@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
           success: true,
           data: {
             storeName: subdomain,
-            storeUrl: storeUrl,
+            storeUrl,
             extractedFrom: 'subdomain',
             note: 'Store page not accessible, using subdomain as name'
           }
@@ -102,8 +102,8 @@ export async function POST(request: NextRequest) {
         success: true,
         data: {
           storeName: extractedName,
-          storeUrl: storeUrl,
-          subdomain: subdomain,
+          storeUrl,
+          subdomain,
           extractedFrom: titleMatch ? 'title' : 'subdomain'
         }
       });
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
         success: true,
         data: {
           storeName: subdomain,
-          storeUrl: storeUrl,
+          storeUrl,
           extractedFrom: 'subdomain',
           note: 'Could not access store page, using subdomain as name'
         }

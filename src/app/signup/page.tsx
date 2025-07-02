@@ -238,7 +238,7 @@ export default function SignUpPage() {
                   type="email"
                   placeholder="samlee.mobbin@gmail.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(_e) => setEmail(e.target.value)}
                   className="h-12"
                   autoComplete="email"
                 />
@@ -273,7 +273,7 @@ export default function SignUpPage() {
                   type="text"
                   placeholder="Tu nombre completo"
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  onChange={(_e) => setFullName(e.target.value)}
                   className="h-12"
                   autoComplete="name"
                 />
@@ -289,7 +289,7 @@ export default function SignUpPage() {
                     type={showPassword ? "text" : "password"}
                     placeholder="Crea una contraseña segura"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(_e) => setPassword(e.target.value)}
                     className="h-12 pr-10"
                     autoComplete="new-password"
                   />

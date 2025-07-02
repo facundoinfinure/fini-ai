@@ -21,7 +21,7 @@ export function StripeCheckoutSuccess({ sessionId, onComplete }: StripeCheckoutS
   useEffect(() => {
     // Countdown timer for manual redirect option
     const timer = setInterval(() => {
-      setCountdown((prev) => {
+      setCountdown((_prev) => {
         if (prev <= 1) {
           clearInterval(timer);
           setShouldRedirect(false);
@@ -36,13 +36,13 @@ export function StripeCheckoutSuccess({ sessionId, onComplete }: StripeCheckoutS
 
   const handleManualRedirect = () => {
     if (typeof window !== 'undefined') {
-      window.location.href = '/dashboard?success=true&session_id=' + sessionId;
+      window.location.href = `/dashboard?success=true&session_id=${  sessionId}`;
     }
   };
 
   const handleExternalLink = () => {
     if (typeof window !== 'undefined') {
-      window.open('/dashboard?success=true&session_id=' + sessionId, '_blank');
+      window.open(`/dashboard?success=true&session_id=${  sessionId}`, '_blank');
     }
   };
 

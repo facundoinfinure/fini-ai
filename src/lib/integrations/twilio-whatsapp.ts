@@ -232,7 +232,7 @@ export class TwilioWhatsAppService {
           // No template available for this type
           return {
             success: false,
-            error: 'No template available for message type: ' + messageType,
+            error: `No template available for message type: ${  messageType}`,
             usedTemplate: false
           };
       }
@@ -503,7 +503,7 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
       phoneNumber,
       'otp',
       {
-        otpCode: otpCode
+        otpCode
       }
     );
 
@@ -556,7 +556,7 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
       phoneNumber,
       'welcome',
       {
-        displayName: displayName,
+        displayName,
         storeName: storeName || 'tu tienda'
       }
     );

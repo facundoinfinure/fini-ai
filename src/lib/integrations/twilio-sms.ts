@@ -30,7 +30,7 @@ export class TwilioSMSService {
       const message = await this.client.messages.create({
         body,
         from: this.config.phoneNumber,
-        to: to
+        to
       });
 
       console.log('[SMS] SMS sent successfully:', message.sid);

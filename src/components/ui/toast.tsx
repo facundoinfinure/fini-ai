@@ -201,12 +201,12 @@ export function useToast() {
       ...toast,
     }
 
-    setToasts((prevToasts) => [...prevToasts, newToast])
+    setToasts((_prevToasts) => [...prevToasts, newToast])
 
     // Auto remove if not persistent
     if (!newToast.persistent && newToast.duration) {
       setTimeout(() => {
-        setToasts((prevToasts) => prevToasts.filter((toast) => toast.id !== id))
+        setToasts((_prevToasts) => prevToasts.filter((_toast) => toast.id !== id))
       }, newToast.duration)
     }
 
@@ -214,7 +214,7 @@ export function useToast() {
   }, [])
 
   const removeToast = React.useCallback((id: string) => {
-    setToasts((prevToasts) => prevToasts.filter((toast) => toast.id !== id))
+    setToasts((_prevToasts) => prevToasts.filter((_toast) => toast.id !== id))
   }, [])
 
   const removeAllToasts = React.useCallback(() => {

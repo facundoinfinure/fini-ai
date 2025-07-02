@@ -778,7 +778,7 @@ export function ChatPreview({
               <textarea
                 ref={textareaRef}
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
+                onChange={(_e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Envía un mensaje a Fini AI..."
                 className="w-full resize-none bg-white border border-gray-300 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent max-h-[120px] min-h-[48px]"
@@ -902,7 +902,7 @@ export function ChatPreview({
             <textarea
               ref={textareaRef}
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(_e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Envía un mensaje a Fini AI..."
               className="w-full resize-none bg-white border border-gray-300 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent max-h-[120px] min-h-[48px]"
@@ -926,7 +926,7 @@ export function ChatPreview({
 
       {/* Hidden: Preservar funcionalidad de conversaciones sin mostrar elementos duplicados */}
       <div className="technical-info hidden">
-        {conversations.map((conversation) => (
+        {conversations.map((_conversation) => (
           <div key={conversation.id} data-conversation-id={conversation.id}>
             {/* Funcionalidad de conversaciones preservada pero oculta para evitar elementos duplicados */}
             <div className="hidden">

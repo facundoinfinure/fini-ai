@@ -604,7 +604,7 @@ export class SmartTemplateService {
       const twilioMessage = await twilioClient.messages.create({
         from: `whatsapp:${process.env.TWILIO_PHONE_NUMBER}`,
         to: `whatsapp:${phoneNumber}`,
-        contentSid: contentSid,
+        contentSid,
         contentVariables: JSON.stringify(variables)
       });
 
