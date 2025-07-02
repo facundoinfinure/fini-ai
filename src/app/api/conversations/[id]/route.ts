@@ -168,6 +168,40 @@ export async function DELETE(
 
     // 4. PERFORM DELETION WITH EXPLICIT VERIFICATION
     console.log(`[DELETE] 🔄 Starting deletion sequence for conversation ${conversationId}`);
+    console.log(`[DELETE] 🔍 Deletion criteria: conversationId=${conversationId}, userId=${user.id}`);
+
+    // 4a. VERIFY EXACT MATCH BEFORE DELETION
+    console.log(`[DELETE] 🔍 Verifying conversation exists with exact criteria before deletion`);
+    const { data: preDeleteCheck, error: preDeleteError } = await supabase
+      .from('conversations')
+      .select('id, user_id, title, created_at')
+      .eq('id', conversationId)
+      .eq('user_id', user.id);
+
+    if (preDeleteError) {
+      console.error(`[DELETE] ❌ Pre-deletion verification failed:`, preDeleteError);
+      return NextResponse.json(
+        { success: false, error: `Error en verificación pre-eliminación: ${preDeleteError.message}` },
+        { status: 500 }
+      );
+    }
+
+    console.log(`[DELETE] 📊 Pre-deletion check results:`, {
+      found: preDeleteCheck?.length || 0,
+      conversations: preDeleteCheck
+    });
+
+    if (!preDeleteCheck || preDeleteCheck.length === 0) {
+      console.error(`[DELETE] ❌ DIAGNOSIS: Conversation not found with criteria conversationId=${conversationId}, userId=${user.id}`);
+      return NextResponse.json(
+        { success: false, error: 'Conversación no encontrada para eliminar (criteria mismatch)' },
+        { status: 404 }
+      );
+    }
+
+    if (preDeleteCheck.length > 1) {
+      console.error(`[DELETE] ❌ DIAGNOSIS: Multiple conversations found (${preDeleteCheck.length}) - this should not happen`);
+    }
 
     // Step 4a: Delete messages first (FK constraint)
     console.log(`[DELETE] 🗑️ Deleting messages for conversation ${conversationId}`);
@@ -176,6 +210,12 @@ export async function DELETE(
       .from('messages')
       .delete({ count: 'exact' })
       .eq('conversation_id', conversationId);
+
+    console.log(`[DELETE] 📊 Messages deletion result:`, {
+      error: messagesDeleteError,
+      messagesDeleted,
+      conversationId
+    });
 
     if (messagesDeleteError) {
       console.error(`[DELETE] ❌ Failed to delete messages for conversation ${conversationId}:`, messagesDeleteError);
@@ -189,12 +229,21 @@ export async function DELETE(
 
     // Step 4b: Delete the conversation itself
     console.log(`[DELETE] 🗑️ Deleting conversation record ${conversationId}`);
+    console.log(`[DELETE] 🔍 About to execute: DELETE FROM conversations WHERE id='${conversationId}' AND user_id='${user.id}'`);
     
     const { error: conversationDeleteError, count: conversationsDeleted } = await supabase
       .from('conversations')
       .delete({ count: 'exact' })
       .eq('id', conversationId)
       .eq('user_id', user.id);
+
+    console.log(`[DELETE] 📊 Conversation deletion result:`, {
+      error: conversationDeleteError,
+      conversationsDeleted,
+      conversationId,
+      userId: user.id,
+      criteria: { id: conversationId, user_id: user.id }
+    });
 
     if (conversationDeleteError) {
       console.error(`[DELETE] ❌ Failed to delete conversation ${conversationId}:`, conversationDeleteError);
