@@ -200,25 +200,40 @@ export function SidebarLayout({
     }
   };
 
-  const handleConversationDelete = async (conversationId: string, event: React.MouseEvent) => {
-    event.stopPropagation(); // Prevenir que se seleccione la conversación al hacer click en eliminar
+    const handleConversationDelete = async (conversationId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
     
-    console.log('[SIDEBAR] Initiating conversation deletion:', conversationId);
+    console.log('[SIDEBAR] Initiating optimistic conversation deletion:', conversationId);
     
-    // 🔄 COORDINATED DELETION: Always use parent callback when available (preferred approach)
+    // 🔥 OPTIMISTIC UPDATE: Remove from UI immediately
+    const currentConversations = conversations;
+    const updatedConversations = conversations.filter(c => c.id !== conversationId);
+    setConversations(updatedConversations);
+    
+    // Clear selection if it was the selected conversation
+    if (selectedConversation === conversationId) {
+      setSelectedConversation(null);
+    }
+    
+    // 🔄 COORDINATED DELETION: Always use parent callback when available
     if (onConversationDelete) {
-      console.log('[SIDEBAR] Delegating deletion to parent component for proper coordination');
-      onConversationDelete(conversationId);
+      console.log('[SIDEBAR] Delegating deletion to parent component for backend sync');
+      try {
+        await onConversationDelete(conversationId);
+        console.log('[SIDEBAR] ✅ Parent deletion completed successfully');
+      } catch (error) {
+        console.error('[SIDEBAR] ❌ Parent deletion failed, rolling back:', error);
+        // 🔄 ROLLBACK: Restore previous state on failure
+        setConversations(currentConversations);
+        if (selectedConversation === conversationId) {
+          setSelectedConversation(conversationId);
+        }
+      }
       return;
     }
     
-    // 🚨 FALLBACK WARNING: This should rarely happen in production
-    console.warn('[SIDEBAR] No parent deletion callback available, using fallback method');
-    
-    // Fallback - only if no callback from parent (rare case)
+    // 🚨 FALLBACK: Direct deletion if no parent callback
     try {
-      console.log('[SIDEBAR] Executing fallback deletion method');
-      
       const response = await fetch(`/api/conversations/${conversationId}`, {
         method: 'DELETE',
         headers: {
@@ -229,31 +244,26 @@ export function SidebarLayout({
       
       const data = await response.json();
       
-      if (response.ok && data.success) {
-        console.log('[SIDEBAR] ✅ Fallback deletion successful');
-        
-        // Clear selection if it was the selected conversation
-        if (selectedConversation === conversationId) {
-          setSelectedConversation(null);
-        }
-        
-        // Reload conversations to ensure consistency
-        setTimeout(() => {
-          loadConversations();
-          if (onConversationUpdate) {
-            onConversationUpdate();
-          }
-        }, 500);
-        
-      } else {
-        console.error('[SIDEBAR] Backend deletion failed:', data.error);
-        // Don't update UI if backend failed - keep current state
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || `HTTP ${response.status}`);
       }
+      
+      console.log('[SIDEBAR] ✅ Fallback deletion successful');
+      
+      // Trigger parent update if callback exists
+      if (onConversationUpdate) {
+        onConversationUpdate();
+      }
+      
     } catch (error) {
-      console.error('[SIDEBAR] Network error during fallback deletion:', error);
-      // Don't update UI if there was a network error
+      console.error('[SIDEBAR] ❌ Deletion failed, rolling back:', error);
+      // 🔄 ROLLBACK: Restore previous state
+      setConversations(currentConversations);
+      if (selectedConversation === conversationId) {
+        setSelectedConversation(conversationId);
+      }
     }
-  };
+  };;
 
   return (
     <div className={cn("min-h-screen bg-[#f8f9fa] flex", className)}>

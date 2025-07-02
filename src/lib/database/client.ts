@@ -286,7 +286,13 @@ export class StoreService {
 
       // 🚀 ASYNC RAG DATA SYNC: Non-blocking, fail-safe, complete data indexing
       if (updatedStore?.id) {
-        this.syncStoreDataToRAGAsync(updatedStore.id);
+        try {
+          await this.syncStoreDataToRAGImmediate(updatedStore.id);
+          console.log("[STORE-SERVICE] ✅ Immediate sync completed for updated store");
+        } catch (syncError) {
+          console.warn("[STORE-SERVICE] Immediate sync failed, using async fallback:", syncError);
+          this.syncStoreDataToRAGAsync(updatedStore.id);
+        }
       }
 
       return { success: true, store: updatedStore };
@@ -333,7 +339,13 @@ export class StoreService {
 
       // 🚀 ASYNC RAG DATA SYNC: Non-blocking, fail-safe, complete data indexing
       if (data?.id) {
-        this.syncStoreDataToRAGAsync(data.id);
+        try {
+          await this.syncStoreDataToRAGImmediate(data.id);
+          console.log("[STORE-SERVICE] ✅ Immediate sync completed for new store");
+        } catch (syncError) {
+          console.warn("[STORE-SERVICE] Immediate sync failed, using async fallback:", syncError);
+          this.syncStoreDataToRAGAsync(data.id);
+        }
       }
 
       return { success: true, store: data };
@@ -450,6 +462,54 @@ export class StoreService {
    * 🚀 NEW: Full data synchronization for agent context
    * 🛡️ FAIL-SAFE: Never breaks store operations
    */
+    /**
+   * Immediate RAG sync for instant Product Manager access
+   * 🚀 CRITICAL: This ensures agents have data immediately after store connection
+   */
+  static async syncStoreDataToRAGImmediate(storeId: string): Promise<void> {
+    console.log(`[STORE-SERVICE] Starting immediate RAG sync for store: ${storeId}`);
+    
+    try {
+      // Get store with access token
+      const store = await this.getStore(storeId);
+      if (!store.success || !store.store?.access_token) {
+        throw new Error(`Store not found or missing access token: ${storeId}`);
+      }
+
+      // Dynamic import to avoid build issues
+      const { FiniRAGEngine } = await import('@/lib/rag');
+      const ragEngine = new FiniRAGEngine();
+      
+      // 1. Initialize namespaces with timeout
+      console.log(`[STORE-SERVICE] Initializing namespaces for: ${storeId}`);
+      const namespaceResult = await Promise.race([
+        ragEngine.initializeStoreNamespaces(storeId),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Namespace timeout')), 30000))
+      ]);
+      
+      if (!namespaceResult.success) {
+        throw new Error(`Namespace initialization failed: ${namespaceResult.error}`);
+      }
+
+      // 2. Index store data with timeout
+      console.log(`[STORE-SERVICE] Indexing store data for: ${storeId}`);
+      await Promise.race([
+        ragEngine.indexStoreData(storeId, store.store.access_token),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Indexing timeout')), 60000))
+      ]);
+      
+      // 3. Update last sync timestamp
+      await this.updateStore(storeId, { 
+        last_sync_at: new Date().toISOString() 
+      });
+      
+      console.log(`[STORE-SERVICE] ✅ Immediate RAG sync completed for store: ${storeId}`);
+    } catch (error) {
+      console.error(`[STORE-SERVICE] ❌ Immediate RAG sync failed for ${storeId}:`, error);
+      throw error;
+    }
+  }
+
   static syncStoreDataToRAGAsync(storeId: string): void {
     // Fire-and-forget async operation
     (async () => {
