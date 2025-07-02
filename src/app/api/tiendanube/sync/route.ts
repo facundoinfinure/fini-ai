@@ -73,8 +73,37 @@ export async function POST(request: NextRequest) {
       platformStoreId: store.platform_store_id 
     });
 
-    // Initialize Tienda Nube API client
-    const tiendaNubeAPI = new TiendaNubeAPI(store.access_token, store.platform_store_id);
+    // 🔥 FIX: Get valid token using Token Manager instead of using stale token
+    let validToken: string | null = null;
+    try {
+      // Import TiendaNubeTokenManager dynamically to avoid import issues
+      const { TiendaNubeTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
+      validToken = await TiendaNubeTokenManager.getValidToken(store.id);
+      
+      if (!validToken) {
+        console.error('[ERROR] No valid token available for store:', {
+          storeId: store.id,
+          hasStoredToken: !!store.access_token
+        });
+        return NextResponse.json({
+          success: false,
+          error: 'Store token is invalid or expired. Please reconnect your store.',
+          requiresReconnection: true
+        }, { status: 401 });
+      }
+      
+      console.log('[INFO] Using validated/refreshed token for API calls');
+    } catch (tokenError) {
+      console.error('[ERROR] Failed to get valid token:', tokenError);
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to validate store credentials. Please reconnect your store.',
+        requiresReconnection: true
+      }, { status: 401 });
+    }
+
+    // Initialize Tienda Nube API client with valid token
+    const tiendaNubeAPI = new TiendaNubeAPI(validToken, store.platform_store_id);
 
     // Test connection and sync store information
     let storeInfo;

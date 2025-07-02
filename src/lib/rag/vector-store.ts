@@ -181,7 +181,7 @@ export class PineconeVectorStore implements VectorStore {
 
   /**
    * Delete vectors by IDs
-   * 🔥 FIXED: Handle 404 errors gracefully to prevent log spam
+   * 🔥 FIXED: Handle null pinecone client and 404 errors gracefully
    */
   async delete(ids: string[]): Promise<void> {
     try {
@@ -192,11 +192,41 @@ export class PineconeVectorStore implements VectorStore {
 
       console.warn(`[RAG:vector-store] Deleting ${ids.length} vectors from Pinecone`);
       
-      const index = this.pinecone.index(this.indexName);
-      await index.deleteMany(ids);
+      // 🔥 FIX: Use getIndex() instead of direct access to this.pinecone
+      // This ensures proper initialization and null checking
+      const index = await this.getIndex();
       
-      console.warn(`[RAG:vector-store] Successfully deleted ${ids.length} vectors`);
+      // 🔥 FIX: Group vectors by namespace for proper deletion
+      const groupedIds = this.groupIdsByNamespace(ids);
+      
+      for (const [namespace, namespaceIds] of Object.entries(groupedIds)) {
+        if (namespaceIds.length === 0) continue;
+        
+        console.warn(`[RAG:vector-store] Deleting ${namespaceIds.length} vectors from namespace: ${namespace}`);
+        
+        try {
+          await index.namespace(namespace).deleteMany(namespaceIds);
+          console.warn(`[RAG:vector-store] Successfully deleted ${namespaceIds.length} vectors from namespace: ${namespace}`);
+        } catch (namespaceError: any) {
+          // Handle namespace-specific errors
+          if (namespaceError.message?.includes('404') || namespaceError.message?.includes('not found')) {
+            console.warn(`[RAG:vector-store] Namespace ${namespace} not found (404) - vectors may not exist`);
+            continue; // Don't throw error for 404s
+          }
+          
+          console.warn(`[RAG:vector-store] Failed to delete from namespace ${namespace}:`, namespaceError);
+          // Continue with other namespaces instead of failing completely
+        }
+      }
+      
+      console.warn(`[RAG:vector-store] Completed deletion process for ${ids.length} vectors`);
     } catch (error: any) {
+      // 🔥 FIX: Handle Pinecone initialization errors gracefully
+      if (error.message?.includes('Pinecone API key not configured')) {
+        console.warn(`[RAG:vector-store] Pinecone not configured - skipping vector deletion: ${error.message}`);
+        return; // Don't throw for configuration errors
+      }
+      
       // 🔥 FIX: Handle 404 errors gracefully - vectors might not exist
       if (error.message?.includes('404') || error.message?.includes('not found')) {
         console.warn(`[RAG:vector-store] Vectors not found (404) - this is expected if vectors don't exist: ${error.message}`);

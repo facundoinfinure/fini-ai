@@ -115,8 +115,25 @@ export class StoreAnalysisService {
     try {
       console.log(`[STORE-ANALYSIS] Starting analysis for store: ${storeId}`);
       
+      // 🔥 FIX: Get valid token using Token Manager instead of using potentially stale token
+      let validToken: string | null = null;
+      try {
+        const { TiendaNubeTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
+        validToken = await TiendaNubeTokenManager.getValidToken(storeId);
+        
+        if (!validToken) {
+          console.warn(`[STORE-ANALYSIS] No valid token for store ${storeId}, using provided token as fallback`);
+          validToken = accessToken; // Fallback to provided token
+        } else {
+          console.log(`[STORE-ANALYSIS] Using validated/refreshed token for store: ${storeId}`);
+        }
+      } catch (tokenError) {
+        console.warn(`[STORE-ANALYSIS] Token validation failed, using provided token:`, tokenError);
+        validToken = accessToken; // Fallback to provided token
+      }
+      
       // 1. Extraer datos de Tienda Nube
-      const tiendaNubeAPI = new TiendaNubeAPI(accessToken, storeId);
+      const tiendaNubeAPI = new TiendaNubeAPI(validToken, storeId);
       const [storeInfo, products] = await Promise.all([
         tiendaNubeAPI.getStore(),
         tiendaNubeAPI.getProducts({ limit: 100 }) // Suficiente para análisis

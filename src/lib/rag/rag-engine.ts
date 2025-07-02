@@ -71,12 +71,33 @@ export class FiniRAGEngine implements RAGEngine {
     try {
       console.warn(`[RAG:engine] Starting full store indexing for store: ${storeId}`);
 
-      if (!accessToken) {
-        console.warn(`[RAG:engine] No access token provided for store: ${storeId}`);
-        return;
+      // 🔥 FIX: Get valid token using Token Manager instead of using potentially stale token
+      let validToken: string | null = null;
+      try {
+        const { TiendaNubeTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
+        validToken = await TiendaNubeTokenManager.getValidToken(storeId);
+        
+        if (!validToken && accessToken) {
+          console.warn(`[RAG:engine] No valid token from Token Manager for store ${storeId}, using provided token as fallback`);
+          validToken = accessToken;
+        } else if (!validToken && !accessToken) {
+          console.warn(`[RAG:engine] No valid token available for store: ${storeId}`);
+          return;
+        } else {
+          console.warn(`[RAG:engine] Using validated/refreshed token for store: ${storeId}`);
+        }
+      } catch (tokenError) {
+        console.warn(`[RAG:engine] Token validation failed for store ${storeId}:`, tokenError);
+        if (accessToken) {
+          console.warn(`[RAG:engine] Using provided token as fallback for store: ${storeId}`);
+          validToken = accessToken;
+        } else {
+          console.warn(`[RAG:engine] No fallback token available for store: ${storeId}`);
+          return;
+        }
       }
 
-      const api = new TiendaNubeAPI(accessToken, storeId);
+      const api = new TiendaNubeAPI(validToken, storeId);
       const indexingPromises: Promise<void>[] = [];
 
       // Initialize namespaces first
