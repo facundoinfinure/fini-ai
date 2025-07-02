@@ -482,7 +482,7 @@ export class StoreService {
       
       // 1. Initialize namespaces with timeout
       console.log(`[STORE-SERVICE] Initializing namespaces for: ${storeId}`);
-      const namespaceResult = await Promise.race([
+      const namespaceResult = await Promise.race<{ success: boolean; error?: string }>([
         ragEngine.initializeStoreNamespaces(storeId),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Namespace timeout')), 30000))
       ]);
@@ -493,7 +493,7 @@ export class StoreService {
 
       // 2. Index store data with timeout
       console.log(`[STORE-SERVICE] Indexing store data for: ${storeId}`);
-      await Promise.race([
+      await Promise.race<void>([
         ragEngine.indexStoreData(storeId, store.store.access_token),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Indexing timeout')), 60000))
       ]);
