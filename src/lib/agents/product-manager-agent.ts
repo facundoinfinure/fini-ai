@@ -218,91 +218,230 @@ export class ProductManagerAgent extends BaseAgent {
   private async generateCatalogAnalysis(context: AgentContext, ragContext: string): Promise<string> {
     const systemPrompt = this.config.prompts.systemPrompt;
     
-    // Check if we have actual product data
-    const hasProductData = ragContext && ragContext.length > 50 && !ragContext.includes('No hay datos específicos');
+    // 🔥 ENHANCED: Check if we have actual product data with better detection
+    const hasProductData = ragContext && 
+      ragContext.length > 50 && 
+      !ragContext.includes('No hay datos específicos') &&
+      !ragContext.includes('No hay información relevante') &&
+      (ragContext.includes('[PRODUCT') || ragContext.includes('producto') || ragContext.includes('catálogo'));
     
     if (!hasProductData) {
-      // 🔥 AUTO-SYNC: Trigger immediate RAG sync when no product data found
-      console.warn(`[PRODUCT-MANAGER] No catalog data found. Triggering sync for store: ${context.storeId}`);
+      console.warn(`[PRODUCT-MANAGER] ⚠️ No catalog data available for store: ${context.storeId}`);
       
-      try {
-        // Fire sync request (don't wait for response to avoid timeout)
-        const syncUrl = process.env.VERCEL_URL ? 
-          `https://${process.env.VERCEL_URL}/api/stores/${context.storeId}/sync-rag` :
-          `https://fini-tn.vercel.app/api/stores/${context.storeId}/sync-rag`;
-          
-        fetch(syncUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        }).catch(error => {
-          console.warn(`[PRODUCT-MANAGER] Auto-sync failed for store ${context.storeId}:`, error);
-        });
-      } catch (error) {
-        console.warn(`[PRODUCT-MANAGER] Auto-sync trigger failed:`, error);
+      // 🔥 ENHANCED: Check if data exists with async verification
+      const hasAnyData = await this.hasRAGData(context.storeId);
+      
+      if (!hasAnyData) {
+        // 🚀 TRIGGER: Auto-sync for stores without any data
+        this.triggerRAGSyncIfNeeded(context.storeId);
+        
+        return `**🔄 Sincronizando datos del catálogo...**
+
+Para poder analizar tu catálogo de productos, necesito que se sincronicen los datos de tu tienda.
+
+**¿Qué está pasando?**
+- Acabas de conectar tu tienda y los datos se están sincronizando automáticamente
+- Este proceso toma entre 2-5 minutos la primera vez
+- Una vez completado, tendré acceso completo a toda la información de tus productos
+
+**Mientras tanto, puedes:**
+• Revisar la configuración de tu tienda en la sección **Configuración**
+• Conectar WhatsApp para recibir notificaciones automáticas
+• Explorar las otras funcionalidades del dashboard
+
+**¿Tienes prisa?** Puedes forzar la sincronización manualmente desde la sección **Configuración** → **Sincronizar datos**.
+
+¡En unos minutos podremos analizar tu catálogo completo! 🚀`;
+      } else {
+        // Data exists but no products found - store might not have products
+        return `**📦 Análisis del catálogo**
+
+He revisado tu tienda pero no encuentro productos específicos para analizar en este momento.
+
+**Posibles causiones:**
+- Tu tienda aún no tiene productos cargados
+- Los productos están en estado borrador o inactivos
+- Hay un problema de sincronización con los datos
+
+**Recomendaciones:**
+1. **Verifica en Tienda Nube** que tienes productos publicados y activos
+2. **Sincroniza manualmente** desde Configuración → Sincronizar datos
+3. **Contacta soporte** si el problema persiste
+
+Una vez que tengas productos activos y sincronizados, podré ayudarte con:
+• Análisis completo del catálogo
+• Estrategias de precios competitivos
+• Recomendaciones de productos
+• Optimización de descripciones
+• Gestión de inventario`;
       }
-
-      return `🛍️ **Análisis de Catálogo - Sincronizando Automáticamente**
-
-**🔄 Estado Actual:**
-He detectado que necesitas análisis de catálogo y estoy sincronizando automáticamente los datos de tu tienda.
-
-**⚡ Mientras tanto, verifica en tu panel de Tienda Nube:**
-- ✅ Productos creados y **publicados** (no en borrador)
-- ✅ Descripciones completas
-- ✅ Precios definidos
-- ✅ Stock disponible
-- ✅ Imágenes agregadas
-
-**🚀 En 2-3 minutos, podrás preguntar:**
-- "¿Qué productos tengo?"
-- "¿Cuáles son mis productos más caros?"
-- "Análisis de mi catálogo"
-- "Recomendaciones de productos"
-
-**💡 Tip:** La sincronización automática está corriendo en segundo plano. Vuelve a preguntar sobre tu catálogo en unos minutos para obtener análisis específicos.
-
-¡La próxima consulta será con datos reales de tu tienda!`;
     }
 
+    // 🔥 ENHANCED: Provide rich product analysis with detected data
     const enhancedPrompt = `${this.config.prompts.userPrompt}
 
-ENFOQUE: ANÁLISIS DE CATÁLOGO
-- Lista los productos principales que encontraste
-- Identifica 2-3 oportunidades específicas
-- Da recomendaciones directas y accionables
+**ANÁLISIS DETALLADO DEL CATÁLOGO**
 
-Consulta: ${context.userMessage}
-Datos: ${ragContext}`;
+Basándome en los datos actuales de tu tienda, realiza un análisis completo del catálogo:
+
+**1. RESUMEN EJECUTIVO:**
+- Cantidad total de productos
+- Categorías principales
+- Rango de precios
+- Estado general del catálogo
+
+**2. ANÁLISIS POR CATEGORÍA:**
+- Productos por categoría
+- Precios promedio por categoría
+- Productos más y menos costosos
+
+**3. OPORTUNIDADES IDENTIFICADAS:**
+- Productos que podrían necesitar mejor descripción
+- Oportunidades de precios
+- Categorías con potencial de crecimiento
+- Productos que podrían beneficiarse de promociones
+
+**4. RECOMENDACIONES ESTRATÉGICAS:**
+- Próximos pasos para optimizar el catálogo
+- Estrategias de precios
+- Mejoras en descripciones o imágenes
+
+Consulta del usuario: ${context.userMessage}
+Datos del catálogo: ${ragContext}
+
+Proporciona un análisis profesional, útil y accionable. Usa emojis para hacer la respuesta más visual y fácil de leer.`;
 
     return await this.generateResponse(systemPrompt, enhancedPrompt, ragContext);
   }
 
   private async generatePricingStrategy(context: AgentContext, ragContext: string): Promise<string> {
     const systemPrompt = this.config.prompts.systemPrompt;
+    
+    const hasProductData = ragContext && 
+      ragContext.length > 50 && 
+      !ragContext.includes('No hay datos específicos') &&
+      (ragContext.includes('[PRODUCT') || ragContext.includes('precio') || ragContext.includes('$'));
+    
+    if (!hasProductData) {
+      // 🚀 TRIGGER: Auto-sync for pricing analysis
+      this.triggerRAGSyncIfNeeded(context.storeId);
+      
+      return `**💰 Estrategia de precios**
+
+Para desarrollar una estrategia de precios efectiva, necesito analizar los datos actuales de tus productos.
+
+**Los datos se están sincronizando...**
+- Analizaré precios actuales de todos tus productos
+- Identificaré oportunidades de optimización
+- Compararé con rangos de mercado
+- Sugeriré ajustes estratégicos
+
+**Una vez completada la sincronización, podré ayudarte con:**
+• 📊 Análisis de precios por categoría
+• 🎯 Identificación de productos subvalorados/sobrevalorados  
+• 💡 Estrategias de precios psicológicos
+• 🏷️ Recomendaciones de descuentos y promociones
+• 📈 Optimización para maximizar rentabilidad
+
+**Mientras tanto:** Puedes revisar tu estrategia actual en Tienda Nube y pensar en tus objetivos de precios.
+
+¡En unos minutos tendrás un análisis completo! ⏱️`;
+    }
+
     const enhancedPrompt = `${this.config.prompts.userPrompt}
 
-ENFOQUE: ESTRATEGIA DE PRECIOS
-- Analiza precios actuales si los hay
-- Compara con mercado argentino
-- Da 2-3 acciones específicas para optimizar
+**ESTRATEGIA DE PRECIOS AVANZADA**
 
-Consulta: ${context.userMessage}
-Datos: ${ragContext || 'No hay datos específicos de precios disponibles'}`;
+Analiza los precios actuales y desarrolla una estrategia integral:
+
+**1. ANÁLISIS DE PRECIOS ACTUAL:**
+- Distribución de precios por categoría
+- Productos con mejor/peor ratio precio-valor
+- Identificación de outliers (muy caros/baratos)
+
+**2. OPORTUNIDADES DE OPTIMIZACIÓN:**
+- Productos que podrían aumentar precio
+- Productos que necesitan ser más competitivos
+- Estrategias de precios psicológicos ($99 vs $100)
+
+**3. ESTRATEGIAS RECOMENDADAS:**
+- Pricing por categoría
+- Bundling de productos
+- Estrategias de descuentos estacionales
+- Precios premium vs competitivos
+
+**4. PLAN DE ACCIÓN:**
+- Ajustes inmediatos recomendados
+- Cronograma de implementación
+- Métricas para monitorear
+
+Consulta del usuario: ${context.userMessage}
+Datos de productos y precios: ${ragContext}`;
 
     return await this.generateResponse(systemPrompt, enhancedPrompt, ragContext);
   }
 
   private async generateProductRecommendations(context: AgentContext, ragContext: string): Promise<string> {
     const systemPrompt = this.config.prompts.systemPrompt;
+    
+    const hasProductData = ragContext && ragContext.length > 50 && !ragContext.includes('No hay datos específicos');
+    
+    if (!hasProductData) {
+      // 🚀 TRIGGER: Auto-sync for recommendations
+      this.triggerRAGSyncIfNeeded(context.storeId);
+      
+      return `**🎯 Recomendaciones de productos**
+
+Para ofrecerte recomendaciones personalizadas de productos, estoy analizando tu catálogo actual.
+
+**¿Qué analizaré cuando los datos estén listos?**
+- Productos actuales y sus características
+- Gaps en tu catálogo vs demanda del mercado
+- Oportunidades de cross-selling y up-selling
+- Tendencias de productos complementarios
+- Análisis de estacionalidad
+
+**Recomendaciones que recibirás:**
+• 🆕 Nuevos productos para agregar a tu catálogo
+• 🔄 Productos complementarios para hacer bundles
+• 📈 Productos con mayor potencial de venta
+• 🎨 Variaciones de productos existentes exitosos
+• 🛍️ Estrategias de merchandising
+
+**Tip mientras esperas:** Piensa en qué productos son más exitosos actualmente y por qué. Esta información me ayudará a darte mejores recomendaciones.
+
+¡Los datos estarán listos pronto! 🚀`;
+    }
+
     const enhancedPrompt = `${this.config.prompts.userPrompt}
 
-ENFOQUE: RECOMENDACIONES DE PRODUCTOS
-- Analiza qué productos ya tiene
-- Identifica gaps específicos en el catálogo
-- Recomienda 3 productos o categorías específicas
+**RECOMENDACIONES ESTRATÉGICAS DE PRODUCTOS**
 
-Consulta: ${context.userMessage}
-Datos: ${ragContext || 'No hay datos específicos del catálogo disponibles'}`;
+Basándome en el análisis de tu catálogo actual:
+
+**1. ANÁLISIS DEL PORTAFOLIO ACTUAL:**
+- Productos estrella vs productos con bajo rendimiento
+- Diversidad de categorías y precios
+- Gaps identificados en el catálogo
+
+**2. NUEVOS PRODUCTOS SUGERIDOS:**
+- Productos complementarios a los existentes
+- Oportunidades en categorías faltantes
+- Productos estacionales o de tendencia
+- Variaciones de productos exitosos
+
+**3. ESTRATEGIAS DE EXPANSIÓN:**
+- Cross-selling: productos que van bien juntos
+- Up-selling: versiones premium de productos existentes
+- Nichos de mercado no explorados
+
+**4. PLAN DE IMPLEMENTACIÓN:**
+- Priorización de productos nuevos
+- Cronograma sugerido de lanzamientos
+- Estrategias de testing de mercado
+
+Consulta del usuario: ${context.userMessage}
+Análisis del catálogo: ${ragContext}`;
 
     return await this.generateResponse(systemPrompt, enhancedPrompt, ragContext);
   }

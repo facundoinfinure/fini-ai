@@ -66,47 +66,112 @@ export class FiniRAGEngine implements RAGEngine {
 
   /**
    * Index all data for a Tienda Nube store
+   * 🔥 FIXED: Robust token management with fallbacks
    */
   async indexStoreData(storeId: string, accessToken?: string): Promise<void> {
     try {
       console.warn(`[RAG:engine] Starting full store indexing for store: ${storeId}`);
 
-      // 🔥 FIX: Get valid token using Token Manager instead of using potentially stale token
+      // 🔥 STEP 1: Get valid token with comprehensive fallback strategy
       let validToken: string | null = null;
+      let tokenSource = 'unknown';
+      
       try {
+        // Try Token Manager first (most reliable)
         const { TiendaNubeTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
         validToken = await TiendaNubeTokenManager.getValidToken(storeId);
         
-        if (!validToken && accessToken) {
-          console.warn(`[RAG:engine] No valid token from Token Manager for store ${storeId}, using provided token as fallback`);
-          validToken = accessToken;
-        } else if (!validToken && !accessToken) {
-          console.warn(`[RAG:engine] No valid token available for store: ${storeId}`);
-          return;
-        } else {
-          console.warn(`[RAG:engine] Using validated/refreshed token for store: ${storeId}`);
+        if (validToken) {
+          tokenSource = 'token_manager';
+          console.warn(`[RAG:engine] ✅ Using validated token from Token Manager for store: ${storeId}`);
         }
-      } catch (tokenError) {
-        console.warn(`[RAG:engine] Token validation failed for store ${storeId}:`, tokenError);
-        if (accessToken) {
-          console.warn(`[RAG:engine] Using provided token as fallback for store: ${storeId}`);
-          validToken = accessToken;
-        } else {
-          console.warn(`[RAG:engine] No fallback token available for store: ${storeId}`);
-          return;
+      } catch (tokenManagerError) {
+        console.warn(`[RAG:engine] ⚠️ Token Manager failed for store ${storeId}:`, tokenManagerError);
+      }
+
+      // Fallback to provided token if Token Manager failed
+      if (!validToken && accessToken) {
+        console.warn(`[RAG:engine] ⚠️ Using provided token as fallback for store: ${storeId}`);
+        validToken = accessToken;
+        tokenSource = 'provided_token';
+      }
+
+      // Final fallback: try to get from database directly
+      if (!validToken) {
+        try {
+          const { createClient } = await import('@/lib/supabase/server');
+          const supabase = createClient();
+          
+          const { data: store, error } = await supabase
+            .from('stores')
+            .select('access_token')
+            .eq('id', storeId)
+            .single();
+
+          if (!error && store?.access_token) {
+            validToken = store.access_token;
+            tokenSource = 'database_direct';
+            console.warn(`[RAG:engine] ⚠️ Using direct database token for store: ${storeId}`);
+          }
+        } catch (dbError) {
+          console.warn(`[RAG:engine] ❌ Database fallback failed for store ${storeId}:`, dbError);
         }
       }
 
-      const api = new TiendaNubeAPI(validToken, storeId);
+      if (!validToken) {
+        console.warn(`[RAG:engine] ❌ No valid token available for store: ${storeId} - skipping sync`);
+        return;
+      }
+
+      console.warn(`[RAG:engine] 🔑 Token source: ${tokenSource} for store: ${storeId}`);
+
+      // 🔥 STEP 2: Initialize API with retry logic
+      let api: TiendaNubeAPI;
+      try {
+        api = new TiendaNubeAPI(validToken, storeId);
+        
+        // Test the connection with a lightweight API call
+        await api.getStore();
+        console.warn(`[RAG:engine] ✅ API connection verified for store: ${storeId}`);
+      } catch (connectionError) {
+        console.warn(`[RAG:engine] ❌ API connection failed for store ${storeId}:`, connectionError);
+        
+        // If it's an auth error and we have the Token Manager, try one more time
+        if (tokenSource !== 'token_manager' && 
+            connectionError instanceof Error && 
+            connectionError.message.toLowerCase().includes('401')) {
+          
+          try {
+            console.warn(`[RAG:engine] 🔄 Retrying with Token Manager after auth failure for store: ${storeId}`);
+            const { TiendaNubeTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
+            const retryToken = await TiendaNubeTokenManager.getValidToken(storeId);
+            
+            if (retryToken && retryToken !== validToken) {
+              api = new TiendaNubeAPI(retryToken, storeId);
+              await api.getStore();
+              console.warn(`[RAG:engine] ✅ Retry successful with refreshed token for store: ${storeId}`);
+            } else {
+              throw connectionError;
+            }
+          } catch (retryError) {
+            console.warn(`[RAG:engine] ❌ Retry failed for store ${storeId}:`, retryError);
+            throw connectionError;
+          }
+        } else {
+          throw connectionError;
+        }
+      }
+
       const indexingPromises: Promise<void>[] = [];
 
-      // Initialize namespaces first
+      // 🔥 STEP 3: Initialize namespaces first (prevent empty searches)
+      console.warn(`[RAG:engine] 🔧 Initializing namespaces for store: ${storeId}`);
       await this.initializeStoreNamespaces(storeId);
 
-      // Index store information
+      // 🔥 STEP 4: Index store information
       try {
         const store = await api.getStore();
-        const storeContent = this.processStoreData(store);
+        const storeContent = this.processor.processStoreData(store);
         indexingPromises.push(
           this.indexDocument(storeContent, {
             type: 'store',
@@ -115,94 +180,88 @@ export class FiniRAGEngine implements RAGEngine {
             timestamp: new Date().toISOString(),
           })
         );
+        console.warn(`[RAG:engine] ✅ Store info queued for indexing`);
       } catch (error) {
-        console.warn('[ERROR] Failed to index store info:', error);
+        console.warn('[WARNING] Failed to index store info:', error);
       }
 
-      // Index products
+      // 🔥 STEP 5: Index products (most important for agents)
       try {
-        console.log(`[DEBUG] Getting products with endpoint: /products?limit=250`);
-        const products = await api.getProducts({ limit: 250 });
+        console.warn(`[RAG:engine] 📦 Fetching products for store: ${storeId}`);
+        const products = await api.getProducts({ limit: 200 });
         
-        // 🔥 FIX: Ensure products is always an array
-        const validProducts = Array.isArray(products) ? products : [];
-        console.log(`[DEBUG] Retrieved ${validProducts.length} products from API`);
-        
-        if (validProducts.length === 0) {
-          console.warn('[DEBUG] No products found or products is not an array');
-        } else {
-          for (const product of validProducts) {
+        if (products && products.length > 0) {
+          console.warn(`[RAG:engine] 📦 Found ${products.length} products for indexing`);
+          
+          for (const product of products) {
             const productContent = this.processor.processProductData(product);
             indexingPromises.push(
               this.indexDocument(productContent, {
                 type: 'product',
                 storeId,
                 source: 'tiendanube_products',
-                productId: product.id?.toString(),
                 timestamp: new Date().toISOString(),
+                productId: product.id?.toString(),
+                productName: product.name || 'Producto sin nombre',
+                category: product.categories?.[0]?.name || 'Sin categoría',
               })
             );
           }
+        } else {
+          console.warn(`[RAG:engine] ⚠️ No products found for store: ${storeId}`);
         }
       } catch (error) {
-        console.warn('[ERROR] Failed to index products:', error);
+        console.warn('[WARNING] Failed to index products:', error);
       }
 
-      // Index orders
+      // 🔥 STEP 6: Index orders (for analytics)
       try {
         const orders = await api.getOrders({ limit: 100 });
         
-        // 🔥 FIX: Ensure orders is always an array
-        const validOrders = Array.isArray(orders) ? orders : [];
-        
-        if (validOrders.length === 0) {
-          console.warn('[DEBUG] No orders found or orders is not an array');
-        } else {
-          for (const order of validOrders) {
+        if (orders && orders.length > 0) {
+          for (const order of orders) {
             const orderContent = this.processor.processOrderData(order);
             indexingPromises.push(
               this.indexDocument(orderContent, {
                 type: 'order',
                 storeId,
                 source: 'tiendanube_orders',
-                orderId: order.id?.toString(),
                 timestamp: new Date().toISOString(),
+                orderId: order.id?.toString(),
+                orderValue: parseFloat(order.total) || 0,
+                orderStatus: order.status || 'unknown',
               })
             );
           }
         }
       } catch (error) {
-        console.warn('[ERROR] Failed to index orders:', error);
+        console.warn('[WARNING] Failed to index orders:', error);
       }
 
-      // Index customers
+      // 🔥 STEP 7: Index customers
       try {
         const customers = await api.getCustomers({ limit: 100 });
         
-        // 🔥 FIX: Ensure customers is always an array
-        const validCustomers = Array.isArray(customers) ? customers : [];
-        
-        if (validCustomers.length === 0) {
-          console.warn('[DEBUG] No customers found or customers is not an array');
-        } else {
-          for (const customer of validCustomers) {
+        if (customers && customers.length > 0) {
+          for (const customer of customers) {
             const customerContent = this.processor.processCustomerData(customer);
             indexingPromises.push(
               this.indexDocument(customerContent, {
                 type: 'customer',
                 storeId,
                 source: 'tiendanube_customers',
-                customerId: customer.id?.toString(),
                 timestamp: new Date().toISOString(),
+                customerId: customer.id?.toString(),
+                customerEmail: customer.email || 'sin-email',
               })
             );
           }
         }
       } catch (error) {
-        console.warn('[ERROR] Failed to index customers:', error);
+        console.warn('[WARNING] Failed to index customers:', error);
       }
 
-      // Index analytics data
+      // 🔥 STEP 8: Index analytics data
       try {
         const analytics = await api.getStoreAnalytics();
         const analyticsContent = this.processor.processAnalyticsData(analytics, 'current');
@@ -215,16 +274,35 @@ export class FiniRAGEngine implements RAGEngine {
           })
         );
       } catch (error) {
-        console.warn('[ERROR] Failed to index analytics:', error);
+        console.warn('[WARNING] Failed to index analytics:', error);
       }
 
-      // Process all indexing operations in batches
+      // 🔥 STEP 9: Process all indexing operations in batches
+      if (indexingPromises.length === 0) {
+        console.warn(`[RAG:engine] ⚠️ No data to index for store: ${storeId}`);
+        return;
+      }
+
+      console.warn(`[RAG:engine] 🔄 Processing ${indexingPromises.length} indexing operations for store: ${storeId}`);
       const batchSize = 10; // Process 10 documents at a time
+      let successCount = 0;
+      let errorCount = 0;
+
       for (let i = 0; i < indexingPromises.length; i += batchSize) {
         const batch = indexingPromises.slice(i, i + batchSize);
-        await Promise.allSettled(batch);
+        const batchResults = await Promise.allSettled(batch);
         
-        console.warn(`[RAG:engine] Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(indexingPromises.length / batchSize)}`);
+        // Count successes and failures
+        batchResults.forEach(result => {
+          if (result.status === 'fulfilled') {
+            successCount++;
+          } else {
+            errorCount++;
+            console.warn(`[RAG:engine] ❌ Indexing failed:`, result.reason);
+          }
+        });
+        
+        console.warn(`[RAG:engine] 📊 Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(indexingPromises.length / batchSize)} - Success: ${successCount}, Errors: ${errorCount}`);
         
         // Small delay between batches to avoid overwhelming APIs
         if (i + batchSize < indexingPromises.length) {
@@ -232,7 +310,26 @@ export class FiniRAGEngine implements RAGEngine {
         }
       }
 
-      console.warn(`[RAG:engine] Completed store indexing for store: ${storeId}`);
+      console.warn(`[RAG:engine] ✅ Store indexing completed for: ${storeId} - Success: ${successCount}, Errors: ${errorCount}`);
+      
+      // 🔥 STEP 10: Update last sync timestamp in database
+      try {
+        const { createClient } = await import('@/lib/supabase/server');
+        const supabase = createClient();
+        
+        await supabase
+          .from('stores')
+          .update({ 
+            last_sync_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', storeId);
+          
+        console.warn(`[RAG:engine] ✅ Updated last_sync_at for store: ${storeId}`);
+      } catch (updateError) {
+        console.warn(`[RAG:engine] ⚠️ Failed to update last_sync_at for store ${storeId}:`, updateError);
+      }
+      
     } catch (error) {
       console.warn('[ERROR] Failed to index store data:', error);
       throw new Error(`Store indexing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -549,22 +646,4 @@ export class FiniRAGEngine implements RAGEngine {
     }
   }
 
-  /**
-   * Helper method to process store data (used by indexStoreData)
-   */
-  private processStoreData(store: unknown): string {
-    const parts: string[] = [];
-    const s = store as Record<string, any>;
-    if (s && typeof s === 'object') {
-      if (s.name) parts.push(`Tienda: ${s.name}`);
-      if (s.description) parts.push(`Descripción: ${s.description}`);
-      if (s.url) parts.push(`URL: ${s.url}`);
-      if (s.domain) parts.push(`Dominio: ${s.domain}`);
-      if (s.country) parts.push(`País: ${s.country}`);
-      if (s.currency) parts.push(`Moneda: ${s.currency}`);
-      if (s.business_id) parts.push(`ID de negocio: ${s.business_id}`);
-      if (s.business_name) parts.push(`Nombre del negocio: ${s.business_name}`);
-    }
-    return parts.join('\n');
-  }
 } 

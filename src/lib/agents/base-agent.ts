@@ -87,6 +87,7 @@ export abstract class BaseAgent implements Agent {
 
   /**
    * Get relevant context using RAG engine
+   * 🔥 ENHANCED: Check data availability and provide intelligent fallbacks
    */
   async getRelevantContext(query: string, context: AgentContext): Promise<string> {
     const _startTime = Date.now();
@@ -129,19 +130,115 @@ export abstract class BaseAgent implements Agent {
         console.warn(`[AGENT:${this.type}] RAG retrieved ${_ragResult.documents.length} contexts in ${_executionTime}ms`);
       }
 
+      // 🔥 ENHANCED: Check if we have meaningful data
       if (_ragResult.documents.length === 0) {
+        console.warn(`[AGENT:${this.type}] ⚠️ No RAG documents found for store: ${context.storeId}`);
+        
+        // 🚀 TRIGGER: Auto-sync if no data found (non-blocking)
+        this.triggerRAGSyncIfNeeded(context.storeId);
+        
+        return '';
+      }
+
+      // 🔥 ENHANCED: Check confidence and quality of results
+      const highQualityDocs = _ragResult.documents.filter(doc => 
+        doc.metadata.relevanceScore && doc.metadata.relevanceScore > 0.7
+      );
+
+      if (highQualityDocs.length === 0) {
+        console.warn(`[AGENT:${this.type}] ⚠️ Low quality RAG results for query: "${query}"`);
+        
+        // Try with lower threshold for this specific query
+        const _fallbackQuery = {
+          ..._ragQuery,
+          options: {
+            ..._ragQuery.options,
+            threshold: 0.5, // Lower threshold for fallback
+            topK: 3 // Fewer results
+          }
+        };
+
+        const _fallbackResult = await ragEngineInstance.search(_fallbackQuery);
+        
+        if (_fallbackResult.documents.length > 0) {
+          console.warn(`[AGENT:${this.type}] ✅ Fallback search found ${_fallbackResult.documents.length} documents`);
+          const _contextSections = _fallbackResult.documents.map((doc: { metadata?: { type?: string }; content: string }) => {
+            return `[${doc.metadata?.type || 'data'}] ${doc.content}`;
+          });
+          return _contextSections.join('\n\n');
+        }
+        
         return '';
       }
 
       // Format context for the agent
-      const _contextSections = _ragResult.documents.map((doc: { metadata?: { type?: string }; content: string }) => {
+      const _contextSections = highQualityDocs.map((doc: { metadata?: { type?: string }; content: string }) => {
         return `[${doc.metadata?.type || 'data'}] ${doc.content}`;
       });
 
       return _contextSections.join('\n\n');
     } catch (error) {
       console.error(`[ERROR] Agent ${this.type} RAG retrieval failed:`, error);
+      
+      // 🔥 ENHANCED: Trigger sync on RAG errors
+      this.triggerRAGSyncIfNeeded(context.storeId);
+      
       return '';
+    }
+  }
+
+  /**
+   * 🚀 NEW: Trigger RAG sync when no data is found (non-blocking)
+   */
+  protected triggerRAGSyncIfNeeded(storeId: string): void {
+    // Fire-and-forget sync trigger
+    setTimeout(async () => {
+      try {
+        console.warn(`[AGENT:${this.type}] 🔄 Triggering RAG sync for store: ${storeId}`);
+        
+        // Try to trigger sync endpoint (non-blocking)
+        const syncUrl = process.env.VERCEL_URL ? 
+          `https://${process.env.VERCEL_URL}/api/stores/${storeId}/sync-rag` :
+          `https://fini-tn.vercel.app/api/stores/${storeId}/sync-rag`;
+          
+        fetch(syncUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).catch(syncError => {
+          console.warn(`[AGENT:${this.type}] Auto-sync trigger failed:`, syncError);
+        });
+      } catch (error) {
+        console.warn(`[AGENT:${this.type}] Sync trigger error:`, error);
+      }
+    }, 100); // Small delay to not block current response
+  }
+
+  /**
+   * 🔥 NEW: Check if store has RAG data available
+   */
+  protected async hasRAGData(storeId: string): Promise<boolean> {
+    try {
+      const ragEngineInstance = await getRagEngine();
+      if (!ragEngineInstance) return false;
+
+      const testQuery = {
+        query: 'test',
+        context: {
+          storeId,
+          userId: 'test',
+          agentType: this.type as any
+        },
+        options: {
+          topK: 1,
+          threshold: 0.1 // Very low threshold just to check if any data exists
+        }
+      };
+
+      const result = await ragEngineInstance.search(testQuery);
+      return result.documents.length > 0;
+    } catch (error) {
+      console.warn(`[AGENT:${this.type}] RAG data check failed:`, error);
+      return false;
     }
   }
 

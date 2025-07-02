@@ -112,253 +112,74 @@ export class UserService {
 export class StoreService {
   static async createStore(storeData: Partial<Store>): Promise<{ success: boolean; store?: Store; error?: string }> {
     try {
-      console.log('[DEBUG] StoreService.createStore - Input data:', {
-        ...storeData,
-        access_token: storeData.access_token ? '[REDACTED]' : null
-      });
+      // Validate required fields
+      if (!storeData.user_id || !storeData.platform_store_id || !storeData.access_token) {
+        return {
+          success: false,
+          error: 'Missing required store data: user_id, platform_store_id, or access_token'
+        };
+      }
 
-      // First, detect which columns exist in the table
-      const { data: sampleData, error: sampleError } = await _supabaseAdmin
+      // 🔥 STEP 1: Create store record
+      const { data: store, error } = await _supabaseAdmin
         .from('stores')
-        .select('*')
-        .limit(1);
-
-      if (sampleError) {
-        console.error('[ERROR] Cannot access stores table to detect schema:', sampleError);
-        return { 
-          success: false, 
-          error: `Cannot access stores table: ${sampleError.message}` 
-        };
-      }
-
-      const availableColumns = sampleData?.[0] ? Object.keys(sampleData[0]) : [];
-      const hasOldColumns = availableColumns.includes('tiendanube_store_id');
-      const hasNewColumns = availableColumns.includes('platform_store_id');
-
-      console.log('[DEBUG] Table schema detection:', {
-        availableColumns,
-        hasOldColumns,
-        hasNewColumns
-      });
-
-      // Prepare data based on available columns
-      let insertData: any;
-      let checkFields: any = {};
-
-      if (hasOldColumns && hasNewColumns) {
-        // Database has both old and new columns - populate both to avoid NOT NULL violations
-        const storeName = typeof storeData.name === 'object' ? 
-          (storeData.name as any).es || (storeData.name as any).en || 'Mi Tienda' : 
-          storeData.name || 'Mi Tienda';
-
-        insertData = {
-          user_id: storeData.user_id,
-          // Old columns
-          tiendanube_store_id: storeData.platform_store_id,
-          store_name: storeName,
-          store_url: storeData.domain || '',
-          // New columns  
-          platform: storeData.platform || 'tiendanube',
-          platform_store_id: storeData.platform_store_id,
-          name: storeName,
-          domain: storeData.domain || '',
-          // Common columns
-          access_token: storeData.access_token,
-          refresh_token: storeData.refresh_token,
-          token_expires_at: storeData.token_expires_at,
-          is_active: storeData.is_active,
-          created_at: storeData.created_at,
-          updated_at: storeData.updated_at
-        };
-
-        // Check for existing stores using old columns first
-        checkFields = {
-          user_id: storeData.user_id,
-          tiendanube_store_id: storeData.platform_store_id
-        };
-      } else if (hasOldColumns) {
-        // Only old columns exist
-        const storeName = typeof storeData.name === 'object' ? 
-          (storeData.name as any).es || (storeData.name as any).en || 'Mi Tienda' : 
-          storeData.name || 'Mi Tienda';
-
-        insertData = {
-          user_id: storeData.user_id,
-          tiendanube_store_id: storeData.platform_store_id,
-          store_name: storeName,
-          store_url: storeData.domain || '',
-          access_token: storeData.access_token,
-          refresh_token: storeData.refresh_token,
-          token_expires_at: storeData.token_expires_at,
-          is_active: storeData.is_active,
-          created_at: storeData.created_at,
-          updated_at: storeData.updated_at
-        };
-
-        checkFields = {
-          user_id: storeData.user_id,
-          tiendanube_store_id: storeData.platform_store_id
-        };
-      } else {
-        // Only new columns exist
-        const storeName = typeof storeData.name === 'object' ? 
-          (storeData.name as any).es || (storeData.name as any).en || 'Mi Tienda' : 
-          storeData.name || 'Mi Tienda';
-
-        insertData = {
-          user_id: storeData.user_id,
-          platform: storeData.platform || 'tiendanube',
-          platform_store_id: storeData.platform_store_id,
-          name: storeName,
-          domain: storeData.domain || '',
-          access_token: storeData.access_token,
-          refresh_token: storeData.refresh_token,
-          token_expires_at: storeData.token_expires_at,
-          is_active: storeData.is_active,
-          created_at: storeData.created_at,
-          updated_at: storeData.updated_at
-        };
-
-        checkFields = {
-          user_id: storeData.user_id,
-          platform: storeData.platform || 'tiendanube',
-          platform_store_id: storeData.platform_store_id
-        };
-      }
-
-      console.log('[DEBUG] Prepared insert data:', {
-        ...insertData,
-        access_token: '[REDACTED]'
-      });
-
-      // Check if store already exists
-      let existingStore = null;
-      let checkError = null;
-
-      try {
-        const query = _supabaseAdmin.from('stores').select('*');
-        Object.keys(checkFields).forEach(key => {
-          query.eq(key, checkFields[key]);
-        });
-        
-        const { data, error } = await query.single();
-        existingStore = data;
-        checkError = error;
-      } catch (err) {
-        checkError = err;
-      }
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error('[ERROR] Error checking existing store:', checkError);
-        return { 
-          success: false, 
-          error: `Database error while checking existing store: ${checkError.message}` 
-        };
-      }
-
-      if (existingStore) {
-        console.log('[INFO] Store already exists, updating existing store:', existingStore.id);
-        
-        // Update existing store instead of creating new one
-        const { data: updatedStore, error: updateError } = await _supabaseAdmin
-          .from('stores')
-          .update({
-            ...insertData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingStore.id)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.error('[ERROR] Failed to update existing store:', updateError);
-          return { 
-            success: false, 
-            error: `Failed to update existing store: ${updateError.message}` 
-          };
-        }
-
-              console.log('[DEBUG] Store updated successfully:', {
-        id: updatedStore?.id,
-        name: updatedStore?.name || updatedStore?.store_name,
-        platform: updatedStore?.platform
-      });
-
-      // 🚀 ASYNC RAG DATA SYNC: Non-blocking, fail-safe, complete data indexing
-      if (updatedStore?.id) {
-        try {
-          await this.syncStoreDataToRAGImmediate(updatedStore.id);
-          console.log("[STORE-SERVICE] ✅ Immediate sync completed for updated store");
-        } catch (syncError) {
-          console.warn("[STORE-SERVICE] Immediate sync failed, using async fallback:", syncError);
-          this.syncStoreDataToRAGAsync(updatedStore.id);
-        }
-      }
-
-      return { success: true, store: updatedStore };
-      }
-
-      // Store doesn't exist, create new one
-      const { data, error } = await _supabaseAdmin
-        .from('stores')
-        .insert([insertData])
+        .insert([{
+          ...storeData,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }])
         .select()
         .single();
 
       if (error) {
-        console.error('[ERROR] Supabase insert error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-
-        // Handle specific error cases
-        if (error.code === '23505') { // Unique violation
-          return { 
-            success: false, 
-            error: 'Esta tienda ya está conectada a tu cuenta. Si necesitas reconectarla, primero desconéctala desde el dashboard.' 
-          };
-        }
-
-        if (error.code === '23502') { // NOT NULL violation
-          return { 
-            success: false, 
-            error: 'Error de configuración de base de datos. Por favor contacta soporte técnico.' 
-          };
-        }
-
-        throw error;
+        console.error('[ERROR] Failed to create store:', error);
+        return { success: false, error: error.message };
       }
 
-      console.log('[DEBUG] Store created successfully:', {
-        id: data?.id,
-        name: data?.name || data?.store_name,
-        platform: data?.platform
-      });
+      console.log(`[SUCCESS] Store created successfully: ${store.id}`);
 
-      // 🚀 ASYNC RAG DATA SYNC: Non-blocking, fail-safe, complete data indexing
-      if (data?.id) {
+      // 🔥 STEP 2: Auto-trigger RAG sync for immediate functionality
+      // This runs in background and doesn't block the response
+      setImmediate(async () => {
         try {
-          await this.syncStoreDataToRAGImmediate(data.id);
-          console.log("[STORE-SERVICE] ✅ Immediate sync completed for new store");
-        } catch (syncError) {
-          console.warn("[STORE-SERVICE] Immediate sync failed, using async fallback:", syncError);
-          this.syncStoreDataToRAGAsync(data.id);
+          console.log(`[RAG:AUTO-SYNC] Starting automatic RAG sync for new store: ${store.id}`);
+          
+          // Import RAG engine dynamically to avoid circular dependencies
+          const { FiniRAGEngine } = await import('@/lib/rag');
+          const ragEngine = new FiniRAGEngine();
+          
+          // Initialize namespaces and sync data
+          await ragEngine.indexStoreData(store.id, store.access_token);
+          
+          console.log(`[RAG:AUTO-SYNC] ✅ Automatic sync completed for store: ${store.id}`);
+        } catch (ragError) {
+          // 🔥 CRITICAL: RAG sync failure should NOT break store creation
+          console.warn(`[RAG:AUTO-SYNC] ⚠️ Auto-sync failed for store ${store.id}:`, ragError);
+          
+          // Log the failure but don't throw - store is still created successfully
+          console.warn(`[RAG:AUTO-SYNC] Store ${store.id} created successfully but will need manual sync`);
         }
-      }
-
-      return { success: true, store: data };
-    } catch (error) {
-      console.error('[ERROR] Create store failed with full details:', {
-        error: error instanceof Error ? error.message : error,
-        stack: error instanceof Error ? error.stack : undefined,
-        supabaseError: error
       });
-      
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+
+      // 🔥 STEP 3: Initialize store namespaces in parallel (non-blocking)
+      setImmediate(async () => {
+        try {
+          const { FiniRAGEngine } = await import('@/lib/rag');
+          const ragEngine = new FiniRAGEngine();
+          await ragEngine.initializeStoreNamespaces(store.id);
+          console.log(`[RAG:NAMESPACES] ✅ Namespaces initialized for store: ${store.id}`);
+        } catch (namespaceError) {
+          console.warn(`[RAG:NAMESPACES] ⚠️ Namespace initialization failed for store ${store.id}:`, namespaceError);
+        }
+      });
+
+      return { success: true, store };
+    } catch (error) {
+      console.error('[ERROR] Failed to create store:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }

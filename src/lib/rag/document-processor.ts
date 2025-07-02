@@ -308,4 +308,23 @@ export class RAGDocumentProcessor implements DocumentProcessor {
     }
     return parts.join('\n');
   }
+
+  /**
+   * Process Tienda Nube store data into searchable text
+   */
+  processStoreData(store: unknown): string {
+    const parts: string[] = [];
+    const s = store as Record<string, any>;
+    if (s && typeof s === 'object') {
+      if (s.name) parts.push(`Tienda: ${s.name}`);
+      if (s.description) parts.push(`Descripción: ${s.description}`);
+      if (s.url) parts.push(`URL: ${s.url}`);
+      if (s.domain) parts.push(`Dominio: ${s.domain}`);
+      if (s.country) parts.push(`País: ${s.country}`);
+      if (s.currency) parts.push(`Moneda: ${s.currency}`);
+      if (s.business_id) parts.push(`ID de negocio: ${s.business_id}`);
+      if (s.business_name) parts.push(`Nombre del negocio: ${s.business_name}`);
+    }
+    return parts.join('\n');
+  }
 } 
