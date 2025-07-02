@@ -5,6 +5,7 @@ import { checkStoreLimit, createPlanErrorResponse } from '@/lib/middleware/plan-
 interface ConnectRequest {
   storeUrl: string;
   storeName: string;
+  context?: 'onboarding' | 'configuration';
 }
 
 export async function POST(request: NextRequest) {
@@ -74,7 +75,20 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log('[INFO] Generating OAuth URL for user:', userId, 'store:', storeData.storeName);
+    // Detectar contexto: si no se especifica, detectar por referer
+    let context = storeData.context || 'onboarding';
+    
+    // Si no se especificó contexto, intentar detectar por referer
+    if (!storeData.context) {
+      const referer = request.headers.get('referer') || '';
+      if (referer.includes('/dashboard') || referer.includes('configuration')) {
+        context = 'configuration';
+      } else {
+        context = 'onboarding';
+      }
+    }
+
+    console.log('[INFO] Generating OAuth URL for user:', userId, 'store:', storeData.storeName, 'context:', context);
 
     // Validate environment variables
     const clientId = process.env.TIENDANUBE_CLIENT_ID;
@@ -91,12 +105,12 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // Create state parameter with user ID and store information
-    // We'll encode the store info in the state to retrieve it in the callback
+    // Create state parameter with user ID, store information, and context
     const stateData = {
       userId,
       storeUrl: storeData.storeUrl,
       storeName: storeData.storeName,
+      context: context,
       timestamp: Date.now()
     };
     
@@ -108,7 +122,7 @@ export async function POST(request: NextRequest) {
     // Reference: https://dev.tiendanube.com/docs/applications/authentication
     const authUrl = `https://www.tiendanube.com/apps/${clientId}/authorize?state=${encodeURIComponent(state)}`;
 
-    console.log('[INFO] OAuth URL generated successfully for store:', storeData.storeName);
+    console.log('[INFO] OAuth URL generated successfully for store:', storeData.storeName, 'context:', context);
     console.log('[DEBUG] Generated auth URL:', authUrl);
 
     return NextResponse.json({

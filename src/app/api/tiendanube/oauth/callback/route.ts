@@ -43,8 +43,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=missing_parameters&debug=missing_code_or_state`);
     }
 
-    // Decode state parameter to get user ID and store information
-    let stateData: { userId: string; storeUrl: string; storeName: string; timestamp: number };
+    // Decode state parameter to get user ID, store information, and context
+    let stateData: { userId: string; storeUrl: string; storeName: string; context?: string; timestamp: number };
     try {
       const decodedState = decodeURIComponent(state);
       const stateJson = Buffer.from(decodedState, 'base64').toString();
@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
         userId: stateData.userId,
         storeUrl: stateData.storeUrl,
         storeName: stateData.storeName,
+        context: stateData.context || 'onboarding',
         stateAge: Date.now() - stateData.timestamp
       });
       
@@ -76,8 +77,9 @@ export async function GET(request: NextRequest) {
     const userId = stateData.userId;
     const storeUrl = stateData.storeUrl;
     const storeName = stateData.storeName;
+    const context = stateData.context || 'onboarding'; // Default a onboarding si no se especifica
 
-    console.log('[INFO] Processing OAuth callback for user:', userId, 'store:', storeName);
+    console.log('[INFO] Processing OAuth callback for user:', userId, 'store:', storeName, 'context:', context);
 
     const supabase = createClient();
     
@@ -119,14 +121,14 @@ export async function GET(request: NextRequest) {
 
       // Store the access token and store info
       // Handle name field - Tienda Nube sends localized names as objects
-      let storeName = 'Mi Tienda';
+      let finalStoreName = 'Mi Tienda';
       if (storeInfo.name) {
         if (typeof storeInfo.name === 'object' && storeInfo.name !== null) {
           // Extract name from localized object (e.g., {es: "nombre", en: "name"})
           const nameObj = storeInfo.name as any;
-          storeName = nameObj.es || nameObj.en || nameObj.pt || Object.values(nameObj)[0] || 'Mi Tienda';
+          finalStoreName = nameObj.es || nameObj.en || nameObj.pt || Object.values(nameObj)[0] || 'Mi Tienda';
         } else if (typeof storeInfo.name === 'string') {
-          storeName = storeInfo.name;
+          finalStoreName = storeInfo.name;
         }
       }
 
@@ -134,7 +136,7 @@ export async function GET(request: NextRequest) {
         user_id: session.user.id,
         platform: 'tiendanube' as const,
         platform_store_id: storeInfo.id.toString(),
-        name: storeName,
+        name: finalStoreName,
         domain: storeInfo.url || '',
         access_token: authResponse.access_token,
         refresh_token: null, // Tienda Nube doesn't use refresh tokens
@@ -176,28 +178,41 @@ export async function GET(request: NextRequest) {
 
       const totalTime = Date.now() - startTime;
       console.log('[INFO] Tienda Nube store connected successfully:', {
-        storeName,
+        storeName: finalStoreName,
         storeId: storeInfo.id,
+        context: context,
         totalTime: `${totalTime}ms`
       });
 
-      // Redirect back to onboarding to continue the flow
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=2&success=store_connected&store_name=${encodeURIComponent(storeName)}&store_id=${storeInfo.id}`);
+      // Redirigir según el contexto
+      if (context === 'configuration') {
+        // Si vino de configuración, redirigir al dashboard con pestaña de configuración
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?tab=configuration&success=store_connected&store_name=${encodeURIComponent(finalStoreName)}&store_id=${storeInfo.id}`);
+      } else {
+        // Si vino del onboarding, continuar con el flujo de onboarding
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=2&success=store_connected&store_name=${encodeURIComponent(finalStoreName)}&store_id=${storeInfo.id}`);
+      }
 
     } catch (oauthError) {
       const totalTime = Date.now() - startTime;
       console.error('[ERROR] OAuth token exchange failed:', {
         error: oauthError instanceof Error ? oauthError.message : oauthError,
         code: code ? code.substring(0, 10) + '...' : 'missing',
+        context: context,
         totalTime: `${totalTime}ms`,
         stack: oauthError instanceof Error ? oauthError.stack : undefined
       });
       
       // Provide more specific error information
       const errorMessage = oauthError instanceof Error ? oauthError.message : 'Unknown error';
-      const debugInfo = encodeURIComponent(`${errorMessage}|time:${totalTime}ms`);
+      const debugInfo = encodeURIComponent(`${errorMessage}|time:${totalTime}ms|context:${context}`);
       
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=token_exchange_failed&message=token_exchange_failed&debug=${debugInfo}`);
+      // Redirigir según contexto también en caso de error
+      if (context === 'configuration') {
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?tab=configuration&error=token_exchange_failed&message=token_exchange_failed&debug=${debugInfo}`);
+      } else {
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=token_exchange_failed&message=token_exchange_failed&debug=${debugInfo}`);
+      }
     }
 
   } catch (error) {

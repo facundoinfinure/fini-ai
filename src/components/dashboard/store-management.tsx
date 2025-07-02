@@ -94,7 +94,8 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
         },
         body: JSON.stringify({
           storeUrl: storeUrl.trim(),
-          storeName: storeName
+          storeName: storeName,
+          context: 'configuration'
         })
       });
 

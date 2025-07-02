@@ -85,6 +85,16 @@ function DashboardContent() {
     const storeName = searchParams.get('store_name');
     const sessionId = searchParams.get('session_id');
     const canceled = searchParams.get('canceled');
+    const tab = searchParams.get('tab'); // Detectar parámetro tab
+
+    // Activar pestaña específica si se especifica en URL
+    if (tab) {
+      if (tab === 'configuration') {
+        setActiveTab('configuracion');
+      } else if (['chat', 'analytics', 'suscripcion', 'perfil'].includes(tab)) {
+        setActiveTab(tab);
+      }
+    }
 
     if (error) {
       const errorType = message || error;
@@ -247,7 +257,15 @@ function DashboardContent() {
   const dismissNotification = () => {
     setNotification(null);
     // Clear URL parameters
-    window.history.replaceState({}, '', '/dashboard');
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.delete('error');
+    currentUrl.searchParams.delete('message');
+    currentUrl.searchParams.delete('success');
+    currentUrl.searchParams.delete('store_name');
+    currentUrl.searchParams.delete('store_id');
+    currentUrl.searchParams.delete('tab');
+    currentUrl.searchParams.delete('debug');
+    window.history.replaceState({}, '', currentUrl.toString());
   };
 
   const handleRefresh = () => {
