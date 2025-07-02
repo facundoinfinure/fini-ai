@@ -65,7 +65,7 @@ async function sendWelcomeMessageToUser(userId: string) {
       body: JSON.stringify({
         to: verifiedNumber.phone_number,
         storeId: firstStore.id,
-        userId: userId
+        userId
       })
     });
 

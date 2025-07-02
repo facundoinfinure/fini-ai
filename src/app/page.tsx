@@ -1,4 +1,4 @@
-import { Bot, ArrowRight, BarChart3, MessageSquare, Zap, Store, TrendingUp, Users, CheckCircle } from "lucide-react";
+import { Bot, ArrowRight, BarChart3, MessageSquare, TrendingUp, CheckCircle } from "lucide-react";
 
 export default function HomePage() {
   return (

@@ -134,7 +134,7 @@ export abstract class BaseAgent implements Agent {
       }
 
       // Format context for the agent
-      const _contextSections = _ragResult.documents.map((doc: any) => {
+      const _contextSections = _ragResult.documents.map((doc: { metadata?: { type?: string }; content: string }) => {
         return `[${doc.metadata?.type || 'data'}] ${doc.content}`;
       });
 
@@ -204,7 +204,7 @@ export abstract class BaseAgent implements Agent {
     response?: string,
     confidence = 0,
     reasoning?: string,
-    contextUsed?: any,
+    contextUsed?: unknown,
     executionTime?: number,
     error?: string
   ): AgentResponse {
@@ -274,7 +274,7 @@ export abstract class BaseAgent implements Agent {
   /**
    * Log agent activity
    */
-  protected log(level: 'info' | 'debug' | 'error', message: string, data?: any): void {
+  protected log(level: 'info' | 'debug' | 'error', message: string, data?: unknown): void {
     if (!AGENT_CONFIG.debugMode && level === 'debug') return;
     
     const _prefix = `[AGENT:${this.type.toUpperCase()}]`;

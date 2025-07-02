@@ -12,6 +12,22 @@ interface ChatMessage {
   namespace?: string;
 }
 
+interface ConversationMessage {
+  id: string;
+  body: string;
+  direction: 'inbound' | 'outbound';
+  agent_type?: 'orchestrator' | 'analytics' | 'customer_service' | 'marketing';
+  confidence?: number;
+  created_at: string;
+  processing_time_ms?: number;
+}
+
+interface ConversationData {
+  id: string;
+  messages: ConversationMessage[];
+  namespace?: string;
+}
+
 interface SyncStatus {
   whatsappConnected: boolean;
   whatsappNumber?: string;
@@ -73,9 +89,9 @@ export function useChat({
       if (data.success && data.conversations && data.conversations.length > 0) {
         const newMessages: ChatMessage[] = [];
         
-        data.conversations.forEach((conv: any) => {
+        data.conversations.forEach((conv: ConversationData) => {
           if (conv.messages && conv.messages.length > 0) {
-            conv.messages.forEach((msg: any) => {
+            conv.messages.forEach((msg: ConversationMessage) => {
               if (new Date(msg.created_at) > new Date(lastSyncRef.current)) {
                 newMessages.push({
                   id: msg.id,
@@ -130,8 +146,8 @@ export function useChat({
       const data = await response.json();
 
       if (data.success && data.conversations && data.conversations.length > 0) {
-        const conversation = data.conversations[0];
-        const loadedMessages = conversation.messages.map((msg: any) => ({
+        const conversation = data.conversations[0] as ConversationData;
+        const loadedMessages: ChatMessage[] = conversation.messages.map((msg: ConversationMessage) => ({
           id: msg.id,
           content: msg.body,
           direction: msg.direction,
@@ -139,7 +155,7 @@ export function useChat({
           confidence: msg.confidence,
           timestamp: msg.created_at,
           processingTime: msg.processing_time_ms,
-          platform: msg.direction === 'inbound' ? 'whatsapp' : 'dashboard',
+          platform: (msg.direction === 'inbound' ? 'whatsapp' : 'dashboard') as 'dashboard' | 'whatsapp',
           namespace: conversation.namespace
         }));
 

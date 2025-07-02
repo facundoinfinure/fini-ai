@@ -42,7 +42,7 @@ export interface AgentResponse {
   confidence: number;
   reasoning?: string;
   actions?: AgentAction[];
-  contextUsed?: RAGResult;
+  contextUsed?: unknown;
   metadata?: {
     executionTime?: number;
     ragUsed?: boolean;

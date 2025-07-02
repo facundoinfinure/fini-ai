@@ -389,7 +389,7 @@ Contexto: ${ragContext || 'No hay datos específicos disponibles'}`;
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data.stores) {
-          const storeStatus = data.data.stores.find((s: any) => s.storeId === storeId);
+          const storeStatus = data.data.stores.find((s: { storeId: string; needsSync: boolean; lastSyncAt?: string }) => s.storeId === storeId);
           return storeStatus ? {
             needsSync: storeStatus.needsSync,
             lastSync: storeStatus.lastSyncAt
