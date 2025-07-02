@@ -940,7 +940,7 @@ export default function OnboardingPage() {
                   title: "No estoy seguro",
                   description: "Explorar todas las opciones disponibles"
                 }
-              ].map((_goal) => (
+              ].map((goal) => (
                 <button
                   key={goal.id}
                   onClick={() => setSelectedGoal(goal.id)}
