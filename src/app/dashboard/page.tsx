@@ -459,8 +459,20 @@ function DashboardContent() {
   };
 
   const handleConversationDelete = async (conversationId: string) => {
+    // 💾 BACKUP: Guardar estado original para rollback
+    const originalConversations = [...conversations];
+    
     try {
       console.log('[INFO] Eliminando conversación:', conversationId);
+      
+      // 🔥 OPTIMISTIC UPDATE: Remover inmediatamente de la UI
+      const filteredConversations = conversations.filter(conv => conv.id !== conversationId);
+      setConversations(filteredConversations);
+      
+      // Limpiar selección si era la conversación seleccionada
+      if (selectedConversationId === conversationId) {
+        setSelectedConversationId(null);
+      }
       
       const response = await fetch(`/api/conversations/${conversationId}`, {
         method: 'DELETE',
@@ -472,30 +484,45 @@ function DashboardContent() {
       
       const data = await response.json();
       if (data.success) {
-        console.log('[INFO] Conversación eliminada exitosamente del backend:', conversationId);
+        console.log('[INFO] ✅ Conversación eliminada exitosamente del backend:', conversationId);
         
-        // Limpiar selección si era la conversación seleccionada
-        if (selectedConversationId === conversationId) {
-          setSelectedConversationId(null);
-        }
-        
-        // 🔥 SIMPLIFIED: Eliminar verificación agresiva que causa errores
-        // En lugar de múltiples reintentos, hacer una sola recarga simple
+        // 🔄 FORCE REFRESH: Asegurar que los datos estén sincronizados
         setTimeout(async () => {
           try {
-            console.log('[INFO] Recargando conversaciones después de eliminación');
-            await loadConversations();
-            console.log('[INFO] Conversaciones recargadas exitosamente');
+            console.log('[INFO] Verificando eliminación con recarga forzada');
+            
+            // Recarga forzada sin cache
+            const verifyResponse = await fetch('/api/conversations', {
+              method: 'GET',
+              headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+              }
+            });
+            
+            if (verifyResponse.ok) {
+              const verifyData = await verifyResponse.json();
+              if (verifyData.success) {
+                setConversations(verifyData.data || []);
+                console.log('[INFO] ✅ Lista de conversaciones actualizada desde servidor');
+              }
+            }
           } catch (error) {
-            console.warn('[WARNING] Error recargando conversaciones:', error);
-            // Fallback: forzar recarga de página si es necesario
-            // window.location.reload();
+            console.error('[ERROR] Error verificando eliminación:', error);
+            // Mantener optimistic update en caso de error de red
           }
-        }, 500); // Breve delay para permitir propagación del backend
+        }, 1000); // Mayor delay para asegurar propagación
         
-        console.log('[INFO] Eliminación completada exitosamente');
       } else {
         console.error('[ERROR] Backend failed to delete conversation:', data.error);
+        
+        // 🔄 ROLLBACK: Restaurar estado original si falla el backend
+        setConversations(originalConversations);
+        if (selectedConversationId === conversationId) {
+          setSelectedConversationId(conversationId);
+        }
+        
         setNotification({
           type: 'error',
           message: `Error eliminando conversación: ${data.error}`
@@ -503,6 +530,13 @@ function DashboardContent() {
       }
     } catch (error) {
       console.error('[ERROR] Network error deleting conversation:', error);
+      
+      // 🔄 ROLLBACK: Restaurar estado original en caso de error de red
+      setConversations(originalConversations);
+      if (selectedConversationId === conversationId) {
+        setSelectedConversationId(conversationId);
+      }
+      
       setNotification({
         type: 'error',
         message: 'Error de conexión eliminando conversación'
