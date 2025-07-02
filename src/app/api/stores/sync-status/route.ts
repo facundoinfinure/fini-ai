@@ -7,7 +7,7 @@ import { StoreService } from '@/lib/database/client';
  * Verifica el estado de sincronización de las tiendas del usuario
  * 🎯 PROPÓSITO: Proporcionar información en tiempo real sobre el estado de sync
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();

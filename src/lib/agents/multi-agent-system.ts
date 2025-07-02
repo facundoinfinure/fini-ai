@@ -166,7 +166,7 @@ export class FiniMultiAgentSystem implements IMultiAgentSystem {
     
     // Mock metrics for now - in production this would come from a metrics store
     const agentMetrics: AgentMetrics[] = Array.from(this.agents.entries()).map((_entry) => {
-      const [type, agent] = _entry;
+      const [type, _agent] = _entry;
       return {
         agentType: type,
         totalRequests: Math.floor(Math.random() * 100),

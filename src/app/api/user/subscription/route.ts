@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -101,7 +101,7 @@ export async function GET() {
     }
 
     const subscription = {
-      plan: plan,
+      plan,
       status: userProfile?.subscription_status || 'active',
       usage: {
         stores: stores?.length || 0,

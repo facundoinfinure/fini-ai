@@ -3,7 +3,7 @@
  * Defines interfaces and types for the multi-agent system
  */
 
-import type { RAGQuery, RAGResult } from '@/lib/rag/types';
+import type { RAGResult } from '@/lib/rag/types';
 
 export type AgentType = 'orchestrator' | 'analytics' | 'customer_service' | 'marketing' | 'stock_manager' | 'financial_advisor' | 'business_consultant' | 'product_manager' | 'operations_manager' | 'sales_coach';
 

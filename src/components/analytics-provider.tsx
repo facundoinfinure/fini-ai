@@ -42,7 +42,7 @@ function AnalyticsTracker() {
 
     const trackPageView = () => {
       const page = pathname || '/';
-      const section = getPageSection(page);
+      const _section = getPageSection(page);
       
       // segmentClientAnalytics.trackPageView({
       //   page: document.title || page,
@@ -76,7 +76,7 @@ function AnalyticsTracker() {
 
   // Track errors globally
   useEffect(() => {
-    const handleError = (event: ErrorEvent) => {
+    const handleError = (_event: ErrorEvent) => {
       // segmentClientAnalytics.trackClientError(new Error(event.message), {
       //   filename: event.filename,
       //   lineno: event.lineno,
@@ -85,7 +85,7 @@ function AnalyticsTracker() {
       // });
     };
 
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+    const handleUnhandledRejection = (_event: PromiseRejectionEvent) => {
       // segmentClientAnalytics.trackClientError(
       //   new Error(`Unhandled Promise Rejection: ${event.reason}`),
       //   {

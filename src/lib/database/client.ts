@@ -22,8 +22,8 @@ const _supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 console.log('[DEBUG] Supabase client configuration:', {
   urlExists: !!_supabaseUrl,
   serviceKeyExists: !!_supabaseServiceKey,
-  urlPrefix: _supabaseUrl ? _supabaseUrl.substring(0, 20) + '...' : 'missing',
-  serviceKeyPrefix: _supabaseServiceKey ? _supabaseServiceKey.substring(0, 10) + '...' : 'missing'
+  urlPrefix: _supabaseUrl ? `${_supabaseUrl.substring(0, 20)}...` : 'missing',
+  serviceKeyPrefix: _supabaseServiceKey ? `${_supabaseServiceKey.substring(0, 10)}...` : 'missing'
 });
 
 // Client for server-side operations (with service role key)

@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
         namespace: `store-${storeId}`,
         customerContext: {
           customerId: user.id,
-          storeId: storeId,
+          storeId,
           conversationId: finalConversationId
         }
       }

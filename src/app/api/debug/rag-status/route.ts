@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+// Forzar renderizado dinámico
+export const dynamic = 'force-dynamic';
+
 /**
  * Debug endpoint to check RAG data synchronization status
  * GET /api/debug/rag-status
@@ -10,7 +13,7 @@ import { createClient } from '@/lib/supabase/server';
  * - RAG engine configuration
  * - Sample search results
  */
-export async function GET(request: NextRequest): Promise<NextResponse> {
+export async function GET(_request: NextRequest): Promise<NextResponse> {
   try {
     console.log('[DEBUG:RAG] Checking RAG status...');
     

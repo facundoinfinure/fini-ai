@@ -4,6 +4,9 @@ import { getStoreAccessStats } from '@/lib/security/store-access';
 import { getRateLimitStatus } from '@/lib/security/rate-limiter';
 import { getAnomalyStatistics, getUserBehaviorPattern } from '@/lib/security/anomaly-detector';
 
+// Forzar renderizado dinámico
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/security/dashboard
  * Returns comprehensive security dashboard data

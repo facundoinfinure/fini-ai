@@ -1,10 +1,9 @@
 "use client";
 
-import { AlertTriangle, Home, RefreshCw, ArrowLeft } from "lucide-react";
+import { AlertTriangle, Home, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { Button } from "@/components/ui/button";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
