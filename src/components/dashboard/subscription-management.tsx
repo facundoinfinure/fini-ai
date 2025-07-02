@@ -403,7 +403,7 @@ export function SubscriptionManagement() {
         <div>
           <h2 className="text-xl font-semibold text-gray-900 mb-6 text-center">Planes Disponibles</h2>
           <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            {PLAN_CONFIGS.map((_planConfig) => {
+            {PLAN_CONFIGS.map((planConfig) => {
               const isCurrent = planConfig.id === subscription.plan;
               const isUpgradeOption = planConfig.id === 'pro' && subscription.plan === 'basic';
               const displayPrice = getDisplayPrice(planConfig, billingToggle);

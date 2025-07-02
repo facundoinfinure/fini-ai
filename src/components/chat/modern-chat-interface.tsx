@@ -314,7 +314,7 @@ export function ModernChatInterface({ selectedStore, onStoreUpdate }: ModernChat
             <textarea
               ref={textareaRef}
               value={inputValue}
-              onChange={(_e) => setInputValue(e.target.value)}
+              onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Pregúntame sobre tu tienda, ventas, productos, marketing, finanzas..."
               className="chat-input"
@@ -370,7 +370,7 @@ export function ModernChatInterface({ selectedStore, onStoreUpdate }: ModernChat
 
       {/* Messages Area */}
       <div className="chat-messages">
-        {messages.map((_message) => (
+        {messages.map((message) => (
           <div
             key={message.id}
             className={`message ${message.direction === 'inbound' ? 'user' : 'assistant'}`}
@@ -420,7 +420,7 @@ export function ModernChatInterface({ selectedStore, onStoreUpdate }: ModernChat
           <textarea
             ref={textareaRef}
             value={inputValue}
-            onChange={(_e) => setInputValue(e.target.value)}
+            onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Escribe tu mensaje..."
             className="chat-input"

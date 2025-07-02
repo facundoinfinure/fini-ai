@@ -216,7 +216,7 @@ export function ProfileManagement() {
               </label>
               <Input
                 value={fullName}
-                onChange={(_e) => setFullName(e.target.value)}
+                onChange={(e) => setFullName(e.target.value)}
                 placeholder="Tu nombre completo"
               />
             </div>
@@ -253,7 +253,7 @@ export function ProfileManagement() {
               </label>
               <Input
                 value={businessName}
-                onChange={(_e) => setBusinessName(e.target.value)}
+                onChange={(e) => setBusinessName(e.target.value)}
                 placeholder="Nombre de tu empresa"
               />
             </div>
@@ -263,7 +263,7 @@ export function ProfileManagement() {
               </label>
               <Input
                 value={businessType}
-                onChange={(_e) => setBusinessType(e.target.value)}
+                onChange={(e) => setBusinessType(e.target.value)}
                 placeholder="Ej: E-commerce, Servicios, etc."
               />
             </div>
@@ -275,7 +275,7 @@ export function ProfileManagement() {
             </label>
             <textarea
               value={description}
-              onChange={(_e) => setDescription(e.target.value)}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe brevemente tu negocio, productos o servicios..."
               className="w-full p-3 border border-gray-300 rounded-md min-h-[100px] focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent resize-none"
             />
@@ -287,7 +287,7 @@ export function ProfileManagement() {
             </label>
             <textarea
               value={targetAudience}
-              onChange={(_e) => setTargetAudience(e.target.value)}
+              onChange={(e) => setTargetAudience(e.target.value)}
               placeholder="Describe tu audiencia objetivo (edad, intereses, ubicación, etc.)"
               className="w-full p-3 border border-gray-300 rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent resize-none"
             />
@@ -331,7 +331,7 @@ export function ProfileManagement() {
                   </label>
                   <Input
                     value={competitor.name}
-                    onChange={(_e) => handleCompetitorChange(index, 'name', e.target.value)}
+                    onChange={(e) => handleCompetitorChange(index, 'name', e.target.value)}
                     placeholder="Nombre del competidor"
                     className="text-sm"
                   />
@@ -342,7 +342,7 @@ export function ProfileManagement() {
                   </label>
                   <Input
                     value={competitor.website}
-                    onChange={(_e) => handleCompetitorChange(index, 'website', e.target.value)}
+                    onChange={(e) => handleCompetitorChange(index, 'website', e.target.value)}
                     placeholder="https://..."
                     className="text-sm"
                   />
@@ -353,7 +353,7 @@ export function ProfileManagement() {
                   </label>
                   <Input
                     value={competitor.instagram}
-                    onChange={(_e) => handleCompetitorChange(index, 'instagram', e.target.value)}
+                    onChange={(e) => handleCompetitorChange(index, 'instagram', e.target.value)}
                     placeholder="@usuario"
                     className="text-sm"
                   />

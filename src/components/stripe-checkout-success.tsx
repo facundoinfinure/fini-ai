@@ -21,7 +21,7 @@ export function StripeCheckoutSuccess({ sessionId, onComplete }: StripeCheckoutS
   useEffect(() => {
     // Countdown timer for manual redirect option
     const timer = setInterval(() => {
-      setCountdown((_prev) => {
+      setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
           setShouldRedirect(false);

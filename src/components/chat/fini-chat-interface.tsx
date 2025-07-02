@@ -474,7 +474,7 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
 
             {/* Agent Showcase */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8 max-w-4xl">
-              {['analytics', 'marketing', 'customer_service', 'stock_manager', 'financial_advisor'].map((_agent) => {
+              {['analytics', 'marketing', 'customer_service', 'stock_manager', 'financial_advisor'].map((agent) => {
                 const config = getAgentConfig(agent);
                 const Icon = config.icon;
                 return (
@@ -509,7 +509,7 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
                 <textarea
                   ref={textareaRef}
                   value={inputValue}
-                  onChange={(_e) => setInputValue(e.target.value)}
+                  onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Pregúntame sobre tu tienda, ventas, productos, marketing..."
                   className="flex-1 resize-none border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent max-h-[120px]"
@@ -559,7 +559,7 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
 
           {/* Conversations List */}
           <div className="flex-1 overflow-y-auto">
-            {conversations.map((_conversation) => (
+            {conversations.map((conversation) => (
               <div
                 key={conversation.id}
                 className={`group relative p-3 mx-2 my-1 rounded-lg cursor-pointer transition-all duration-200 ${
@@ -577,12 +577,12 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
                       <input
                         ref={titleInputRef}
                         value={newTitle}
-                        onChange={(_e) => setNewTitle(e.target.value)}
+                        onChange={(e) => setNewTitle(e.target.value)}
                         onBlur={() => {
                           handleUpdateTitle(conversation.id, newTitle);
                           setEditingTitle(null);
                         }}
-                        onKeyPress={(_e) => {
+                        onKeyPress={(e) => {
                           if (e.key === 'Enter') {
                             handleUpdateTitle(conversation.id, newTitle);
                             setEditingTitle(null);
@@ -606,14 +606,14 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
                         variant="ghost"
                         size="sm"
                         className="opacity-0 group-hover:opacity-100 h-6 w-6 p-0"
-                        onClick={(_e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <MoreHorizontal className="h-3 w-3" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem 
-                        onClick={(_e) => {
+                        onClick={(e) => {
                           e.stopPropagation();
                           setEditingTitle(conversation.id);
                           setNewTitle(conversation.title || '');
@@ -624,7 +624,7 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem 
-                        onClick={(_e) => {
+                        onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteConversation(conversation.id);
                         }}
@@ -670,7 +670,7 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {messages.map((_message) => (
+          {messages.map((message) => (
             <div
               key={message.id}
               className={`flex items-start gap-3 ${
@@ -802,7 +802,7 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
             <textarea
               ref={textareaRef}
               value={inputValue}
-              onChange={(_e) => setInputValue(e.target.value)}
+              onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Escribe tu mensaje..."
               className="flex-1 resize-none border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent max-h-[120px]"

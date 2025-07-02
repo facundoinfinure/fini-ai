@@ -278,7 +278,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
       {/* Store List */}
       {stores && stores.length > 0 ? (
         <div className="space-y-3">
-          {stores.map((_store) => {
+          {stores.map((store) => {
             const storeStatus = getStoreStatus(store);
             const StatusIcon = storeStatus.icon;
             
@@ -374,7 +374,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
                 id="storeUrl"
                 type="url"
                 value={storeUrl}
-                onChange={(_e) => setStoreUrl(e.target.value)}
+                onChange={(e) => setStoreUrl(e.target.value)}
                 placeholder="https://mitienda.mitiendanube.com"
                 className="w-full"
                 disabled={isConnecting}
@@ -421,7 +421,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
                 id="storeName"
                 type="text"
                 value={formData.storeName}
-                onChange={(_e) => setFormData({ ...formData, storeName: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, storeName: e.target.value })}
                 placeholder="Mi Tienda"
               />
             </div>
@@ -434,7 +434,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
                 id="storeUrl"
                 type="url"
                 value={formData.storeUrl}
-                onChange={(_e) => setFormData({ ...formData, storeUrl: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, storeUrl: e.target.value })}
                 placeholder="https://mitienda.mitiendanube.com"
               />
             </div>
