@@ -110,11 +110,59 @@ export async function GET(request: NextRequest) {
 
       console.log('[INFO] Token exchange successful, user_id:', authResponse.user_id);
 
-      // Get store information using the access token
-      const tiendaNubeAPI = new TiendaNubeAPI(authResponse.access_token, authResponse.user_id.toString());
-      const storeInfo = await tiendaNubeAPI.getStore();
+      // 🔥 FIX: Get store ID first by making a direct API call to get user's stores
+      // Tienda Nube API structure: https://api.tiendanube.com/v1/{store_id}/...
+      // But the OAuth response gives us user_id, not store_id
+      // We need to get the store_id by making a request to the stores endpoint
+      
+      console.log('[DEBUG] Making request to get store information with user_id:', authResponse.user_id);
+      
+      // Try using user_id as store_id first (common case in Tienda Nube)
+      let storeInfo: any;
+      let actualStoreId = authResponse.user_id.toString();
+      
+      try {
+        // First attempt: try using user_id as store_id
+        const testAPI = new TiendaNubeAPI(authResponse.access_token, actualStoreId);
+        storeInfo = await testAPI.getStore();
+        console.log('[DEBUG] Successfully retrieved store using user_id as store_id');
+      } catch (userIdError) {
+        console.log('[DEBUG] Failed to get store with user_id, trying alternative method:', userIdError);
+        
+        // Alternative approach: Make direct API call to get stores list
+        try {
+          const storesResponse = await fetch(`https://api.tiendanube.com/v1/stores`, {
+            headers: {
+              'Authentication': `bearer ${authResponse.access_token}`,
+              'User-Agent': 'Fini-AI/1.0',
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (storesResponse.ok) {
+            const storesData = await storesResponse.json();
+            console.log('[DEBUG] Stores API response:', storesData);
+            
+            if (storesData && storesData.length > 0) {
+              // Use the first store (most common case)
+              const firstStore = storesData[0];
+              actualStoreId = firstStore.id.toString();
+              storeInfo = firstStore;
+              console.log('[DEBUG] Using first store from stores list:', actualStoreId);
+            } else {
+              throw new Error('No stores found for this user');
+            }
+          } else {
+            throw new Error(`Stores API failed: ${storesResponse.status}`);
+          }
+        } catch (storesError) {
+          console.error('[ERROR] Failed to retrieve store information:', storesError);
+          throw new Error(`Failed to retrieve store information: ${storesError.message}`);
+        }
+      }
 
       console.log('[INFO] Store info retrieved:', {
+        actualStoreId: actualStoreId,
         storeId: storeInfo.id,
         storeName: storeInfo.name || 'No name available'
       });
@@ -135,7 +183,7 @@ export async function GET(request: NextRequest) {
       const storeData = {
         user_id: session.user.id,
         platform: 'tiendanube' as const,
-        platform_store_id: storeInfo.id.toString(),
+        platform_store_id: actualStoreId, // 🔥 FIX: Use the actualStoreId we determined
         name: finalStoreName,
         domain: storeInfo.url || '',
         access_token: authResponse.access_token,
@@ -179,6 +227,7 @@ export async function GET(request: NextRequest) {
       const totalTime = Date.now() - startTime;
       console.log('[INFO] Tienda Nube store connected successfully:', {
         storeName: finalStoreName,
+        actualStoreId: actualStoreId,
         storeId: storeInfo.id,
         context: context,
         totalTime: `${totalTime}ms`
@@ -187,10 +236,10 @@ export async function GET(request: NextRequest) {
       // Redirigir según el contexto
       if (context === 'configuration') {
         // Si vino de configuración, redirigir al dashboard con pestaña de configuración
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?tab=configuration&success=store_connected&store_name=${encodeURIComponent(finalStoreName)}&store_id=${storeInfo.id}`);
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?tab=configuration&success=store_connected&store_name=${encodeURIComponent(finalStoreName)}&store_id=${actualStoreId}`);
       } else {
         // Si vino del onboarding, continuar con el flujo de onboarding
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=2&success=store_connected&store_name=${encodeURIComponent(finalStoreName)}&store_id=${storeInfo.id}`);
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=2&success=store_connected&store_name=${encodeURIComponent(finalStoreName)}&store_id=${actualStoreId}`);
       }
 
     } catch (oauthError) {

@@ -6,7 +6,6 @@ import type {
   TiendaNubeCustomer,
   TiendaNubeOrderProduct
 } from '@/types/tiendanube';
-import { TiendaNubeTokenManager } from './tiendanube-token-manager';
 
 const TIENDA_NUBE_API_BASE = 'https://api.tiendanube.com/v1';
 const CLIENT_ID = process.env.TIENDANUBE_CLIENT_ID || "";
@@ -28,7 +27,7 @@ export class TiendaNubeAPI {
 
   /**
    * Make API request to TiendaNube
-   * 🔥 IMPROVED: Better error handling and token validation
+   * 🔥 FIXED: Simplified to avoid circular dependency issues
    */
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     if (!this.accessToken) {
@@ -36,21 +35,10 @@ export class TiendaNubeAPI {
       throw new Error('No access token available');
     }
 
-    // 🔥 FIX: Check if we have a valid token first
-    const validToken = await TiendaNubeTokenManager.getValidToken(this.storeId);
-    if (!validToken) {
-      console.warn(`[TIENDANUBE] No valid token available for store ${this.storeId}, returning empty result`);
-      // Return appropriate empty response based on endpoint
-      if (endpoint.includes('/products')) return [] as unknown as T;
-      if (endpoint.includes('/orders')) return [] as unknown as T;
-      if (endpoint.includes('/customers')) return [] as unknown as T;
-      throw new Error('No valid token available');
-    }
-
     const url = `${TIENDA_NUBE_API_BASE}/${this.storeId}${endpoint}`;
     
     const defaultHeaders = {
-      'Authentication': `bearer ${validToken}`,
+      'Authentication': `bearer ${this.accessToken}`,
       'User-Agent': 'Fini-AI/1.0',
       'Content-Type': 'application/json',
     };
@@ -83,6 +71,8 @@ export class TiendaNubeAPI {
           throw new Error('Rate limit exceeded');
         }
         
+        const errorText = await response.text().catch(() => 'Unable to read error response');
+        console.error(`[TIENDANUBE] API Error ${response.status}:`, errorText);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
