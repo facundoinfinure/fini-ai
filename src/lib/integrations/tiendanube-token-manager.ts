@@ -66,28 +66,38 @@ export class TiendaNubeTokenManager {
       
       const supabase = createClient();
       
+      // 🔥 FIX: Determine if storeId is a UUID (our internal ID) or platform store ID (Tienda Nube ID)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(storeId);
+      
+      // 🔥 FIX: Search by the appropriate field based on ID format
+      const searchField = isUUID ? 'store_id' : 'platform_store_id';
+      console.log(`[TOKEN] Searching by ${searchField} for store: ${storeId}`);
+      
       // 🔥 FIX: Handle missing table gracefully
       const { data: store, error } = await supabase
-        .from('tiendanube_stores')
-        .select('access_token, refresh_token, token_expires_at')
-        .eq('store_id', storeId)
+        .from('stores')
+        .select('id, access_token, refresh_token, token_expires_at, platform_store_id')
+        .eq(searchField, storeId)
+        .eq('platform', 'tiendanube')
         .single();
 
       if (error) {
         // 🔥 FIX: Handle table not exists gracefully
         if (error.message?.includes('does not exist')) {
-          console.warn(`[TOKEN] TiendaNube stores table not found - this is expected for stores table setup: ${error.message}`);
+          console.warn(`[TOKEN] Stores table not found - this is expected for stores table setup: ${error.message}`);
           return null;
         }
         
-        console.warn(`[TOKEN] Store not found: ${storeId}`, error.message);
+        console.warn(`[TOKEN] Store not found: ${storeId} (searched by ${searchField})`, error.message);
         return null;
       }
 
       if (!store) {
-        console.warn(`[TOKEN] Store ${storeId} not found in database`);
+        console.warn(`[TOKEN] Store ${storeId} not found in database (searched by ${searchField})`);
         return null;
       }
+
+      console.log(`[TOKEN] Found store: ${store.id} (platform_store_id: ${store.platform_store_id})`);
 
       // Check if token is still valid (with 5-minute buffer)
       const expiresAt = new Date(store.token_expires_at || 0);
@@ -102,7 +112,7 @@ export class TiendaNubeTokenManager {
       // Token is expired or about to expire, try to refresh
       console.log(`[TOKEN] Token expired for store ${storeId}, attempting refresh`);
       
-      const refreshResult = await this.refreshToken(storeId, store.refresh_token);
+      const refreshResult = await this.refreshToken(store.id, store.refresh_token);
       
       if (refreshResult.success && refreshResult.accessToken) {
         console.log(`[TOKEN] ✅ Token refreshed successfully for store: ${storeId}`);
@@ -177,17 +187,17 @@ export class TiendaNubeTokenManager {
       const expiresIn = tokenData.expires_in || 3600; // seconds
       const expiresAt = new Date(Date.now() + expiresIn * 1000);
 
-      // Update database with new tokens
+      // 🔥 FIX: Update stores table with new tokens using our internal store ID
       const supabase = createClient();
       const { error: updateError } = await supabase
-        .from('tiendanube_stores')
+        .from('stores')
         .update({
           access_token: tokenData.access_token,
           refresh_token: tokenData.refresh_token || refreshToken, // Keep old refresh token if not provided
           token_expires_at: expiresAt.toISOString(),
           updated_at: new Date().toISOString()
         })
-        .eq('store_id', storeId);
+        .eq('id', storeId); // Use internal store ID
 
       if (updateError) {
         console.error(`[TOKEN] Failed to update tokens in database:`, updateError);
@@ -218,10 +228,15 @@ export class TiendaNubeTokenManager {
     try {
       const supabase = createClient();
       
+      // 🔥 FIX: Determine if storeId is a UUID (our internal ID) or platform store ID (Tienda Nube ID)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(storeId);
+      const searchField = isUUID ? 'id' : 'platform_store_id';
+      
       const { data: store, error } = await supabase
-        .from('tiendanube_stores')
+        .from('stores')
         .select('access_token, refresh_token, token_expires_at')
-        .eq('store_id', storeId)
+        .eq(searchField, storeId)
+        .eq('platform', 'tiendanube')
         .single();
 
       if (error || !store) {
@@ -265,8 +280,9 @@ export class TiendaNubeTokenManager {
       const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
       
       const { data: stores, error } = await supabase
-        .from('tiendanube_stores')
-        .select('store_id, refresh_token')
+        .from('stores')
+        .select('id, refresh_token')
+        .eq('platform', 'tiendanube')
         .lt('token_expires_at', oneHourFromNow.toISOString())
         .not('refresh_token', 'is', null);
 
@@ -279,7 +295,7 @@ export class TiendaNubeTokenManager {
       let failed = 0;
 
       for (const store of stores) {
-        const result = await this.refreshToken(store.store_id, store.refresh_token);
+        const result = await this.refreshToken(store.id, store.refresh_token);
         if (result.success) {
           refreshed++;
         } else {
