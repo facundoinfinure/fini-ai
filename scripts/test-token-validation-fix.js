@@ -13,8 +13,8 @@
  * 3. rag-engine.ts - Uses Token Manager for RAG indexing
  */
 
-import fetch from 'node-fetch';
-import { createClient } from '@supabase/supabase-js';
+const fetch = require('node-fetch');
+const { createClient } = require('@supabase/supabase-js');
 
 const API_BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://fini-tn.vercel.app';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -202,4 +202,4 @@ if (require.main === module) {
     });
 }
 
-export { testTokenValidationFix }; 
+module.exports = { testTokenValidationFix }; 
