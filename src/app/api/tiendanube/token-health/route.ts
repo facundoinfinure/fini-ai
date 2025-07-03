@@ -162,31 +162,34 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    console.log('[INFO] Starting forced token refresh operation');
+    console.log('[INFO] Starting global token health check operation');
     
     // This could be protected with admin authentication in the future
-    const { refreshAll = false } = await request.json();
+    const { healthCheckAll = false } = await request.json();
     
-    if (!refreshAll) {
+    if (!healthCheckAll) {
       return NextResponse.json(
-        { success: false, error: 'Parámetro refreshAll requerido' },
+        { success: false, error: 'Parámetro healthCheckAll requerido' },
         { status: 400 }
       );
     }
 
-    const result = await TiendaNubeTokenManager.refreshExpiringTokens();
+    // 🔥 FIXED: Use health check instead of refresh for TiendaNube
+    const result = await tiendaNubeTokenManager.runHealthCheck();
     
-    console.log(`[INFO] ✅ Forced refresh completed: ${result.refreshed} refreshed, ${result.failed} failed`);
+    console.log(`[INFO] ✅ Global health check completed: ${result.validStores} valid, ${result.invalidStores} invalid`);
 
     return NextResponse.json({
       success: true,
-      message: 'Refresh masivo completado',
-      refreshed: result.refreshed,
-      failed: result.failed
+      message: 'Health check global completado',
+      totalStores: result.totalStores,
+      validStores: result.validStores,
+      invalidStores: result.invalidStores,
+      reconnectionRequired: result.reconnectionRequired.length
     });
 
   } catch (error) {
-    console.error('[ERROR] Unexpected error during forced token refresh:', error);
+    console.error('[ERROR] Unexpected error during global health check:', error);
     return NextResponse.json(
       { success: false, error: 'Error interno del servidor' },
       { status: 500 }
