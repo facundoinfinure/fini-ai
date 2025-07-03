@@ -120,26 +120,80 @@ export class StoreService {
         };
       }
 
-      // 🔥 STEP 1: Create store record
-      const { data: store, error } = await _supabaseAdmin
-        .from('stores')
-        .insert([{
+      // 🔥 STEP 1: Detect database schema and map fields accordingly
+      console.log('[DEBUG] Detecting database schema for stores table...');
+      
+      let insertData: any;
+      try {
+        // Check if the old schema exists (tiendanube_store_id column)
+        const { error: schemaError } = await _supabaseAdmin
+          .from('stores')
+          .select('tiendanube_store_id')
+          .limit(1);
+        
+        if (schemaError && schemaError.message.includes('does not exist')) {
+          // New schema: use platform_store_id
+          console.log('[DEBUG] Using NEW schema (platform_store_id)');
+          insertData = {
+            ...storeData,
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+        } else {
+          // Old schema: map platform_store_id -> tiendanube_store_id
+          console.log('[DEBUG] Using OLD schema (tiendanube_store_id) - applying mapping');
+          insertData = {
+            ...storeData,
+            tiendanube_store_id: storeData.platform_store_id, // ✅ KEY MAPPING
+            platform_store_id: undefined, // Remove new field name
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          // Clean up undefined values
+          delete insertData.platform_store_id;
+        }
+      } catch (detectionError) {
+        console.warn('[WARNING] Schema detection failed, using old schema as fallback (most likely production):', detectionError);
+        // Fallback: Use old schema mapping since it's most likely production
+        insertData = {
           ...storeData,
+          tiendanube_store_id: storeData.platform_store_id, // ✅ KEY MAPPING
           is_active: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        }])
+        };
+        delete insertData.platform_store_id;
+      }
+
+      console.log('[DEBUG] Attempting to insert store with mapped data:', {
+        userId: insertData.user_id,
+        platform: insertData.platform,
+        hasOldField: !!insertData.tiendanube_store_id,
+        hasNewField: !!insertData.platform_store_id,
+        name: insertData.name
+      });
+
+      // 🔥 STEP 2: Create store record with mapped data
+      const { data: store, error } = await _supabaseAdmin
+        .from('stores')
+        .insert([insertData])
         .select()
         .single();
 
       if (error) {
         console.error('[ERROR] Failed to create store:', error);
+        console.error('[ERROR] Insert data used:', {
+          ...insertData,
+          access_token: insertData.access_token ? '[REDACTED]' : null
+        });
         return { success: false, error: error.message };
       }
 
       console.log(`[SUCCESS] Store created successfully: ${store.id}`);
 
-      // 🔥 STEP 2: Auto-trigger RAG sync for immediate functionality
+      // 🔥 STEP 3: Auto-trigger RAG sync for immediate functionality
       // This runs in background and doesn't block the response
       setImmediate(async () => {
         try {
@@ -162,7 +216,7 @@ export class StoreService {
         }
       });
 
-      // 🔥 STEP 3: Initialize store namespaces in parallel (non-blocking)
+      // 🔥 STEP 4: Initialize store namespaces in parallel (non-blocking)
       setImmediate(async () => {
         try {
           const { FiniRAGEngine } = await import('@/lib/rag');
