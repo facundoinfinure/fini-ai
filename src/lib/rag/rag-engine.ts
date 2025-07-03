@@ -66,24 +66,27 @@ export class FiniRAGEngine implements RAGEngine {
 
   /**
    * Index all data for a Tienda Nube store
-   * 🔥 FIXED: Robust token management with fallbacks
+   * 🔥 FIXED: Robust token management with fallbacks + ID mismatch fix
    */
   async indexStoreData(storeId: string, accessToken?: string): Promise<void> {
     try {
       console.warn(`[RAG:engine] Starting full store indexing for store: ${storeId}`);
 
-      // 🔥 STEP 1: Get valid token with comprehensive fallback strategy
+      // 🔥 STEP 1: Get valid token with comprehensive fallback strategy + store data
       let validToken: string | null = null;
+      let platformStoreId: string | null = null;
       let tokenSource = 'unknown';
       
       try {
-        // Try Token Manager first (most reliable)
+        // Try Token Manager first (most reliable) - NEW: Get both token and platform_store_id
         const { TiendaNubeTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
-        validToken = await TiendaNubeTokenManager.getValidToken(storeId);
+        const storeData = await TiendaNubeTokenManager.getValidTokenWithStoreData(storeId);
         
-        if (validToken) {
+        if (storeData) {
+          validToken = storeData.token;
+          platformStoreId = storeData.platformStoreId;
           tokenSource = 'token_manager';
-          console.warn(`[RAG:engine] ✅ Using validated token from Token Manager for store: ${storeId}`);
+          console.warn(`[RAG:engine] ✅ Using validated token from Token Manager for store: ${storeId} (platform_store_id: ${platformStoreId})`);
         }
       } catch (tokenManagerError) {
         console.warn(`[RAG:engine] ⚠️ Token Manager failed for store ${storeId}:`, tokenManagerError);
@@ -94,6 +97,25 @@ export class FiniRAGEngine implements RAGEngine {
         console.warn(`[RAG:engine] ⚠️ Using provided token as fallback for store: ${storeId}`);
         validToken = accessToken;
         tokenSource = 'provided_token';
+        
+        // Need to get platform_store_id from database for provided token fallback
+        try {
+          const { createClient } = await import('@/lib/supabase/server');
+          const supabase = createClient();
+          
+          const { data: store, error } = await supabase
+            .from('stores')
+            .select('platform_store_id')
+            .eq('id', storeId)
+            .single();
+
+          if (!error && store?.platform_store_id) {
+            platformStoreId = store.platform_store_id;
+            console.warn(`[RAG:engine] ✅ Retrieved platform_store_id for fallback: ${platformStoreId}`);
+          }
+        } catch (dbError) {
+          console.warn(`[RAG:engine] ❌ Failed to get platform_store_id for fallback:`, dbError);
+        }
       }
 
       // Final fallback: try to get from database directly
@@ -104,35 +126,39 @@ export class FiniRAGEngine implements RAGEngine {
           
           const { data: store, error } = await supabase
             .from('stores')
-            .select('access_token')
+            .select('access_token, platform_store_id')
             .eq('id', storeId)
             .single();
 
-          if (!error && store?.access_token) {
+          if (!error && store?.access_token && store?.platform_store_id) {
             validToken = store.access_token;
+            platformStoreId = store.platform_store_id;
             tokenSource = 'database_direct';
-            console.warn(`[RAG:engine] ⚠️ Using direct database token for store: ${storeId}`);
+            console.warn(`[RAG:engine] ⚠️ Using direct database token for store: ${storeId} (platform_store_id: ${platformStoreId})`);
           }
         } catch (dbError) {
           console.warn(`[RAG:engine] ❌ Database fallback failed for store ${storeId}:`, dbError);
         }
       }
 
-      if (!validToken) {
-        console.warn(`[RAG:engine] ❌ No valid token available for store: ${storeId} - skipping sync`);
+      if (!validToken || !platformStoreId) {
+        console.warn(`[RAG:engine] ❌ Missing credentials for store: ${storeId}`, {
+          hasToken: !!validToken,
+          hasPlatformStoreId: !!platformStoreId
+        });
         return;
       }
 
-      console.warn(`[RAG:engine] 🔑 Token source: ${tokenSource} for store: ${storeId}`);
+      console.warn(`[RAG:engine] 🔑 Token source: ${tokenSource} for store: ${storeId} (platform_store_id: ${platformStoreId})`);
 
-      // 🔥 STEP 2: Initialize API with retry logic
+      // 🔥 STEP 2: Initialize API with retry logic - FIXED: Use platformStoreId instead of storeId
       let api: TiendaNubeAPI;
       try {
-        api = new TiendaNubeAPI(validToken, storeId);
+        api = new TiendaNubeAPI(validToken, platformStoreId);
         
         // Test the connection with a lightweight API call
         await api.getStore();
-        console.warn(`[RAG:engine] ✅ API connection verified for store: ${storeId}`);
+        console.warn(`[RAG:engine] ✅ API connection verified for store: ${storeId} (platform_store_id: ${platformStoreId})`);
       } catch (connectionError) {
         console.warn(`[RAG:engine] ❌ API connection failed for store ${storeId}:`, connectionError);
         
@@ -144,10 +170,10 @@ export class FiniRAGEngine implements RAGEngine {
           try {
             console.warn(`[RAG:engine] 🔄 Retrying with Token Manager after auth failure for store: ${storeId}`);
             const { TiendaNubeTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
-            const retryToken = await TiendaNubeTokenManager.getValidToken(storeId);
+            const retryStoreData = await TiendaNubeTokenManager.getValidTokenWithStoreData(storeId);
             
-            if (retryToken && retryToken !== validToken) {
-              api = new TiendaNubeAPI(retryToken, storeId);
+            if (retryStoreData && retryStoreData.token !== validToken) {
+              api = new TiendaNubeAPI(retryStoreData.token, retryStoreData.platformStoreId);
               await api.getStore();
               console.warn(`[RAG:engine] ✅ Retry successful with refreshed token for store: ${storeId}`);
             } else {

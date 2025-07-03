@@ -119,8 +119,22 @@ export class TiendaNubeTokenManager {
    * 🔥 ENHANCED: Network-aware error handling with proper retry logic
    */
   static async getValidToken(storeId: string): Promise<string | null> {
+    const result = await this.getValidTokenWithStoreData(storeId);
+    return result?.token || null;
+  }
+
+  /**
+   * 🔥 NEW: Get valid token AND platform store ID to fix ID mismatch bugs
+   * Returns both token and platform_store_id for proper TiendaNube API calls
+   */
+  static async getValidTokenWithStoreData(storeId: string): Promise<{
+    token: string;
+    platformStoreId: string;
+    storeId: string;
+    storeName: string;
+  } | null> {
     try {
-      console.log(`[TOKEN] Getting valid token for store: ${storeId}`);
+      console.log(`[TOKEN] Getting valid token and store data for store: ${storeId}`);
       
       const supabase = createClient();
       
@@ -143,8 +157,11 @@ export class TiendaNubeTokenManager {
         return null;
       }
 
-      if (!store?.access_token) {
-        console.warn(`[TOKEN] Store ${storeId} has no access token`);
+      if (!store?.access_token || !store?.platform_store_id) {
+        console.warn(`[TOKEN] Store ${storeId} missing credentials:`, {
+          hasToken: !!store?.access_token,
+          hasPlatformId: !!store?.platform_store_id
+        });
         return null;
       }
 
@@ -162,7 +179,13 @@ export class TiendaNubeTokenManager {
           await api.getStore();
           
           console.log(`[TOKEN] ✅ Token validated successfully for store: ${storeId} (attempt ${attempt})`);
-          return store.access_token;
+          
+          return {
+            token: store.access_token,
+            platformStoreId: store.platform_store_id,
+            storeId: store.id,
+            storeName: store.name || 'Tienda sin nombre'
+          };
           
         } catch (validationError) {
           lastError = validationError instanceof Error ? validationError : new Error(String(validationError));
@@ -200,8 +223,14 @@ export class TiendaNubeTokenManager {
           // For network errors that couldn't be retried, return token anyway
           // The calling system can handle the network error appropriately
           if (errorInfo.isNetworkError) {
-            console.warn(`[TOKEN] ⚠️ Network error persists, but returning token for store ${storeId}. Error: ${lastError.message}`);
-            return store.access_token;
+            console.warn(`[TOKEN] ⚠️ Network error persists, but returning store data for ${storeId}. Error: ${lastError.message}`);
+            
+            return {
+              token: store.access_token,
+              platformStoreId: store.platform_store_id,
+              storeId: store.id,
+              storeName: store.name || 'Tienda sin nombre'
+            };
           }
           
           // For other errors, break out of retry loop
@@ -214,8 +243,14 @@ export class TiendaNubeTokenManager {
         const errorInfo = classifyError(lastError);
         
         if (errorInfo.isNetworkError) {
-          console.warn(`[TOKEN] ⚠️ Non-auth error during validation, returning token anyway: ${lastError.message}`);
-          return store.access_token;
+          console.warn(`[TOKEN] ⚠️ Non-auth error during validation, returning store data anyway: ${lastError.message}`);
+          
+          return {
+            token: store.access_token,
+            platformStoreId: store.platform_store_id,
+            storeId: store.id,
+            storeName: store.name || 'Tienda sin nombre'
+          };
         } else {
           console.error(`[TOKEN] ❌ Token validation failed definitively for store ${storeId}: ${lastError.message}`);
           return null;
@@ -226,7 +261,7 @@ export class TiendaNubeTokenManager {
       return null;
       
     } catch (error) {
-      console.error(`[TOKEN] Unexpected error getting token for store ${storeId}:`, error);
+      console.error(`[TOKEN] Unexpected error getting store data for ${storeId}:`, error);
       return null;
     }
   }

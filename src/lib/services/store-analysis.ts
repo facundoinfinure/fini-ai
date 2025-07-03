@@ -115,25 +115,52 @@ export class StoreAnalysisService {
     try {
       console.log(`[STORE-ANALYSIS] Starting analysis for store: ${storeId}`);
       
-      // 🔥 FIX: Get valid token using Token Manager instead of using potentially stale token
+      // 🔥 FIX: Get valid token AND platform_store_id using Token Manager to fix ID mismatch bug
       let validToken: string | null = null;
+      let platformStoreId: string | null = null;
+      
       try {
         const { TiendaNubeTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
-        validToken = await TiendaNubeTokenManager.getValidToken(storeId);
+        const storeData = await TiendaNubeTokenManager.getValidTokenWithStoreData(storeId);
         
-        if (!validToken) {
+        if (storeData) {
+          validToken = storeData.token;
+          platformStoreId = storeData.platformStoreId;
+          console.log(`[STORE-ANALYSIS] Using validated token for store: ${storeId} (platform_store_id: ${platformStoreId})`);
+        } else {
           console.warn(`[STORE-ANALYSIS] No valid token for store ${storeId}, using provided token as fallback`);
           validToken = accessToken; // Fallback to provided token
-        } else {
-          console.log(`[STORE-ANALYSIS] Using validated/refreshed token for store: ${storeId}`);
+          
+          // Need to get platform_store_id from database for fallback
+          try {
+            const { createClient } = await import('@/lib/supabase/server');
+            const supabase = createClient();
+            
+            const { data: store, error } = await supabase
+              .from('stores')
+              .select('platform_store_id')
+              .eq('id', storeId)
+              .single();
+
+            if (!error && store?.platform_store_id) {
+              platformStoreId = store.platform_store_id;
+              console.log(`[STORE-ANALYSIS] Retrieved platform_store_id for fallback: ${platformStoreId}`);
+            }
+          } catch (dbError) {
+            console.warn(`[STORE-ANALYSIS] Failed to get platform_store_id for fallback:`, dbError);
+          }
         }
       } catch (tokenError) {
         console.warn(`[STORE-ANALYSIS] Token validation failed, using provided token:`, tokenError);
         validToken = accessToken; // Fallback to provided token
       }
       
-      // 1. Extraer datos de Tienda Nube
-      const tiendaNubeAPI = new TiendaNubeAPI(validToken, storeId);
+      if (!validToken || !platformStoreId) {
+        throw new Error(`Missing credentials for store analysis: ${storeId}`);
+      }
+      
+      // 1. Extraer datos de Tienda Nube - FIXED: Use platform_store_id instead of storeId
+      const tiendaNubeAPI = new TiendaNubeAPI(validToken, platformStoreId);
       const [storeInfo, products] = await Promise.all([
         tiendaNubeAPI.getStore(),
         tiendaNubeAPI.getProducts({ limit: 100 }) // Suficiente para análisis
@@ -441,8 +468,6 @@ ${sampleProducts.map(p => `- ${p.name} (${p.price} ${store.currency})`).join('\n
     
     return features.length > 0 ? features : ['Productos de calidad', 'Fácil navegación'];
   }
-
-
 
   private getEmptyProfile(): BusinessProfile {
     return {
