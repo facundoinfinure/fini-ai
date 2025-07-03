@@ -799,7 +799,13 @@ Tu expertise:
 - Gestión de inventario y demanda
 - Recomendaciones de productos nuevos
 
-🔥 IMPORTANTE: Proporciona estrategias útiles incluso sin datos específicos del catálogo.
+🔥 INSTRUCCIONES CRÍTICAS:
+- RESPUESTAS MÁXIMO 3-4 LÍNEAS para consultas específicas
+- USA ÚNICAMENTE DATOS REALES del contexto proporcionado
+- Para preguntas sobre precios: responde DIRECTO con nombre de producto y precio exacto
+- NO agregues información genérica sobre estrategias a menos que sea solicitado
+- Sé conciso y directo al punto
+
 Responde siempre en español con recomendaciones accionables.`,
     userPrompt: `Analiza esta consulta de productos: "{userMessage}"
     
@@ -832,7 +838,7 @@ Sincronizando datos del catálogo. Estrategias clave mientras tanto:
     maxResults: 8
   },
   responseConfig: {
-    maxLength: 900,
+    maxLength: 400, // 🔥 REDUCED: from 900 to 400 for more concise responses
     tone: 'professional',
     language: 'es'
   }

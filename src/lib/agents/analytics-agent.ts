@@ -252,46 +252,22 @@ Formato de respuesta profesional en español.`;
     const systemPrompt = this.config.prompts.systemPrompt;
     
     // Check if we have actual product data
-    const hasData = ragContext && ragContext.length > 50 && !ragContext.includes('No hay datos');
+    const hasData = ragContext && ragContext.length > 50 && !ragContext.includes('No hay datos') && !ragContext.includes('ESTADO DE DATOS');
     
     if (!hasData) {
-      return `📊 **Análisis de Productos - Configuración Inicial Requerida**
+      return `📊 **Sincronizando productos...**
 
-**🔍 Estado Actual:**
-No encuentro productos en tu catálogo para analizar. Esto es normal si:
-- Es una tienda nueva
-- Los productos están en borrador (no publicados)
-- Hay productos demo que no son reales
+No encuentro productos para analizar. Esto es normal si:
+• Es una tienda nueva sin productos
+• Los productos están en borrador
+• Es necesario sincronizar datos
 
-**📈 Una vez que agregues productos reales, podré hacer:**
+**Próximos pasos:**
+1. Agrega productos reales en Tienda Nube
+2. Asegúrate que estén publicados
+3. Regresa y pregunta sobre analytics específicos
 
-**Análisis de Performance:**
-- 🏆 Ranking de productos más vendidos
-- 📉 Identificación de productos con bajo rendimiento  
-- 💰 Análisis de rentabilidad por producto
-- 📊 Performance por categorías
-
-**Métricas Detalladas:**
-- Tasa de conversión por producto
-- Ticket promedio por categoría
-- Velocidad de rotación de inventario
-- Análisis estacional de demanda
-
-**Recomendaciones Estratégicas:**
-- Optimización de precios
-- Estrategias de cross-selling y up-selling
-- Identificación de productos estrella
-- Detección de oportunidades de mejora
-
-**🚀 Para comenzar:**
-1. **Agrega productos reales** en tu panel de Tienda Nube
-2. **Publícalos** (importante: no dejarlos en borrador)
-3. **Incluye información completa:** precios, descripciones, stock
-4. **Regresa aquí** y pregunta: "¿cuáles son mis productos más vendidos?"
-
-**💡 Tip Profesional:** Empieza con 3-5 productos bien configurados. Es mejor tener pocos productos completos que muchos incompletos.
-
-¿Te ayudo con estrategias específicas para tu tipo de negocio mientras preparas tu catálogo?`;
+¿Te ayudo con estrategias mientras preparas tu catálogo?`;
     }
 
     const userPrompt = this.formatPrompt(this.config.prompts.userPrompt, {
@@ -317,7 +293,7 @@ Usa datos específicos cuando estén disponibles y proporciona recomendaciones a
     const systemPrompt = this.config.prompts.systemPrompt;
     
     // Check if we have actual product data
-    const hasData = ragContext && ragContext.length > 50 && !ragContext.includes('No hay datos');
+    const hasData = ragContext && ragContext.length > 50 && !ragContext.includes('No hay datos') && !ragContext.includes('ESTADO DE DATOS');
     
     if (!hasData) {
       // 🔥 AUTO-SYNC: Trigger immediate RAG sync when no product data found
@@ -339,48 +315,38 @@ Usa datos específicos cuando estén disponibles y proporciona recomendaciones a
         console.warn(`[ANALYTICS-AGENT] Auto-sync trigger failed:`, error);
       }
 
-      // 🚀 ENHANCED: Provide useful pricing strategy advice even without specific data
-      return `🎯 **Estrategia de Precios para tu Tienda**
+      // 🚀 ENHANCED: Provide useful but CONCISE pricing strategy advice
+      return `💰 **Sincronizando datos de productos...**
 
-He activado la sincronización de datos de tu tienda para obtener información específica de tus productos. Mientras tanto, aquí tienes estrategias de pricing para e-commerce:
+Activé la sincronización automática. Estrategias rápidas:
 
-**🔍 Análisis de Precios Recomendado:**
-• **Competencia directa**: Investiga precios de productos similares
-• **Margen objetivo**: Apunta a 40-60% de margen bruto en promedio
-• **Precio psicológico**: Usa terminaciones en .99 o .95
+• **Margen objetivo**: 40-60% para retail
+• **Pricing psicológico**: $99 en lugar de $100  
+• **Análisis competencia**: Investiga precios similares
 
-**📊 Estrategias de Pricing:**
-• **Penetración**: Precios bajos para ganar mercado inicialmente
-• **Premium**: Precios altos para posicionamiento de calidad
-• **Dinámico**: Ajustar según demanda y temporada
-
-**🚀 Próximos Pasos:**
-1. Completa la sincronización de productos (en progreso)
-2. Analiza precios de competidores directos
-3. Define tu propuesta de valor única
-
-¿Te gustaría que analice algún aspecto específico de pricing una vez que termine la sincronización de datos?`;
+¿Qué aspecto específico de pricing te interesa?`;
     }
 
-    const userPrompt = this.formatPrompt(this.config.prompts.userPrompt, {
-      userMessage: context.userMessage,
-      context: ragContext
-    });
+    // 🔥 ENHANCED: Use the real product data to provide specific, concise pricing analysis
+    const enhancedPrompt = `INSTRUCCIONES CRÍTICAS PARA ANÁLISIS DE PRECIOS:
 
-    const enhancedPrompt = `${userPrompt}
+1. **RESPUESTA MÁXIMO 3-4 LÍNEAS**
+2. **USA ÚNICAMENTE DATOS REALES** del contexto proporcionado
+3. **IDENTIFICA PRODUCTOS ESPECÍFICOS** con nombres y precios exactos
+4. **NO agregues información genérica** sobre estrategias de pricing
+5. **RESPONDE DIRECTAMENTE** la pregunta específica del usuario
 
-ENFOQUE ESPECÍFICO: ANÁLISIS DE PRECIOS DE PRODUCTOS
+Consulta del usuario: "${context.userMessage}"
 
-La consulta del usuario es sobre precios de productos. Analiza los datos disponibles y proporciona:
+Datos de productos disponibles:
+${ragContext}
 
-1. **Identificación directa del producto solicitado** (más caro, más barato, etc.)
-2. **Precio específico y nombre del producto**
-3. **Contexto adicional relevante** (categoría, comparación con otros productos)
-4. **Insight de pricing** si es relevante
+Formato esperado de respuesta:
+- Para "producto más caro": "Tu producto más caro es [NOMBRE] a $[PRECIO]"
+- Para "producto más barato": "Tu producto más barato es [NOMBRE] a $[PRECIO]"  
+- Para consultas generales: Lista los productos con sus precios reales
 
-Si hay múltiples productos, muestra el ranking top 3-5.
-Usa números específicos y nombres de productos reales.
-Sé directo y conciso.`;
+IMPORTANTE: Usa números y nombres EXACTOS del contexto, NO inventes información.`;
 
     return await this.generateResponse(systemPrompt, enhancedPrompt, ragContext);
   }

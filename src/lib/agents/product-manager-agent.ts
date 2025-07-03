@@ -216,44 +216,24 @@ export class ProductManagerAgent extends BaseAgent {
   }
 
   private async generateCatalogAnalysis(context: AgentContext, ragContext: string): Promise<string> {
-    const hasProductData = ragContext && ragContext.length > 50 && !ragContext.includes('ESTADO DE DATOS');
+    const hasProductData = ragContext && ragContext.length > 50 && !ragContext.includes('ESTADO DE DATOS') && !ragContext.includes('No hay datos');
     
     if (!hasProductData) {
-      // 🚀 ENHANCED: Provide valuable catalog strategy even without specific product data
-      return `📦 **Análisis de Catálogo - Optimizando tu Tienda**
+      return `📦 **Sincronizando catálogo...**
 
-He iniciado la sincronización de datos de tus productos. Mientras tanto, aquí tienes estrategias clave:
+Activé la sincronización de tus productos. Mientras tanto:
 
-**🎯 Fundamentos de un Catálogo Exitoso:**
-• **Categorización clara**: Organiza productos por tipo, precio, público objetivo
-• **Imágenes profesionales**: Mínimo 3-5 fotos por producto desde diferentes ángulos
-• **Descripciones SEO**: Incluye palabras clave que buscan tus clientes
-• **Precios competitivos**: Investiga la competencia y define tu posicionamiento
+**🎯 Optimizaciones rápidas:**
+• Agrega fotos profesionales (3-5 por producto)
+• Completa descripciones con palabras clave
+• Revisa precios vs competencia
+• Configura categorías claras
 
-**📊 Métricas de Catálogo a Monitorear:**
-• **Productos más vistos**: Identifica qué atrae a tus clientes
-• **Conversión por producto**: % de vistas que se convierten en ventas
-• **Inventario disponible**: Evita quedarte sin stock de top sellers
-• **Productos relacionados**: Sugiere complementos para aumentar ticket promedio
-
-**🚀 Optimizaciones Inmediatas:**
-1. **Reviews y ratings**: Activa sistema de reseñas
-2. **Cross-selling**: Configura "productos relacionados"
-3. **Filtros de búsqueda**: Facilita encontrar productos
-4. **Promociones**: Destaca ofertas y productos estrella
-
-**🔧 Herramientas Recomendadas:**
-• Google Merchant Center para aparecer en Shopping
-• Apps de reviews automáticos (Loox, Stamped)
-• Herramientas de A/B testing para descripciones
-
-Una vez completada la sincronización, te daré insights específicos sobre tu catálogo actual. ¿Hay algún aspecto particular de gestión de productos que te interese?`;
+¿Necesitas ayuda con algún aspecto específico?`;
     }
 
     // Use existing logic for when we have data
     return `📦 **Análisis de Catálogo**
-
-Basándome en los datos de tu tienda:
 
 ${ragContext}
 
@@ -261,37 +241,31 @@ Análisis completado - información específica de tu catálogo disponible.`;
   }
 
   private async generatePricingStrategy(context: AgentContext, ragContext: string): Promise<string> {
-    const hasData = ragContext && ragContext.length > 50 && !ragContext.includes('ESTADO DE DATOS');
+    const hasData = ragContext && ragContext.length > 50 && !ragContext.includes('ESTADO DE DATOS') && !ragContext.includes('No hay datos');
     
     if (!hasData) {
-      return `💰 **Estrategia de Precios Inteligente**
+      return `💰 **Sincronizando precios...**
 
-Activando sincronización de datos. Mientras tanto, estrategias de pricing efectivas:
+Activé la sincronización de productos. Estrategias rápidas:
 
-**🎯 Metodologías de Pricing:**
-• **Cost-plus**: Costo + margen deseado (simple pero limitado)
-• **Value-based**: Precio basado en valor percibido por cliente
-• **Competitive**: Análisis de precios de competencia directa
-• **Dynamic**: Ajustar según demanda, temporada, inventario
+**🎯 Pricing efectivo:**
+• Margen objetivo: 40-60% en retail
+• Usa precios psicológicos (.99, .95)
+• Analiza competencia directa
+• Considera bundles/paquetes
 
-**📊 Factores Clave a Considerar:**
-• **Margen objetivo**: 40-60% para retail, 20-30% para productos commodity
-• **Elasticidad de demanda**: Qué tan sensible es tu audiencia al precio
-• **Posicionamiento**: Premium, mid-market, o budget-friendly
-• **Ciclo de vida**: Precios diferentes para lanzamiento vs madurez
+¿Qué aspecto de pricing te interesa más?`;
+    }
 
-**🚀 Estrategias Avanzadas:**
-• **Bundle pricing**: Vende paquetes con descuento
-• **Psychological pricing**: $99 en lugar de $100
-• **Penetration pricing**: Precio bajo para ganar mercado rápido
-• **Skimming**: Precio alto inicial, luego reducir gradualmente
-
-**🔧 Herramientas de Monitoreo:**
-• Competitors pricing apps (PriceSpider, Competera)
-• A/B testing de precios en productos similares
-• Analytics de abandono de carrito por precio
-
-¿Quieres que analice algún aspecto específico de pricing cuando termine la sincronización?`;
+    // 🔥 ENHANCED: Direct pricing analysis with real data
+    const userMessage = context.userMessage.toLowerCase();
+    
+    // Check if this is asking for specific product pricing info
+    if (userMessage.includes('caro') || userMessage.includes('barato') || 
+        userMessage.includes('precio') || userMessage.includes('cuál es')) {
+      
+      // Use the RAG context to provide specific pricing information
+      return await this.generateSpecificPricingResponse(context, ragContext);
     }
 
     return `💰 **Estrategia de Precios**
@@ -301,39 +275,48 @@ ${ragContext}
 Análisis de precios completado con datos específicos de tu tienda.`;
   }
 
+  /**
+   * 🔥 NEW: Generate specific, concise pricing responses
+   */
+  private async generateSpecificPricingResponse(context: AgentContext, ragContext: string): Promise<string> {
+    const systemPrompt = `Eres un experto en análisis de productos. Responde de forma DIRECTA y CONCISA.
+
+INSTRUCCIONES CRÍTICAS:
+- Máximo 3-4 líneas de respuesta
+- Ve directo al punto sin información genérica
+- Usa solo datos REALES del contexto proporcionado
+- Si preguntan por el producto más caro/barato, identifica exactamente cuál es y su precio
+- NO agregues consejos genéricos de marketing
+- NO hagas listas largas de recomendaciones
+
+Formato de respuesta ideal:
+"Tu producto más caro es [NOMBRE] a $[PRECIO]. También tienes [OTROS] a $[PRECIO2]."`;
+
+    const userPrompt = `Consulta: ${context.userMessage}
+
+Datos de productos disponibles:
+${ragContext}
+
+Responde de forma DIRECTA y CONCISA usando únicamente la información real disponible.`;
+
+    return await this.generateResponse(systemPrompt, userPrompt, ragContext);
+  }
+
   private async generateProductRecommendations(context: AgentContext, ragContext: string): Promise<string> {
     const hasData = ragContext && ragContext.length > 50;
     
     if (!hasData) {
-      return `🎯 **Recomendaciones de Productos**
+      return `🎯 **Sincronizando catálogo...**
 
-Sincronizando catálogo actual. Estrategias universales para optimizar tu mix de productos:
+Activando análisis de productos. Estrategias mientras tanto:
 
-**📈 Productos de Alto Impacto:**
-• **Hero products**: 2-3 productos que definen tu marca
-• **Traffic drivers**: Productos que atraen visitantes (pueden tener menor margen)
-• **High-margin items**: Productos con excelente rentabilidad
-• **Seasonal winners**: Productos estacionales con alta demanda
+**🚀 Ideas de expansión:**
+• Bundles de productos existentes
+• Variaciones de color/tamaño
+• Productos complementarios
+• Items estacionales
 
-**🔍 Análisis de Gap de Productos:**
-• **Competitor gap analysis**: Qué venden otros que tú no tienes
-• **Customer requests**: Qué piden tus clientes que no ofreces
-• **Cross-sell opportunities**: Productos complementarios faltantes
-• **Price range gaps**: Segmentos de precio sin cubrir
-
-**🚀 Ideas de Expansión:**
-• **Bundles y kits**: Combina productos existentes
-• **Variaciones**: Diferentes colores, tamaños, materiales
-• **Productos de temporada**: Aprovecha eventos y festividades
-• **Private label**: Desarrolla productos exclusivos
-
-**📊 Validación Antes de Agregar:**
-• Research de demanda (Google Trends, keywords)
-• Análisis de competencia en ese segmento
-• Test con pequeño inventario inicial
-• Feedback directo de clientes actuales
-
-Te daré recomendaciones específicas basadas en tu catálogo actual una vez que termine la sincronización.`;
+Te daré recomendaciones específicas cuando termine la sincronización.`;
     }
 
     return `🎯 **Recomendaciones de Productos**

@@ -431,84 +431,80 @@ export class PineconeVectorStore implements VectorStore {
 
   /**
    * Delete vectors by IDs
-   * 🔥 ENHANCED: Comprehensive network error handling and graceful degradation
+   * 🔥 ENHANCED: Improved namespace awareness and error handling
    */
-  async delete(ids: string[]): Promise<void> {
+  async delete(vectorIds: string[], namespace?: string, context?: RAGQuery['context']): Promise<void> {
     try {
-      if (ids.length === 0) {
-        console.warn('[RAG:vector-store] No vectors to delete');
+      // SECURITY: Validate store access and log event
+      await this.validateStoreAccess(context);
+      await this.logSecurityEvent('rag_delete', context, true);
+      
+      if (vectorIds.length === 0) {
+        console.warn('[RAG:vector-store] No vector IDs provided for deletion');
         return;
       }
 
-      console.warn(`[RAG:vector-store] Deleting ${ids.length} vectors from Pinecone`);
-      
-      // 🔥 FIX: Use getIndex() instead of direct access to this.pinecone
-      // This ensures proper initialization and null checking
+      console.warn(`[RAG:vector-store] Deleting ${vectorIds.length} vectors from Pinecone`);
+
       const index = await this.getIndex();
       
-      // 🔥 FIX: Group vectors by namespace for proper deletion
-      const groupedIds = this.groupIdsByNamespace(ids);
+      // 🔥 ENHANCED: Use proper namespace or skip deletion if none specified
+      const targetNamespace = namespace || 
+        (context?.storeId ? RAG_CONSTANTS.NAMESPACES.store(context.storeId) : null);
       
-      for (const [namespace, namespaceIds] of Object.entries(groupedIds)) {
-        if (namespaceIds.length === 0) continue;
-        
-        console.warn(`[RAG:vector-store] Deleting ${namespaceIds.length} vectors from namespace: ${namespace}`);
+      if (!targetNamespace) {
+        console.warn('[RAG:vector-store] ⚠️ No namespace specified for deletion - skipping to prevent default namespace errors');
+        return;
+      }
+
+      // 🔥 FIX: Group vectors by namespace to avoid cross-contamination
+      const namespacedDeletions = new Map<string, string[]>();
+      
+      // If we have a target namespace, use it for all vectors
+      namespacedDeletions.set(targetNamespace, vectorIds);
+
+      console.warn(`[RAG:vector-store] Deleting ${vectorIds.length} vectors from namespace: ${targetNamespace}`);
+
+      // Process deletions by namespace
+      for (const [nsName, nsVectorIds] of namespacedDeletions) {
+        if (nsVectorIds.length === 0) continue;
         
         try {
-          // 🔥 NEW: Wrap each namespace deletion in retry logic
+          // 🔥 NEW: Use retry logic for delete operations
           await retryPineconeOperation(async () => {
-            await index.namespace(namespace).deleteMany(namespaceIds);
-          }, PINECONE_NETWORK_CONFIG.RETRY_ATTEMPTS, PINECONE_NETWORK_CONFIG.RETRY_DELAY_BASE, `delete:${namespace}`);
+            await index.namespace(nsName).deleteMany(nsVectorIds);
+          }, PINECONE_NETWORK_CONFIG.RETRY_ATTEMPTS, PINECONE_NETWORK_CONFIG.RETRY_DELAY_BASE, `delete:${nsName}`);
           
-          console.warn(`[RAG:vector-store] Successfully deleted ${namespaceIds.length} vectors from namespace: ${namespace}`);
-        } catch (namespaceError: any) {
+          console.warn(`[RAG:vector-store] ✅ Successfully deleted ${nsVectorIds.length} vectors from namespace: ${nsName}`);
+        } catch (deleteError) {
           const networkError = classifyPineconeError(
-            namespaceError instanceof Error ? namespaceError : new Error(String(namespaceError)), 
-            `delete:${namespace}`
+            deleteError instanceof Error ? deleteError : new Error(String(deleteError)), 
+            `delete:${nsName}`
           );
           
-          // Handle namespace-specific errors
-          if (namespaceError.message?.includes('404') || namespaceError.message?.includes('not found')) {
-            console.warn(`[RAG:vector-store] Namespace ${namespace} not found (404) - vectors may not exist`);
-            continue; // Don't throw error for 404s
+          // 🔥 IMPROVED: Handle 404 errors gracefully
+          if (deleteError instanceof Error && deleteError.message.includes('404')) {
+            console.warn(`[RAG:vector-store] Namespace ${nsName} not found (404) - vectors may not exist`);
+            // This is OK - just means the vectors were already deleted or never existed
+          } else if (networkError.isNetworkError) {
+            console.warn(`[RAG:vector-store] 🌐 Network error deleting from namespace ${nsName}:`, deleteError);
+            // Don't throw for network errors - the vectors might be deleted eventually
+          } else {
+            console.warn(`[RAG:vector-store] ❌ Failed to delete from namespace ${nsName}:`, deleteError);
+            // For non-network errors, we should probably throw to indicate the failure
+            throw deleteError;
           }
-          
-          if (networkError.isNetworkError) {
-            console.warn(`[RAG:vector-store] 🌐 Network error deleting from namespace ${namespace}, continuing:`, namespaceError);
-            continue; // Continue with other namespaces on network errors
-          }
-          
-          console.warn(`[RAG:vector-store] Failed to delete from namespace ${namespace}:`, namespaceError);
-          // Continue with other namespaces instead of failing completely
         }
       }
       
-      console.warn(`[RAG:vector-store] Completed deletion process for ${ids.length} vectors`);
-    } catch (error: any) {
+      console.warn(`[RAG:vector-store] Completed deletion process for ${vectorIds.length} vectors`);
+    } catch (error) {
       const networkError = classifyPineconeError(error instanceof Error ? error : new Error(String(error)), 'delete');
       
-      // 🔥 ENHANCED: Better error classification and graceful handling
-      if (error.message?.includes('Pinecone API key not configured')) {
-        console.warn(`[RAG:vector-store] Pinecone not configured - skipping vector deletion: ${error.message}`);
-        return; // Don't throw for configuration errors
-      }
-      
-      // 🔥 FIX: Handle 404 errors gracefully - vectors might not exist
-      if (error.message?.includes('404') || error.message?.includes('not found')) {
-        console.warn(`[RAG:vector-store] Vectors not found (404) - this is expected if vectors don't exist: ${error.message}`);
-        return; // Don't throw error for 404s
-      }
-      
-      // 🔥 ENHANCED: Handle network errors gracefully
       if (networkError.isNetworkError) {
-        console.warn(`[RAG:vector-store] 🌐 Network error during deletion (graceful degradation): ${error.message}`);
-        return; // Don't throw for network errors
-      }
-      
-      // 🔥 FIX: Handle other Pinecone errors gracefully
-      if (error.message?.includes('Pinecone')) {
-        console.warn(`[RAG:vector-store] Pinecone operation failed (non-critical): ${error.message}`);
-        return; // Don't throw for non-critical Pinecone errors
+        console.warn('[RAG:vector-store] 🌐 Network error during vector deletion:', error);
+        // For network errors, don't throw - the operation might succeed later
+        return;
       }
       
       console.warn('[ERROR] Failed to delete vectors from Pinecone:', error);
@@ -661,34 +657,6 @@ export class PineconeVectorStore implements VectorStore {
     }
 
     return Object.keys(pineconeFilter).length > 0 ? pineconeFilter : undefined;
-  }
-
-  /**
-   * Group vector IDs by namespace for deletion
-   */
-  private groupIdsByNamespace(ids: string[]): Record<string, string[]> {
-    const groups: Record<string, string[]> = {};
-    
-    for (const id of ids) {
-      // Extract namespace from ID pattern (assuming format: namespace_actualId)
-      const parts = id.split('_');
-      if (parts.length >= 2) {
-        const namespace = parts[0];
-        if (!groups[namespace]) {
-          groups[namespace] = [];
-        }
-        groups[namespace].push(id);
-      } else {
-        // Default namespace if pattern doesn't match
-        const defaultNamespace = 'default';
-        if (!groups[defaultNamespace]) {
-          groups[defaultNamespace] = [];
-        }
-        groups[defaultNamespace].push(id);
-      }
-    }
-    
-    return groups;
   }
 
   /**

@@ -291,61 +291,61 @@ Confidence: 0.9+ (muy seguro), 0.7+ (seguro), 0.5+ (moderado), <0.5 (inseguro)`;
     const _keywordCheck = this.hasKeywords(message, ROUTING_KEYWORDS.analytics);
     let score = _keywordCheck.score;
 
-    // Boost score for specific analytics patterns
-    if (message.includes('cuánto') && (message.includes('vend') || message.includes('gané'))) {
-      score += 0.4;
-    }
-    if (message.includes('reporte') || message.includes('estadística') || message.includes('métrica')) {
-      score += 0.3;
-    }
-    if (message.includes('comparar') || message.includes('vs') || message.includes('anterior')) {
-      score += 0.3;
-    }
+    // ANALYTICS: Métricas, performance y análisis de datos
     
-    // 🔥 CORRECTED: ANALYTICS maneja PERFORMANCE, no características
-    if (message.includes('producto') || message.includes('productos')) {
-      // Performance queries (analytics domain) - ALTA PRIORIDAD
-      if (message.includes('más vendidos') || message.includes('mas vendidos') || 
-          message.includes('top vendidos') || message.includes('mejores vendidos') ||
-          message.includes('populares') || message.includes('bestsellers')) {
-        score += 0.8; // "productos más vendidos" -> analytics (PERFORMANCE)
-      }
-      
-      // Sales performance queries
-      if (message.includes('vendí') || message.includes('vendi') || 
-          message.includes('venden') || message.includes('venta de') ||
-          message.includes('ventas de')) {
-        score += 0.8; // Cualquier consulta sobre VENTAS de productos
-      }
-      
-      // Revenue/profit performance
-      if (message.includes('más rentable') || message.includes('genera más') || 
-          message.includes('mejor margen') || message.includes('más ganancia') ||
-          message.includes('ganan más') || message.includes('dan más') ||
-          message.includes('me dan') || message.includes('me generan')) {
-        score += 0.7; // Performance financiera
-      }
+    // 🔥 Core analytics keywords
+    if (message.includes('analytics') || message.includes('analíticas') || 
+        message.includes('analisis') || message.includes('análisis')) {
+      score += 0.8;
       
       if (message.includes('performance') || message.includes('estadísticas') || 
           message.includes('métricas') || message.includes('análisis de ventas')) {
         score += 0.6;
       }
       
-      // REDUCE score para consultas de CARACTERÍSTICAS/CATÁLOGO (van a Product Manager)
-      if (message.includes('caro') || message.includes('barato') || message.includes('precio') ||
+      // 🔥 REDUCE score para consultas de CARACTERÍSTICAS/CATÁLOGO (van a Product Manager)
+      if (message.includes('caro') || message.includes('barato') || 
           message.includes('tengo') || message.includes('cargados') || 
           message.includes('hay') || message.includes('catálogo') ||
           message.includes('disponible') || message.includes('stock') ||
           message.includes('cuál es') || message.includes('qué es')) {
-        score -= 0.5; // Estas son consultas de INFORMACIÓN, van a Product Manager
+        score -= 0.7; // 🔥 Estas son consultas de INFORMACIÓN, van a Product Manager
       }
     }
     
-    // Ventas y métricas específicas
+    // 🔥 ENHANCED: Ventas y métricas específicas SOLO
     if ((message.includes('cuánto') || message.includes('cuántas') || message.includes('cuanto')) && 
         (message.includes('ventas') || message.includes('vendí') || message.includes('vendi') || 
-         message.includes('facturé') || message.includes('facture'))) {
-      score += 0.7; // Consultas sobre cantidades de ventas
+         message.includes('facturé') || message.includes('facture') || message.includes('gané') ||
+         message.includes('ingresos') || message.includes('revenue'))) {
+      score += 0.9; // Consultas sobre cantidades de ventas/facturación
+    }
+
+    // Performance y métricas de productos
+    if (message.includes('más vendidos') || message.includes('mas vendidos') ||
+        message.includes('bestsellers') || message.includes('top selling') ||
+        message.includes('populares') || message.includes('performance')) {
+      score += 0.8; // Performance va a Analytics
+    }
+
+    // Financial metrics
+    if (message.includes('revenue') || message.includes('ingresos') || 
+        message.includes('facturación') || message.includes('ganancia') ||
+        message.includes('margen') || message.includes('roi')) {
+      score += 0.7;
+    }
+
+    // Customer analytics
+    if (message.includes('clientes') && (message.includes('análisis') || 
+        message.includes('comportamiento') || message.includes('segmentación'))) {
+      score += 0.6;
+    }
+
+    // Time-based analytics
+    if ((message.includes('esta semana') || message.includes('este mes') || 
+         message.includes('hoy') || message.includes('ayer')) && 
+        (message.includes('ventas') || message.includes('performance'))) {
+      score += 0.6;
     }
 
     return Math.min(Math.max(score, 0), 1.0);
@@ -471,13 +471,15 @@ Confidence: 0.9+ (muy seguro), 0.7+ (seguro), 0.5+ (moderado), <0.5 (inseguro)`;
 
     // PRODUCT MANAGER: Gestión de catálogo, información y características de productos
     
-    // MÁXIMA PRIORIDAD: Información y características de productos
+    // 🔥 MÁXIMA PRIORIDAD: Información y características de productos
     if (message.includes('producto') || message.includes('productos')) {
-      // PRECIOS Y CARACTERÍSTICAS - "¿cuál es el producto más caro?"
+      // 🔥 ENHANCED: PRECIOS Y CARACTERÍSTICAS - "¿cuál es el producto más caro?"
       if (message.includes('caro') || message.includes('barato') || 
           message.includes('precio') || message.includes('cuesta') ||
-          message.includes('vale') || message.includes('costoso')) {
-        score += 0.9; // MÁXIMA PRIORIDAD para información de precios
+          message.includes('vale') || message.includes('costoso') ||
+          message.includes('más caro') || message.includes('mas caro') ||
+          message.includes('más barato') || message.includes('mas barato')) {
+        score += 0.95; // 🔥 MÁXIMA PRIORIDAD para información de precios de productos específicos
       }
       
       // INFORMACIÓN DEL CATÁLOGO - "¿qué productos tengo?"
@@ -520,10 +522,17 @@ Confidence: 0.9+ (muy seguro), 0.7+ (seguro), 0.5+ (moderado), <0.5 (inseguro)`;
       }
     }
     
-    // Consultas específicas de catálogo
-    if ((message.includes('qué') || message.includes('cuáles') || message.includes('cuántos')) && 
+    // 🔥 ENHANCED: Consultas específicas de catálogo e información
+    if ((message.includes('qué') || message.includes('cuáles') || message.includes('cuántos') || 
+         message.includes('cual') || message.includes('cuales') || message.includes('cuantos')) && 
         (message.includes('productos') || message.includes('catálogo'))) {
-      score += 0.5; // "¿qué productos..." -> Product Manager
+      score += 0.7; // "¿qué productos..." -> Product Manager
+    }
+    
+    // 🔥 BOOST: Preguntas sobre precio sin contexto de ventas
+    if (message.includes('precio') && !message.includes('vendido') && 
+        !message.includes('venta') && !message.includes('facturación')) {
+      score += 0.5; // Información de precios va a Product Manager
     }
     
     // Gestión de catálogo
