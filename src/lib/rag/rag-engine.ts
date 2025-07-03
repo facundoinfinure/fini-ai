@@ -240,11 +240,13 @@ export class FiniRAGEngine implements RAGEngine {
         console.warn('[WARNING] Failed to index products:', error);
       }
 
-      // 🔥 STEP 6: Index orders (for analytics)
+      // 🔥 STEP 6: Index orders (for analytics) - Enhanced graceful handling
       try {
+        console.warn(`[RAG:engine] 📊 Fetching orders for store: ${storeId}`);
         const orders = await api.getOrders({ limit: 100 });
         
         if (orders && orders.length > 0) {
+          console.warn(`[RAG:engine] 📊 Found ${orders.length} orders for indexing`);
           for (const order of orders) {
             const orderContent = this.processor.processOrderData(order);
             indexingPromises.push(
@@ -259,16 +261,28 @@ export class FiniRAGEngine implements RAGEngine {
               })
             );
           }
+        } else {
+          console.warn(`[RAG:engine] ℹ️ No orders found for store: ${storeId} (normal for new stores)`);
         }
-      } catch (error) {
-        console.warn('[WARNING] Failed to index orders:', error);
+      } catch (error: any) {
+        // 🔥 ENHANCED: Distinguish between normal empty datasets vs real errors
+        if (error.message?.includes('Resource not found') || error.message?.includes('404')) {
+          console.warn(`[RAG:engine] ℹ️ Orders endpoint not available for store ${storeId} (normal for stores without orders)`);
+        } else if (error.message?.includes('Forbidden') || error.message?.includes('403')) {
+          console.warn(`[RAG:engine] ℹ️ Orders endpoint restricted for store ${storeId} (normal for some plans)`);
+        } else {
+          console.warn(`[RAG:engine] ⚠️ Failed to fetch orders for store ${storeId}:`, error);
+        }
+        // Don't throw - continue with other data types
       }
 
-      // 🔥 STEP 7: Index customers
+      // 🔥 STEP 7: Index customers - Enhanced graceful handling
       try {
+        console.warn(`[RAG:engine] 👥 Fetching customers for store: ${storeId}`);
         const customers = await api.getCustomers({ limit: 100 });
         
         if (customers && customers.length > 0) {
+          console.warn(`[RAG:engine] 👥 Found ${customers.length} customers for indexing`);
           for (const customer of customers) {
             const customerContent = this.processor.processCustomerData(customer);
             indexingPromises.push(
@@ -282,13 +296,24 @@ export class FiniRAGEngine implements RAGEngine {
               })
             );
           }
+        } else {
+          console.warn(`[RAG:engine] ℹ️ No customers found for store: ${storeId} (normal for new stores)`);
         }
-      } catch (error) {
-        console.warn('[WARNING] Failed to index customers:', error);
+      } catch (error: any) {
+        // 🔥 ENHANCED: Distinguish between normal empty datasets vs real errors
+        if (error.message?.includes('Resource not found') || error.message?.includes('404')) {
+          console.warn(`[RAG:engine] ℹ️ Customers endpoint not available for store ${storeId} (normal for stores without customers)`);
+        } else if (error.message?.includes('Forbidden') || error.message?.includes('403')) {
+          console.warn(`[RAG:engine] ℹ️ Customers endpoint restricted for store ${storeId} (normal for some plans)`);
+        } else {
+          console.warn(`[RAG:engine] ⚠️ Failed to fetch customers for store ${storeId}:`, error);
+        }
+        // Don't throw - continue with other data types
       }
 
-      // 🔥 STEP 8: Index analytics data
+      // 🔥 STEP 8: Index analytics data - Enhanced graceful handling
       try {
+        console.warn(`[RAG:engine] 📈 Fetching analytics for store: ${storeId}`);
         const analytics = await api.getStoreAnalytics();
         const analyticsContent = this.processor.processAnalyticsData(analytics, 'current');
         indexingPromises.push(
@@ -299,8 +324,17 @@ export class FiniRAGEngine implements RAGEngine {
             timestamp: new Date().toISOString(),
           })
         );
-      } catch (error) {
-        console.warn('[WARNING] Failed to index analytics:', error);
+        console.warn(`[RAG:engine] 📈 Analytics data queued for indexing`);
+      } catch (error: any) {
+        // 🔥 ENHANCED: Distinguish between normal empty datasets vs real errors
+        if (error.message?.includes('Resource not found') || error.message?.includes('404')) {
+          console.warn(`[RAG:engine] ℹ️ Analytics endpoint not available for store ${storeId} (normal for some TiendaNube plans)`);
+        } else if (error.message?.includes('Forbidden') || error.message?.includes('403')) {
+          console.warn(`[RAG:engine] ℹ️ Analytics endpoint restricted for store ${storeId} (normal for basic plans)`);
+        } else {
+          console.warn(`[RAG:engine] ⚠️ Failed to fetch analytics for store ${storeId}:`, error);
+        }
+        // Don't throw - continue without analytics data
       }
 
       // 🔥 STEP 9: Process all indexing operations in batches

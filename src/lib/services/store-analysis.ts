@@ -92,6 +92,28 @@ export interface StoreAnalysisResult {
 }
 
 /**
+ * 📊 Interface for order analysis results
+ */
+export interface OrderAnalysis {
+  totalOrders: number;
+  totalRevenue: number;
+  averageOrderValue: number;
+  conversionRate: number;
+  trend: 'growing' | 'declining' | 'neutral';
+  insights: string[];
+}
+
+/**
+ * 👥 Interface for customer analysis results
+ */
+export interface CustomerAnalysis {
+  totalCustomers: number;
+  newCustomers: number;
+  returningCustomers: number;
+  insights: string[];
+}
+
+/**
  * 🤖 Store Analysis Service
  * Analiza automáticamente una tienda de Tienda Nube y genera perfil de negocio con AI
  */
@@ -490,6 +512,180 @@ ${sampleProducts.map(p => `- ${p.name} (${p.price} ${store.currency})`).join('\n
       confidence: 0,
       analysisDate: new Date().toISOString()
     };
+  }
+
+  /**
+   * 📊 Análisis de órdenes con manejo graceful de endpoints vacíos
+   */
+  private async analyzeOrders(api: TiendaNubeAPI): Promise<OrderAnalysis> {
+    try {
+      console.log('[STORE-ANALYSIS] 📊 Analyzing orders...');
+      
+      // Fetch recent orders (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const orders = await api.getOrders({ 
+        limit: 100,
+        created_at_min: thirtyDaysAgo.toISOString(),
+      });
+
+      // If no orders, return empty analysis (normal for new stores)
+      if (!orders || orders.length === 0) {
+        console.log('[STORE-ANALYSIS] ℹ️ No orders found (normal for new stores)');
+        return {
+          totalOrders: 0,
+          totalRevenue: 0,
+          averageOrderValue: 0,
+          conversionRate: 0,
+          trend: 'neutral' as const,
+          insights: ['Esta tienda es nueva y aún no tiene órdenes registradas.'],
+        };
+      }
+
+      console.log(`[STORE-ANALYSIS] Found ${orders.length} orders for analysis`);
+
+      const totalRevenue = orders.reduce((sum, order) => sum + parseFloat(order.total || '0'), 0);
+      const averageOrderValue = totalRevenue / orders.length;
+
+      // Analyze order statuses
+      const statusCounts = orders.reduce((acc, order) => {
+        const status = order.status || 'unknown';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const insights: string[] = [];
+      
+      if (orders.length > 0) {
+        insights.push(`Tienes ${orders.length} órdenes en los últimos 30 días.`);
+        insights.push(`Ingresos totales: $${totalRevenue.toFixed(2)}.`);
+        insights.push(`Valor promedio por orden: $${averageOrderValue.toFixed(2)}.`);
+      }
+
+      // Analyze trends (basic implementation)
+      const recentOrders = orders.filter(o => {
+        const orderDate = new Date(o.created_at);
+        const fifteenDaysAgo = new Date();
+        fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+        return orderDate >= fifteenDaysAgo;
+      });
+
+      const trend = recentOrders.length > orders.length / 2 ? 'growing' : 'declining';
+
+      return {
+        totalOrders: orders.length,
+        totalRevenue,
+        averageOrderValue,
+        conversionRate: 0, // Would need traffic data
+        trend,
+        insights,
+      };
+    } catch (error: any) {
+      // 🔥 ENHANCED: Graceful handling of TiendaNube endpoint limitations
+      if (error.message?.includes('Resource not found') || error.message?.includes('404')) {
+        console.log('[STORE-ANALYSIS] ℹ️ Orders endpoint not available (normal for some stores)');
+        return {
+          totalOrders: 0,
+          totalRevenue: 0,
+          averageOrderValue: 0,
+          conversionRate: 0,
+          trend: 'neutral' as const,
+          insights: ['No se pudo acceder a los datos de órdenes. Esto es normal en algunos planes de TiendaNube.'],
+        };
+      } else if (error.message?.includes('Forbidden') || error.message?.includes('403')) {
+        console.log('[STORE-ANALYSIS] ℹ️ Orders endpoint restricted by plan');
+        return {
+          totalOrders: 0,
+          totalRevenue: 0,
+          averageOrderValue: 0,
+          conversionRate: 0,
+          trend: 'neutral' as const,
+          insights: ['Los datos de órdenes están restringidos en tu plan actual de TiendaNube.'],
+        };
+      } else {
+        console.error('[STORE-ANALYSIS] ❌ Error analyzing orders:', error);
+        return {
+          totalOrders: 0,
+          totalRevenue: 0,
+          averageOrderValue: 0,
+          conversionRate: 0,
+          trend: 'neutral' as const,
+          insights: ['Error al analizar las órdenes. Se reintentará automáticamente.'],
+        };
+      }
+    }
+  }
+
+  /**
+   * 👥 Análisis de clientes con manejo graceful
+   */
+  private async analyzeCustomers(api: TiendaNubeAPI): Promise<CustomerAnalysis> {
+    try {
+      console.log('[STORE-ANALYSIS] 👥 Analyzing customers...');
+      
+      const customers = await api.getCustomers({ limit: 100 });
+
+      // If no customers, return empty analysis (normal for new stores)
+      if (!customers || customers.length === 0) {
+        console.log('[STORE-ANALYSIS] ℹ️ No customers found (normal for new stores)');
+        return {
+          totalCustomers: 0,
+          newCustomers: 0,
+          returningCustomers: 0,
+          insights: ['Esta tienda es nueva y aún no tiene clientes registrados.'],
+        };
+      }
+
+      console.log(`[STORE-ANALYSIS] Found ${customers.length} customers for analysis`);
+
+      const insights: string[] = [];
+      insights.push(`Tienes ${customers.length} clientes registrados.`);
+
+      // Basic customer analysis
+      const customersWithOrders = customers.filter(c => c.last_order_id !== null && parseFloat(c.total_spent || '0') > 0);
+      const returningCustomers = customers.filter(c => parseFloat(c.total_spent || '0') > 0); // Assume customers with spending are returning
+
+      insights.push(`${customersWithOrders.length} clientes han realizado al menos una compra.`);
+      
+      if (returningCustomers.length > 0) {
+        insights.push(`${returningCustomers.length} son clientes con historial de compras.`);
+      }
+
+      return {
+        totalCustomers: customers.length,
+        newCustomers: customers.length - returningCustomers.length,
+        returningCustomers: returningCustomers.length,
+        insights,
+      };
+    } catch (error: any) {
+      // 🔥 ENHANCED: Graceful handling of TiendaNube endpoint limitations
+      if (error.message?.includes('Resource not found') || error.message?.includes('404')) {
+        console.log('[STORE-ANALYSIS] ℹ️ Customers endpoint not available (normal for some stores)');
+        return {
+          totalCustomers: 0,
+          newCustomers: 0,
+          returningCustomers: 0,
+          insights: ['No se pudo acceder a los datos de clientes. Esto es normal en algunos planes de TiendaNube.'],
+        };
+      } else if (error.message?.includes('Forbidden') || error.message?.includes('403')) {
+        console.log('[STORE-ANALYSIS] ℹ️ Customers endpoint restricted by plan');
+        return {
+          totalCustomers: 0,
+          newCustomers: 0,
+          returningCustomers: 0,
+          insights: ['Los datos de clientes están restringidos en tu plan actual de TiendaNube.'],
+        };
+      } else {
+        console.error('[STORE-ANALYSIS] ❌ Error analyzing customers:', error);
+        return {
+          totalCustomers: 0,
+          newCustomers: 0,
+          returningCustomers: 0,
+          insights: ['Error al analizar los clientes. Se reintentará automáticamente.'],
+        };
+      }
+    }
   }
 }
 

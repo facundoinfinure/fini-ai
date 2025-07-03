@@ -175,7 +175,7 @@ export class PineconeVectorStore implements VectorStore {
 
   /**
    * Upsert document chunks to Pinecone
-   * 🔥 ENHANCED: Comprehensive error handling and retry logic
+   * 🔥 ENHANCED: Comprehensive error handling and retry logic + metadata flattening
    */
   async upsert(chunks: DocumentChunk[]): Promise<void> {
     try {
@@ -205,8 +205,8 @@ export class PineconeVectorStore implements VectorStore {
           values: chunk.embedding,
           metadata: {
             content: chunk.content,
-            ...chunk.metadata,
-            // Flatten nested metadata for Pinecone
+            // 🔥 CRITICAL FIX: Flatten nested metadata for Pinecone validation
+            ...this.flattenMetadataForPinecone(chunk.metadata),
             indexedAt: new Date().toISOString(),
           },
         };
@@ -246,6 +246,95 @@ export class PineconeVectorStore implements VectorStore {
       console.warn('[ERROR] Failed to upsert chunks to Pinecone:', error);
       throw new Error(`Vector upsert failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  /**
+   * 🔥 NEW: Flatten nested metadata for Pinecone validation
+   * Pinecone only accepts string, number, boolean, or list of strings
+   * TiendaNube often returns objects like {es: "nombre", en: "name"}
+   */
+  private flattenMetadataForPinecone(metadata: DocumentChunk['metadata']): Record<string, string | number | boolean | string[]> {
+    const flattened: Record<string, string | number | boolean | string[]> = {};
+    
+    for (const [key, value] of Object.entries(metadata)) {
+      if (value === null || value === undefined) {
+        continue; // Skip null/undefined values
+      }
+      
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        flattened[key] = value;
+      } else if (Array.isArray(value)) {
+        // Convert array to array of strings
+        flattened[key] = value.map(item => String(item));
+      } else if (typeof value === 'object') {
+        // 🔥 CRITICAL: Handle TiendaNube multilingual objects
+        if (this.isMultilingualObject(value)) {
+          // Extract the first available language value
+          const firstValue = this.extractMultilingualValue(value);
+          if (firstValue) {
+            flattened[key] = String(firstValue);
+          }
+        } else {
+          // For other objects, convert to JSON string as fallback
+          try {
+            flattened[key] = JSON.stringify(value);
+          } catch {
+            flattened[key] = String(value);
+          }
+        }
+      } else {
+        // Fallback: convert to string
+        flattened[key] = String(value);
+      }
+    }
+    
+    return flattened;
+  }
+
+  /**
+   * 🔥 NEW: Check if object is a TiendaNube multilingual field
+   * Common patterns: {es: "value", en: "value"} or {es: "value", pt: "value"}
+   */
+  private isMultilingualObject(obj: unknown): boolean {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+      return false;
+    }
+    
+    const keys = Object.keys(obj as Record<string, unknown>);
+    
+    // Check if all keys are language codes (2-3 characters)
+    return keys.length > 0 && keys.every(key => 
+      typeof key === 'string' && key.length >= 2 && key.length <= 3 && /^[a-z]+$/i.test(key)
+    );
+  }
+
+  /**
+   * 🔥 NEW: Extract value from multilingual object
+   * Prefers Spanish (es), then English (en), then first available
+   */
+  private extractMultilingualValue(obj: unknown): string | null {
+    if (!obj || typeof obj !== 'object') {
+      return null;
+    }
+    
+    const multilingual = obj as Record<string, unknown>;
+    
+    // Preference order: es -> en -> pt -> first available
+    const preferredLanguages = ['es', 'en', 'pt'];
+    
+    for (const lang of preferredLanguages) {
+      if (multilingual[lang] && typeof multilingual[lang] === 'string') {
+        return multilingual[lang] as string;
+      }
+    }
+    
+    // Fallback to first available value
+    const firstKey = Object.keys(multilingual)[0];
+    if (firstKey && typeof multilingual[firstKey] === 'string') {
+      return multilingual[firstKey] as string;
+    }
+    
+    return null;
   }
 
   /**
