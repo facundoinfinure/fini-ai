@@ -136,16 +136,20 @@ export class StoreService {
           console.log('[DEBUG] Using NEW schema (platform_store_id)');
           insertData = {
             ...storeData,
+            store_name: storeData.name, // ✅ MAP name -> store_name for compatibility
+            store_url: storeData.domain, // ✅ MAP domain -> store_url for compatibility
             is_active: true,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
         } else {
-          // Old schema: map platform_store_id -> tiendanube_store_id
+          // Old schema: map platform_store_id -> tiendanube_store_id AND name -> store_name
           console.log('[DEBUG] Using OLD schema (tiendanube_store_id) - applying mapping');
           insertData = {
             ...storeData,
             tiendanube_store_id: storeData.platform_store_id, // ✅ KEY MAPPING
+            store_name: storeData.name, // ✅ MAP name -> store_name for compatibility
+            store_url: storeData.domain, // ✅ MAP domain -> store_url for compatibility
             platform_store_id: undefined, // Remove new field name
             is_active: true,
             created_at: new Date().toISOString(),
@@ -160,6 +164,8 @@ export class StoreService {
         insertData = {
           ...storeData,
           tiendanube_store_id: storeData.platform_store_id, // ✅ KEY MAPPING
+          store_name: storeData.name, // ✅ MAP name -> store_name for compatibility
+          store_url: storeData.domain, // ✅ MAP domain -> store_url for compatibility
           is_active: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
