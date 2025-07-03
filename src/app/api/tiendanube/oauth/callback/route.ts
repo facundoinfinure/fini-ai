@@ -195,6 +195,7 @@ export async function GET(request: NextRequest) {
       };
 
       // Save store to database with the user-provided information
+      // 🔥 FIX: Use createOrUpdateStore to handle OAuth reconnections gracefully
       console.log('[DEBUG] Attempting to save store with data:', {
         userId: storeData.user_id,
         platform: storeData.platform,
@@ -205,7 +206,7 @@ export async function GET(request: NextRequest) {
         tokenExpiresAt: storeData.token_expires_at
       });
 
-      const storeResult = await StoreService.createStore(storeData);
+      const storeResult = await StoreService.createOrUpdateStore(storeData);
 
       console.log('[DEBUG] Store creation result:', {
         success: storeResult.success,

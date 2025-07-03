@@ -244,6 +244,202 @@ export class StoreService {
     }
   }
 
+  /**
+   * Create or update store (UPSERT) to handle OAuth reconnections
+   * 🔥 NEW: Handles duplicate store connections gracefully
+   */
+  static async createOrUpdateStore(storeData: Partial<Store>): Promise<{ success: boolean; store?: Store; error?: string }> {
+    try {
+      // Validate required fields
+      if (!storeData.user_id || !storeData.platform_store_id || !storeData.access_token) {
+        return {
+          success: false,
+          error: 'Missing required store data: user_id, platform_store_id, or access_token'
+        };
+      }
+
+      console.log('[DEBUG] Attempting to create or update store:', {
+        userId: storeData.user_id,
+        platform: storeData.platform,
+        platformStoreId: storeData.platform_store_id,
+        name: storeData.name
+      });
+
+      // 🔥 STEP 1: Check if store already exists
+      let existingStore: Store | null = null;
+      
+      try {
+        // Check if the old schema exists (tiendanube_store_id column)
+        const { data: existingStores, error: schemaError } = await _supabaseAdmin
+          .from('stores')
+          .select('*')
+          .eq('tiendanube_store_id', storeData.platform_store_id)
+          .eq('user_id', storeData.user_id)
+          .limit(1);
+        
+        if (schemaError && schemaError.message.includes('does not exist')) {
+          // New schema: use platform_store_id
+          console.log('[DEBUG] Using NEW schema (platform_store_id) for duplicate check');
+          const { data: newSchemaStores } = await _supabaseAdmin
+            .from('stores')
+            .select('*')
+            .eq('platform_store_id', storeData.platform_store_id)
+            .eq('user_id', storeData.user_id)
+            .limit(1);
+          
+          existingStore = newSchemaStores?.[0] || null;
+        } else {
+          // Old schema: use tiendanube_store_id
+          console.log('[DEBUG] Using OLD schema (tiendanube_store_id) for duplicate check');
+          existingStore = existingStores?.[0] || null;
+        }
+      } catch (error) {
+        console.warn('[WARNING] Error checking for existing store, proceeding with creation:', error);
+      }
+
+      // 🔥 STEP 2: Prepare data based on schema
+      let storeOperation: any;
+      try {
+        // Check if the old schema exists (tiendanube_store_id column)
+        const { error: schemaError } = await _supabaseAdmin
+          .from('stores')
+          .select('tiendanube_store_id')
+          .limit(1);
+        
+        if (schemaError && schemaError.message.includes('does not exist')) {
+          // New schema: use platform_store_id
+          console.log('[DEBUG] Using NEW schema (platform_store_id)');
+          storeOperation = {
+            ...storeData,
+            store_name: storeData.name,
+            store_url: storeData.domain,
+            is_active: true,
+            updated_at: new Date().toISOString()
+          };
+          
+          if (!existingStore) {
+            storeOperation.created_at = new Date().toISOString();
+          }
+        } else {
+          // Old schema: map platform_store_id -> tiendanube_store_id
+          console.log('[DEBUG] Using OLD schema (tiendanube_store_id)');
+          storeOperation = {
+            ...storeData,
+            tiendanube_store_id: storeData.platform_store_id,
+            store_name: storeData.name,
+            store_url: storeData.domain,
+            is_active: true,
+            updated_at: new Date().toISOString()
+          };
+          
+          if (!existingStore) {
+            storeOperation.created_at = new Date().toISOString();
+          }
+          
+          // Clean up new field name
+          delete storeOperation.platform_store_id;
+        }
+      } catch (detectionError) {
+        console.warn('[WARNING] Schema detection failed, using old schema as fallback:', detectionError);
+        // Fallback: Use old schema mapping
+        storeOperation = {
+          ...storeData,
+          tiendanube_store_id: storeData.platform_store_id,
+          store_name: storeData.name,
+          store_url: storeData.domain,
+          is_active: true,
+          updated_at: new Date().toISOString()
+        };
+        
+        if (!existingStore) {
+          storeOperation.created_at = new Date().toISOString();
+        }
+        
+        delete storeOperation.platform_store_id;
+      }
+
+      // 🔥 STEP 3: Create or update store
+      let store: Store;
+      
+      if (existingStore) {
+        console.log('[INFO] Store exists, updating with new OAuth data:', existingStore.id);
+        
+        const { data: updatedStore, error: updateError } = await _supabaseAdmin
+          .from('stores')
+          .update(storeOperation)
+          .eq('id', existingStore.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('[ERROR] Failed to update existing store:', updateError);
+          return { success: false, error: updateError.message };
+        }
+
+        store = updatedStore;
+        console.log('[SUCCESS] Store updated successfully:', store.id);
+      } else {
+        console.log('[INFO] Store does not exist, creating new store');
+        
+        const { data: newStore, error: createError } = await _supabaseAdmin
+          .from('stores')
+          .insert([storeOperation])
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('[ERROR] Failed to create new store:', createError);
+          return { success: false, error: createError.message };
+        }
+
+        store = newStore;
+        console.log('[SUCCESS] Store created successfully:', store.id);
+      }
+
+      // 🔥 STEP 4: Trigger RAG sync (same as original method)
+      if (!existingStore) {
+        // Only trigger full sync for new stores
+        setImmediate(async () => {
+          try {
+            console.log(`[RAG:AUTO-SYNC] Starting automatic RAG sync for store: ${store.id}`);
+            
+            const { FiniRAGEngine } = await import('@/lib/rag');
+            const ragEngine = new FiniRAGEngine();
+            
+            await ragEngine.indexStoreData(store.id, store.access_token);
+            
+            console.log(`[RAG:AUTO-SYNC] ✅ Automatic sync completed for store: ${store.id}`);
+          } catch (ragError) {
+            console.warn(`[RAG:AUTO-SYNC] ⚠️ Auto-sync failed for store ${store.id}:`, ragError);
+            console.warn(`[RAG:AUTO-SYNC] Store ${store.id} created successfully but will need manual sync`);
+          }
+        });
+
+        // Initialize namespaces for new stores
+        setImmediate(async () => {
+          try {
+            const { FiniRAGEngine } = await import('@/lib/rag');
+            const ragEngine = new FiniRAGEngine();
+            await ragEngine.initializeStoreNamespaces(store.id);
+            console.log(`[RAG:NAMESPACES] ✅ Namespaces initialized for store: ${store.id}`);
+          } catch (namespaceError) {
+            console.warn(`[RAG:NAMESPACES] ⚠️ Namespace initialization failed for store ${store.id}:`, namespaceError);
+          }
+        });
+      } else {
+        console.log('[INFO] Store was updated, skipping full RAG sync');
+      }
+
+      return { success: true, store };
+    } catch (error) {
+      console.error('[ERROR] Failed to create or update store:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
   static async getStoresByUserId(userId: string): Promise<{ success: boolean; stores?: Store[]; error?: string }> {
     try {
       const { data, error } = await _supabaseAdmin
