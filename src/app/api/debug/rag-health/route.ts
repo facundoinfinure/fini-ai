@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-
-// Forzar renderizado dinámico
-export const dynamic = 'force-dynamic';
 
 /**
- * Debug endpoint to check RAG data synchronization status
- * GET /api/debug/rag-status
- * 
- * Verifies:
- * - Store sync timestamps
- * - RAG engine configuration
- * - Sample search results
+ * Check RAG system health
+ * GET /api/debug/rag-health
+ * 🧪 For system monitoring and urgent fixes
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
@@ -26,7 +18,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }, { status: 401 });
     }
 
-    console.log('[RAG-STATUS] Checking RAG system health...');
+    console.log('[RAG-HEALTH] Checking RAG system health...');
 
     // Test RAG engine initialization
     let ragEngineStatus = false;
@@ -41,14 +33,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       ragStats = await ragEngine.getStats();
       ragEngineStatus = ragStats.isConfigured;
       
-      console.log('[RAG-STATUS] RAG engine stats:', {
+      console.log('[RAG-HEALTH] RAG engine stats:', {
         isConfigured: ragStats.isConfigured,
         errors: ragStats.errors,
         vectorStoreStats: ragStats.vectorStore
       });
     } catch (error) {
       ragError = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[RAG-STATUS] RAG engine failed:', ragError);
+      console.error('[RAG-HEALTH] RAG engine failed:', ragError);
     }
 
     // Test essential services
@@ -75,7 +67,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       timestamp: new Date().toISOString()
     };
 
-    console.log(`[RAG-STATUS] Health check completed - Status: ${isHealthy ? 'HEALTHY' : 'UNHEALTHY'}`);
+    console.log(`[RAG-HEALTH] Health check completed - Status: ${isHealthy ? 'HEALTHY' : 'UNHEALTHY'}`);
 
     return NextResponse.json({
       success: true,
@@ -83,7 +75,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
   } catch (error) {
-    console.error('[RAG-STATUS] Health check failed:', error);
+    console.error('[RAG-HEALTH] Health check failed:', error);
     return NextResponse.json({
       success: false,
       error: 'Health check failed',
