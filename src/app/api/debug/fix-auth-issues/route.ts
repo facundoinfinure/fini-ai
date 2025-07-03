@@ -95,12 +95,10 @@ export async function POST(request: NextRequest) {
           try {
             console.log(`[AUTH-FIX] 🛑 Stopping background processes for store: ${store.id}`);
             
-            // Update store to indicate sync should not retry
+            // Update store to indicate auth issue resolved
             await supabase
               .from('stores')
               .update({ 
-                last_sync_error: 'Token invalid - marked for reconnection',
-                last_sync_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
               })
               .eq('id', store.id);
@@ -186,7 +184,7 @@ export async function GET(request: NextRequest) {
     
     const { data: stores, error: storesError } = await supabase
       .from('stores')
-      .select('id, platform_store_id, name, access_token, user_id, is_active, last_sync_at, last_sync_error')
+      .select('id, platform_store_id, name, access_token, user_id, is_active, created_at, updated_at')
       .eq('platform', 'tiendanube');
 
     if (storesError) {
@@ -221,8 +219,8 @@ export async function GET(request: NextRequest) {
             storeName: store.name || 'Tienda sin nombre',
             platformStoreId: store.platform_store_id,
             issue: tokenValidation.error || 'Token validation failed',
-            lastSyncAt: store.last_sync_at,
-            lastSyncError: store.last_sync_error,
+            createdAt: store.created_at,
+            updatedAt: store.updated_at,
             fixAction: 'mark_for_reconnection'
           });
         } else {
