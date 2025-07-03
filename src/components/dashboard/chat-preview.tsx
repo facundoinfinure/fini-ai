@@ -478,13 +478,17 @@ export function ChatPreview({
     try {
       setCreatingConversation(true);
       
-      // Obtener primer store disponible (simplificado, se puede mejorar)
-      const storeId = 'default-store-id'; // TODO: Obtener store ID real
+      // Validar que hay una tienda seleccionada
+      if (!selectedStore?.id) {
+        console.error('[ERROR] No store selected');
+        setError('Por favor selecciona una tienda primero');
+        return;
+      }
       
       const response = await fetch('/api/conversations/new', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storeId })
+        body: JSON.stringify({ storeId: selectedStore.id })
       });
       
       const result = await response.json();
@@ -495,9 +499,11 @@ export function ChatPreview({
         console.log('Nueva conversación creada:', result.data.id);
       } else {
         console.error('Error creando conversación:', result.error);
+        setError(result.error || 'Error creando conversación');
       }
     } catch (error) {
       console.error('Error creando conversación:', error);
+      setError('Error de conexión creando conversación');
     } finally {
       setCreatingConversation(false);
     }
