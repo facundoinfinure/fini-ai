@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
       userId: user.id,
       userEmail: user.email,
-      tests: {},
+      tests: {} as any,
       summary: {
         overallHealth: 'UNKNOWN',
         criticalIssues: [],

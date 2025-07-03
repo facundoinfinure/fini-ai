@@ -128,7 +128,7 @@ Mientras sincronizo tus datos específicos, aquí tienes métricas clave para mo
   },
   responseConfig: {
     maxLength: 1000,
-    tone: 'analytical',
+    tone: 'professional',
     language: 'es'
   }
 };
@@ -833,7 +833,7 @@ Sincronizando datos del catálogo. Estrategias clave mientras tanto:
   },
   responseConfig: {
     maxLength: 900,
-    tone: 'strategic',
+    tone: 'professional',
     language: 'es'
   }
 };

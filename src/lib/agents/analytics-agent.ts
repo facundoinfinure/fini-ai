@@ -152,7 +152,6 @@ Estoy solucionando el problema técnico. ¿Hay algún aspecto específico de ana
        };
     }
   }
-  }
 
   protected async calculateHandlingScore(context: AgentContext): Promise<{ confidence: number; reasoning: string }> {
     const { userMessage } = context;
@@ -361,28 +360,6 @@ He activado la sincronización de datos de tu tienda para obtener información e
 3. Define tu propuesta de valor única
 
 ¿Te gustaría que analice algún aspecto específico de pricing una vez que termine la sincronización de datos?`;
-    }
-      
-      return `💰 **Análisis de Precios - Sincronizando Datos**
-
-**🔄 Estado Actual:**
-He detectado que necesitas análisis de precios y estoy sincronizando automáticamente los datos de tu catálogo.
-
-**⚡ Mientras tanto:**
-Verifica que en tu panel de Tienda Nube tengas:
-- ✅ Productos **publicados** (no en borrador)
-- ✅ Precios definidos para cada producto
-- ✅ Variantes con precios específicos si aplica
-
-**🚀 En 2-3 minutos, podrás preguntar:**
-- 💎 "¿Cuál es mi producto más caro?"
-- 💰 "¿Cuál es mi producto más barato?"
-- 📊 "Ranking de productos por precio"
-- 📈 "Análisis de precios por categoría"
-
-**💡 Tip:** Después de la sincronización, vuelve a preguntar específicamente sobre tu producto más caro y te daré datos exactos.
-
-La sincronización está en progreso en segundo plano. ¡Intenta nuevamente en unos minutos!`;
     }
 
     const userPrompt = this.formatPrompt(this.config.prompts.userPrompt, {
