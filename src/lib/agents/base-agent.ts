@@ -110,7 +110,7 @@ export abstract class BaseAgent implements Agent {
         },
         options: {
           topK: this.config.ragConfig.maxResults,
-          threshold: this.config.ragConfig.threshold,
+          threshold: 0.3, // 🔥 LOWERED from 0.7 to 0.3 for better recall
           includeMetadata: true
         }
       };
@@ -130,50 +130,39 @@ export abstract class BaseAgent implements Agent {
         console.warn(`[AGENT:${this.type}] RAG retrieved ${_ragResult.documents.length} contexts in ${_executionTime}ms`);
       }
 
-      // 🔥 ENHANCED: Check if we have meaningful data
+      // 🔥 ENHANCED: Check if we have meaningful data with more permissive approach
       if (_ragResult.documents.length === 0) {
         console.warn(`[AGENT:${this.type}] ⚠️ No RAG documents found for store: ${context.storeId}`);
         
         // 🚀 TRIGGER: Auto-sync if no data found (non-blocking)
         this.triggerRAGSyncIfNeeded(context.storeId);
         
-        return '';
+        return this.generateDataAvailabilityContext(context.storeId);
       }
 
-      // 🔥 ENHANCED: Check confidence and quality of results
+      // 🔥 ENHANCED: Accept all results but classify by quality
       const highQualityDocs = _ragResult.documents.filter(doc => 
-        doc.metadata.relevanceScore && doc.metadata.relevanceScore > 0.7
+        doc.metadata.relevanceScore && doc.metadata.relevanceScore > 0.6
       );
 
-      if (highQualityDocs.length === 0) {
-        console.warn(`[AGENT:${this.type}] ⚠️ Low quality RAG results for query: "${query}"`);
-        
-        // Try with lower threshold for this specific query
-        const _fallbackQuery = {
-          ..._ragQuery,
-          options: {
-            ..._ragQuery.options,
-            threshold: 0.5, // Lower threshold for fallback
-            topK: 3 // Fewer results
-          }
-        };
+      const mediumQualityDocs = _ragResult.documents.filter(doc => 
+        doc.metadata.relevanceScore && doc.metadata.relevanceScore > 0.3 && doc.metadata.relevanceScore <= 0.6
+      );
 
-        const _fallbackResult = await ragEngineInstance.search(_fallbackQuery);
+      // Use high quality docs if available, otherwise use medium quality
+      const docsToUse = highQualityDocs.length > 0 ? highQualityDocs : mediumQualityDocs;
+
+      if (docsToUse.length === 0) {
+        console.warn(`[AGENT:${this.type}] ⚠️ No quality RAG results for query: "${query}"`);
         
-        if (_fallbackResult.documents.length > 0) {
-          console.warn(`[AGENT:${this.type}] ✅ Fallback search found ${_fallbackResult.documents.length} documents`);
-          const _contextSections = _fallbackResult.documents.map((doc: { metadata?: { type?: string }; content: string }) => {
-            return `[${doc.metadata?.type || 'data'}] ${doc.content}`;
-          });
-          return _contextSections.join('\n\n');
-        }
-        
-        return '';
+        // 🔥 ENHANCED: Still return basic store context even with low quality results
+        return this.generateBasicStoreContext(_ragResult.documents, context.storeId);
       }
 
-      // Format context for the agent
-      const _contextSections = highQualityDocs.map((doc: { metadata?: { type?: string }; content: string }) => {
-        return `[${doc.metadata?.type || 'data'}] ${doc.content}`;
+      // Format context for the agent with quality indicators
+      const _contextSections = docsToUse.map((doc: { metadata?: { type?: string; relevanceScore?: number }; content: string }) => {
+        const qualityTag = doc.metadata?.relevanceScore && doc.metadata.relevanceScore > 0.6 ? '[ALTA RELEVANCIA]' : '[RELEVANCIA MEDIA]';
+        return `${qualityTag} [${doc.metadata?.type || 'data'}] ${doc.content}`;
       });
 
       return _contextSections.join('\n\n');
@@ -183,8 +172,30 @@ export abstract class BaseAgent implements Agent {
       // 🔥 ENHANCED: Trigger sync on RAG errors
       this.triggerRAGSyncIfNeeded(context.storeId);
       
-      return '';
+      return this.generateDataAvailabilityContext(context.storeId);
     }
+  }
+
+  /**
+   * 🔥 NEW: Generate context when no data is available
+   */
+  private generateDataAvailabilityContext(storeId: string): string {
+    return `[ESTADO DE DATOS] Los datos de la tienda están siendo sincronizados. 
+    Estoy trabajando con la información disponible y activando la sincronización automática de datos.
+    Puedo proporcionar análisis generales y recomendaciones basadas en mejores prácticas del e-commerce.`;
+  }
+
+  /**
+   * 🔥 NEW: Generate basic context from low-quality results
+   */
+  private generateBasicStoreContext(documents: any[], storeId: string): string {
+    if (documents.length === 0) return this.generateDataAvailabilityContext(storeId);
+    
+    const basicInfo = documents.slice(0, 3).map(doc => {
+      return `[INFORMACIÓN BÁSICA] ${doc.content?.substring(0, 200) || 'Información de tienda disponible'}`;
+    }).join('\n\n');
+    
+    return `${basicInfo}\n\n[NOTA] Datos adicionales siendo sincronizados para análisis más detallado.`;
   }
 
   /**
