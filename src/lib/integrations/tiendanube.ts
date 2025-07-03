@@ -12,9 +12,145 @@ const CLIENT_ID = process.env.TIENDANUBE_CLIENT_ID || "";
 const CLIENT_SECRET = process.env.TIENDANUBE_CLIENT_SECRET || "";
 const REDIRECT_URI = process.env.TIENDANUBE_REDIRECT_URI || "";
 
+// 🔥 NEW: Comprehensive timeout and retry configuration
+const NETWORK_CONFIG = {
+  REQUEST_TIMEOUT: 15000,     // 15 seconds for individual requests
+  RETRY_ATTEMPTS: 3,          // Number of retry attempts
+  RETRY_DELAY_BASE: 1000,     // Base retry delay (1 second)
+  CONNECT_TIMEOUT: 10000,     // 10 seconds for connection establishment
+};
+
+/**
+ * 🔥 ENHANCED: Network-aware error types for better error handling
+ */
+interface NetworkError extends Error {
+  isNetworkError: boolean;
+  isTimeoutError: boolean;
+  isConnectionError: boolean;
+  shouldRetry: boolean;
+  originalError?: Error;
+}
+
+/**
+ * 🔥 NEW: Creates network-aware error with proper classification
+ */
+function createNetworkError(error: Error, context: string): NetworkError {
+  const message = error.message.toLowerCase();
+  const stack = error.stack?.toLowerCase() || '';
+  
+  const isTimeoutError = 
+    message.includes('timeout') || 
+    message.includes('etimedout') ||
+    message.includes('econnreset') ||
+    stack.includes('timeout');
+    
+  const isConnectionError = 
+    message.includes('econnrefused') ||
+    message.includes('enotfound') ||
+    message.includes('network') ||
+    message.includes('socket') ||
+    message.includes('und_err_socket');
+    
+  const isNetworkError = isTimeoutError || isConnectionError ||
+    message.includes('fetch failed') ||
+    message.includes('network error');
+
+  const networkError = new Error(`${context}: ${error.message}`) as NetworkError;
+  networkError.isNetworkError = isNetworkError;
+  networkError.isTimeoutError = isTimeoutError;
+  networkError.isConnectionError = isConnectionError;
+  networkError.shouldRetry = isNetworkError;
+  networkError.originalError = error;
+  
+  return networkError;
+}
+
+/**
+ * 🔥 NEW: Creates fetch request with comprehensive timeout handling
+ */
+async function fetchWithTimeout(
+  url: string, 
+  config: RequestInit, 
+  timeoutMs: number = NETWORK_CONFIG.REQUEST_TIMEOUT
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...config,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw createNetworkError(
+          new Error(`Request timeout after ${timeoutMs}ms`), 
+          'fetchWithTimeout'
+        );
+      }
+      throw createNetworkError(error, 'fetchWithTimeout');
+    }
+    throw error;
+  }
+}
+
+/**
+ * 🔥 NEW: Implements exponential backoff retry logic
+ */
+async function retryWithBackoff<T>(
+  operation: () => Promise<T>,
+  maxAttempts: number = NETWORK_CONFIG.RETRY_ATTEMPTS,
+  baseDelay: number = NETWORK_CONFIG.RETRY_DELAY_BASE,
+  context: string = 'operation'
+): Promise<T> {
+  let lastError: Error;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Don't retry authentication errors (401/403)
+      if (lastError.message.includes('401') || 
+          lastError.message.includes('403') ||
+          lastError.message.includes('Authentication failed')) {
+        console.error(`[TIENDANUBE] Auth error - no retry for ${context}: ${lastError.message}`);
+        throw lastError;
+      }
+      
+      // Check if this is a retryable network error
+      const networkError = createNetworkError(lastError, context);
+      if (!networkError.shouldRetry) {
+        console.error(`[TIENDANUBE] Non-retryable error for ${context}: ${lastError.message}`);
+        throw lastError;
+      }
+      
+      if (attempt === maxAttempts) {
+        console.error(`[TIENDANUBE] Max retry attempts (${maxAttempts}) reached for ${context}`);
+        throw lastError;
+      }
+      
+      const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+      console.warn(`[TIENDANUBE] Attempt ${attempt}/${maxAttempts} failed for ${context}, retrying in ${delay}ms: ${lastError.message}`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError!;
+}
+
 /**
  * Tienda Nube API Client
- * Implements all necessary methods for store analytics and data retrieval
+ * 🔥 ENHANCED: Implements comprehensive network error handling and retry logic
  */
 export class TiendaNubeAPI {
   private accessToken: string;
@@ -27,7 +163,7 @@ export class TiendaNubeAPI {
 
   /**
    * Make API request to TiendaNube
-   * 🔥 FIXED: Simplified to avoid circular dependency issues
+   * 🔥 ENHANCED: Comprehensive timeout handling, retry logic, and error classification
    */
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     if (!this.accessToken) {
@@ -53,37 +189,55 @@ export class TiendaNubeAPI {
 
     console.log(`[DEBUG] TiendaNube API request: ${config.method || 'GET'} ${url}`);
 
-    try {
-      const response = await fetch(url, config);
+    // 🔥 NEW: Wrap the entire request in retry logic
+    return retryWithBackoff(async () => {
+      try {
+        const response = await fetchWithTimeout(url, config, NETWORK_CONFIG.REQUEST_TIMEOUT);
 
-      if (!response.ok) {
-        // Handle specific error cases
-        if (response.status === 401) {
-          console.warn(`[TIENDANUBE] Authentication failed for store ${this.storeId}`);
-          throw new Error('Authentication failed - token may be invalid');
+        if (!response.ok) {
+          // Handle specific error cases
+          if (response.status === 401) {
+            console.warn(`[TIENDANUBE] Authentication failed for store ${this.storeId}`);
+            throw new Error('Authentication failed - token may be invalid');
+          }
+          if (response.status === 404) {
+            console.warn(`[TIENDANUBE] Resource not found: ${endpoint}`);
+            throw new Error('Resource not found');
+          }
+          if (response.status === 429) {
+            console.warn(`[TIENDANUBE] Rate limit exceeded for store ${this.storeId}`);
+            throw new Error('Rate limit exceeded');
+          }
+          
+          const errorText = await response.text().catch(() => 'Unable to read error response');
+          console.error(`[TIENDANUBE] API Error ${response.status}:`, errorText);
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        if (response.status === 404) {
-          console.warn(`[TIENDANUBE] Resource not found: ${endpoint}`);
-          throw new Error('Resource not found');
-        }
-        if (response.status === 429) {
-          console.warn(`[TIENDANUBE] Rate limit exceeded for store ${this.storeId}`);
-          throw new Error('Rate limit exceeded');
+
+        const data = await response.json();
+        console.log(`[DEBUG] TiendaNube API response: ${JSON.stringify(data).substring(0, 200)}...`);
+        
+        return data;
+      } catch (error) {
+        // 🔥 NEW: Enhanced error logging with network classification
+        if (error instanceof Error) {
+          const networkError = createNetworkError(error, `makeRequest:${endpoint}`);
+          
+          if (networkError.isNetworkError) {
+            console.error(`[TIENDANUBE] 🌐 Network error for ${endpoint}:`, {
+              message: error.message,
+              isTimeout: networkError.isTimeoutError,
+              isConnection: networkError.isConnectionError,
+              willRetry: networkError.shouldRetry
+            });
+          } else {
+            console.error(`[TIENDANUBE] 🚫 API error for ${endpoint}:`, error.message);
+          }
         }
         
-        const errorText = await response.text().catch(() => 'Unable to read error response');
-        console.error(`[TIENDANUBE] API Error ${response.status}:`, errorText);
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        throw error;
       }
-
-      const data = await response.json();
-      console.log(`[DEBUG] TiendaNube API response: ${JSON.stringify(data).substring(0, 200)}...`);
-      
-      return data;
-    } catch (error) {
-      console.error(`[ERROR] TiendaNube API request failed:`, error);
-      throw error;
-    }
+    }, NETWORK_CONFIG.RETRY_ATTEMPTS, NETWORK_CONFIG.RETRY_DELAY_BASE, `TiendaNube:${endpoint}`);
   }
 
   // ================================================
@@ -92,6 +246,7 @@ export class TiendaNubeAPI {
 
   /**
    * Get store information
+   * 🔥 ENHANCED: Now includes retry logic and better error handling
    */
   async getStore(): Promise<TiendaNubeStore> {
     return this.makeRequest<TiendaNubeStore>('/store');
@@ -104,6 +259,7 @@ export class TiendaNubeAPI {
   /**
    * Get all products with optional filters
    * 🔧 FIXED: Include draft products by default to show actual catalog
+   * 🔥 ENHANCED: Now includes retry logic for network issues
    */
   async getProducts(params?: {
     since_id?: number;
@@ -146,17 +302,19 @@ export class TiendaNubeAPI {
 
   /**
    * Get specific product by ID
+   * 🔥 ENHANCED: Now includes retry logic
    */
   async getProduct(productId: number): Promise<TiendaNubeProduct> {
     return this.makeRequest<TiendaNubeProduct>(`/products/${productId}`);
   }
 
   // ================================================
-  // ORDERS
+  // ORDERS  
   // ================================================
 
   /**
    * Get orders with optional filters
+   * 🔥 ENHANCED: Now includes retry logic
    */
   async getOrders(params?: {
     since_id?: number;
@@ -186,6 +344,7 @@ export class TiendaNubeAPI {
 
   /**
    * Get specific order by ID
+   * 🔥 ENHANCED: Now includes retry logic
    */
   async getOrder(orderId: number): Promise<TiendaNubeOrder> {
     return this.makeRequest<TiendaNubeOrder>(`/orders/${orderId}`);
@@ -197,6 +356,7 @@ export class TiendaNubeAPI {
 
   /**
    * Get customers
+   * 🔥 ENHANCED: Now includes retry logic
    */
   async getCustomers(params?: {
     since_id?: number;

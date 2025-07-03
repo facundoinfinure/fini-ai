@@ -38,8 +38,69 @@ interface StoreReconnectionData {
 }
 
 /**
+ * 🔥 NEW: Network-aware error classification for better token validation
+ */
+interface NetworkErrorInfo {
+  isNetworkError: boolean;
+  isTimeoutError: boolean;
+  isConnectionError: boolean;
+  isAuthError: boolean;
+  shouldRetry: boolean;
+  shouldMarkForReconnection: boolean;
+}
+
+/**
+ * 🔥 NEW: Classifies errors to distinguish between network and authentication issues
+ */
+function classifyError(error: Error): NetworkErrorInfo {
+  const message = error.message.toLowerCase();
+  const stack = error.stack?.toLowerCase() || '';
+  
+  // Check for timeout-related errors
+  const isTimeoutError = 
+    message.includes('timeout') ||
+    message.includes('etimedout') ||
+    message.includes('econnreset') ||
+    message.includes('aborted') ||
+    stack.includes('timeout');
+  
+  // Check for connection-related errors
+  const isConnectionError = 
+    message.includes('econnrefused') ||
+    message.includes('enotfound') ||
+    message.includes('network') ||
+    message.includes('socket') ||
+    message.includes('und_err_socket') ||
+    message.includes('fetch failed');
+  
+  // Check for actual authentication errors (token-related)
+  const isAuthError = 
+    (message.includes('401') || message.includes('unauthorized')) &&
+    !isTimeoutError && 
+    !isConnectionError;
+  
+  // This is a network error if it's timeout or connection-related
+  const isNetworkError = isTimeoutError || isConnectionError;
+  
+  // Should retry network errors, but not auth errors
+  const shouldRetry = isNetworkError && !isAuthError;
+  
+  // Should mark for reconnection only for actual auth errors, not network errors
+  const shouldMarkForReconnection = isAuthError && !isNetworkError;
+  
+  return {
+    isNetworkError,
+    isTimeoutError,
+    isConnectionError,
+    isAuthError,
+    shouldRetry,
+    shouldMarkForReconnection
+  };
+}
+
+/**
  * TiendaNube Token Manager
- * 🔥 FIXED: Simplified validation-only approach following TiendaNube best practices
+ * 🔥 ENHANCED: Network-aware validation with proper error classification
  */
 export class TiendaNubeTokenManager {
   private static instance: TiendaNubeTokenManager;
@@ -55,7 +116,7 @@ export class TiendaNubeTokenManager {
 
   /**
    * Get valid access token for a store (VALIDATION-ONLY approach)
-   * 🔥 CRITICAL: No refresh logic - TiendaNube doesn't support refresh tokens
+   * 🔥 ENHANCED: Network-aware error handling with proper retry logic
    */
   static async getValidToken(storeId: string): Promise<string | null> {
     try {
@@ -89,43 +150,80 @@ export class TiendaNubeTokenManager {
 
       console.log(`[TOKEN] Found store: ${store.id} (platform_store_id: ${store.platform_store_id})`);
 
-      // 🔥 CRITICAL: For TiendaNube, we validate token by making API call, not checking expiration
-      // TiendaNube tokens are long-lived and don't expire based on time
-      try {
-        const api = new TiendaNubeAPI(store.access_token, store.platform_store_id);
-        
-        // Test the token with a lightweight API call
-        await api.getStore();
-        
-        console.log(`[TOKEN] ✅ Token validated successfully for store: ${storeId}`);
-        return store.access_token;
-        
-      } catch (validationError) {
-        console.error(`[TOKEN] ❌ Token validation failed for store ${storeId}:`, validationError);
-        
-        // Check if this is an authentication error (401/403)
-        const isAuthError = validationError instanceof Error && 
-          (validationError.message.toLowerCase().includes('401') || 
-           validationError.message.toLowerCase().includes('403') ||
-           validationError.message.toLowerCase().includes('unauthorized'));
-        
-        if (isAuthError) {
-          console.error(`[TOKEN] 🚫 Authentication failed - token invalid or revoked for store: ${storeId}`);
+      // 🔥 ENHANCED: Network-aware token validation with retry logic
+      const maxAttempts = 2; // Reduced attempts for token validation
+      let lastError: Error | null = null;
+      
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const api = new TiendaNubeAPI(store.access_token, store.platform_store_id);
           
-          // Mark store as needing reconnection
-          await TiendaNubeTokenManager.getInstance().markStoreForReconnection(
-            store.id, 
-            'Token validation failed - authentication error'
-          );
+          // Test the token with a lightweight API call
+          await api.getStore();
           
+          console.log(`[TOKEN] ✅ Token validated successfully for store: ${storeId} (attempt ${attempt})`);
+          return store.access_token;
+          
+        } catch (validationError) {
+          lastError = validationError instanceof Error ? validationError : new Error(String(validationError));
+          
+          const errorInfo = classifyError(lastError);
+          
+          console.error(`[TOKEN] Validation attempt ${attempt}/${maxAttempts} failed for store ${storeId}:`, {
+            message: lastError.message,
+            isNetwork: errorInfo.isNetworkError,
+            isTimeout: errorInfo.isTimeoutError,
+            isAuth: errorInfo.isAuthError,
+            willRetry: errorInfo.shouldRetry && attempt < maxAttempts
+          });
+          
+          // If it's a network error and we have more attempts, retry
+          if (errorInfo.shouldRetry && attempt < maxAttempts) {
+            const delay = 1000 * attempt; // Progressive delay
+            console.warn(`[TOKEN] 🔄 Retrying token validation in ${delay}ms due to network error`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+          
+          // If it's an authentication error, mark for reconnection
+          if (errorInfo.shouldMarkForReconnection) {
+            console.error(`[TOKEN] 🚫 Authentication failed - token invalid or revoked for store: ${storeId}`);
+            
+            await TiendaNubeTokenManager.getInstance().markStoreForReconnection(
+              store.id, 
+              'Token validation failed - authentication error'
+            );
+            
+            return null;
+          }
+          
+          // For network errors that couldn't be retried, return token anyway
+          // The calling system can handle the network error appropriately
+          if (errorInfo.isNetworkError) {
+            console.warn(`[TOKEN] ⚠️ Network error persists, but returning token for store ${storeId}. Error: ${lastError.message}`);
+            return store.access_token;
+          }
+          
+          // For other errors, break out of retry loop
+          break;
+        }
+      }
+      
+      // If we get here, validation failed
+      if (lastError) {
+        const errorInfo = classifyError(lastError);
+        
+        if (errorInfo.isNetworkError) {
+          console.warn(`[TOKEN] ⚠️ Non-auth error during validation, returning token anyway: ${lastError.message}`);
+          return store.access_token;
+        } else {
+          console.error(`[TOKEN] ❌ Token validation failed definitively for store ${storeId}: ${lastError.message}`);
           return null;
         }
-        
-        // For non-auth errors (network, etc.), still return the token
-        // The caller can handle the API error appropriately
-        console.warn(`[TOKEN] ⚠️ Non-auth error during validation, returning token anyway: ${validationError.message}`);
-        return store.access_token;
       }
+      
+      console.error(`[TOKEN] ❌ Unexpected validation failure for store ${storeId}`);
+      return null;
       
     } catch (error) {
       console.error(`[TOKEN] Unexpected error getting token for store ${storeId}:`, error);
@@ -134,7 +232,7 @@ export class TiendaNubeTokenManager {
   }
 
   /**
-   * 🔥 NEW: Check if a store's tokens are healthy (no expiration check for TiendaNube)
+   * 🔥 ENHANCED: Check if a store's tokens are healthy with network awareness
    */
   static async validateStoreTokens(storeId: string): Promise<{ isValid: boolean; needsRefresh: boolean; error?: string }> {
     try {
@@ -157,6 +255,7 @@ export class TiendaNubeTokenManager {
 
   /**
    * Valida si un token de TiendaNube sigue siendo válido
+   * 🔥 ENHANCED: Network-aware validation with better error classification
    */
   async validateToken(
     accessToken: string, 
@@ -197,30 +296,34 @@ export class TiendaNubeTokenManager {
       let needsReconnection = false;
       
       if (error instanceof Error) {
-        const errorMessage = error.message.toLowerCase();
+        const errorInfo = classifyError(error);
         
-        if (errorMessage.includes('401') || 
-            errorMessage.includes('unauthorized') || 
-            errorMessage.includes('invalid access token')) {
+        if (errorInfo.isAuthError) {
           errorType = 'auth';
           needsReconnection = true;
-        } else if (errorMessage.includes('network') || 
-                   errorMessage.includes('fetch')) {
+        } else if (errorInfo.isNetworkError) {
           errorType = 'network';
-          needsReconnection = false; // Don't require reconnection for network issues
-        } else if (errorMessage.includes('api') || 
-                   errorMessage.includes('500') ||
-                   errorMessage.includes('503')) {
+          needsReconnection = false; // Don't mark for reconnection on network errors
+        } else {
           errorType = 'api';
-          needsReconnection = false; // Don't require reconnection for API issues
+          needsReconnection = false;
         }
+
+        console.warn(`[TOKEN] Error classification for store ${platformStoreId}:`, {
+          type: errorType,
+          isNetwork: errorInfo.isNetworkError,
+          isAuth: errorInfo.isAuthError,
+          needsReconnection
+        });
       }
       
-      // Cache invalid result for shorter period
-      this.validationCache.set(cacheKey, { isValid: false, lastChecked: Date.now() });
+      // Cache negative results only for auth errors, not network errors
+      if (errorType !== 'network') {
+        this.validationCache.set(cacheKey, { isValid: false, lastChecked: Date.now() });
+      }
       
-      return {
-        isValid: false,
+      return { 
+        isValid: false, 
         needsReconnection,
         error: error instanceof Error ? error.message : 'Unknown error',
         errorType

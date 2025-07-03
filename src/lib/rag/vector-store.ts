@@ -1,12 +1,131 @@
 /**
  * Vector Store Service
- * Handles vector storage and retrieval using Pinecone
+ * 🔥 ENHANCED: Handles vector storage and retrieval using Pinecone with robust network error handling
  */
 
 import { Pinecone } from '@pinecone-database/pinecone';
 
 import { RAG_CONFIG, RAG_CONSTANTS } from './config';
 import type { DocumentChunk, VectorSearchResult, VectorStore, RAGQuery } from './types';
+
+/**
+ * 🔥 NEW: Network configuration for Pinecone operations
+ */
+const PINECONE_NETWORK_CONFIG = {
+  REQUEST_TIMEOUT: 30000,      // 30 seconds for Pinecone operations
+  RETRY_ATTEMPTS: 3,           // Number of retry attempts
+  RETRY_DELAY_BASE: 2000,      // Base retry delay (2 seconds)
+  CONNECTION_TIMEOUT: 15000,   // 15 seconds for connection establishment
+};
+
+/**
+ * 🔥 NEW: Network-aware error classification for Pinecone operations
+ */
+interface PineconeNetworkError extends Error {
+  isPineconeError: boolean;
+  isNetworkError: boolean;
+  isTimeoutError: boolean;
+  isConnectionError: boolean;
+  shouldRetry: boolean;
+  statusCode?: number;
+}
+
+/**
+ * 🔥 NEW: Classifies Pinecone errors for better handling
+ */
+function classifyPineconeError(error: Error, context: string): PineconeNetworkError {
+  const message = error.message.toLowerCase();
+  const stack = error.stack?.toLowerCase() || '';
+  
+  // Check for timeout-related errors
+  const isTimeoutError = 
+    message.includes('timeout') ||
+    message.includes('etimedout') ||
+    message.includes('econnreset') ||
+    message.includes('aborted') ||
+    stack.includes('timeout');
+  
+  // Check for connection-related errors
+  const isConnectionError = 
+    message.includes('econnrefused') ||
+    message.includes('enotfound') ||
+    message.includes('network') ||
+    message.includes('socket') ||
+    message.includes('und_err_socket') ||
+    message.includes('fetch failed') ||
+    message.includes('pineconeconnectionerror') ||
+    message.includes('request failed to reach pinecone');
+  
+  // This is a network error if it's timeout or connection-related
+  const isNetworkError = isTimeoutError || isConnectionError;
+  
+  // Check if it's a Pinecone-specific error
+  const isPineconeError = 
+    message.includes('pinecone') ||
+    message.includes('index') ||
+    message.includes('namespace') ||
+    error.constructor.name.toLowerCase().includes('pinecone');
+  
+  // Should retry network errors but not authentication or configuration errors
+  const shouldRetry = isNetworkError && !message.includes('api key') && !message.includes('auth');
+  
+  const networkError = new Error(`${context}: ${error.message}`) as PineconeNetworkError;
+  networkError.isPineconeError = isPineconeError;
+  networkError.isNetworkError = isNetworkError;
+  networkError.isTimeoutError = isTimeoutError;
+  networkError.isConnectionError = isConnectionError;
+  networkError.shouldRetry = shouldRetry;
+  
+  return networkError;
+}
+
+/**
+ * 🔥 NEW: Implements retry logic specifically for Pinecone operations
+ */
+async function retryPineconeOperation<T>(
+  operation: () => Promise<T>,
+  maxAttempts: number = PINECONE_NETWORK_CONFIG.RETRY_ATTEMPTS,
+  baseDelay: number = PINECONE_NETWORK_CONFIG.RETRY_DELAY_BASE,
+  context: string = 'pinecone_operation'
+): Promise<T> {
+  let lastError: Error;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      const networkError = classifyPineconeError(lastError, context);
+      
+      console.error(`[RAG:vector-store] Attempt ${attempt}/${maxAttempts} failed for ${context}:`, {
+        message: lastError.message,
+        isNetwork: networkError.isNetworkError,
+        isTimeout: networkError.isTimeoutError,
+        isPinecone: networkError.isPineconeError,
+        willRetry: networkError.shouldRetry && attempt < maxAttempts
+      });
+      
+      // Don't retry configuration errors or authentication errors
+      if (!networkError.shouldRetry) {
+        console.error(`[RAG:vector-store] Non-retryable error for ${context}: ${lastError.message}`);
+        throw lastError;
+      }
+      
+      if (attempt === maxAttempts) {
+        console.error(`[RAG:vector-store] Max retry attempts (${maxAttempts}) reached for ${context}`);
+        throw lastError;
+      }
+      
+      const delay = baseDelay * Math.pow(1.5, attempt - 1); // Gradual backoff
+      console.warn(`[RAG:vector-store] Retrying ${context} in ${delay}ms due to network error`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError!;
+}
 
 export class PineconeVectorStore implements VectorStore {
   private pinecone: Pinecone | null = null;
@@ -21,6 +140,7 @@ export class PineconeVectorStore implements VectorStore {
 
   /**
    * Get or create Pinecone client instance
+   * 🔥 ENHANCED: Better error handling and connection validation
    */
   private getPineconeClient(): Pinecone {
     if (!this.pinecone) {
@@ -38,20 +158,24 @@ export class PineconeVectorStore implements VectorStore {
 
   /**
    * Initialize and get Pinecone index
+   * 🔥 ENHANCED: Includes retry logic for connection issues
    */
   private async getIndex() {
-    try {
-      const pinecone = this.getPineconeClient();
-      const index = pinecone.index(this.indexName);
-      return index;
-    } catch (error) {
-      console.warn(`[ERROR] Failed to get Pinecone index: ${this.indexName}`, error);
-      throw new Error(`Failed to connect to Pinecone index: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+    return retryPineconeOperation(async () => {
+      try {
+        const pinecone = this.getPineconeClient();
+        const index = pinecone.index(this.indexName);
+        return index;
+      } catch (error) {
+        console.warn(`[ERROR] Failed to get Pinecone index: ${this.indexName}`, error);
+        throw new Error(`Failed to connect to Pinecone index: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }, 2, 1000, 'getIndex'); // Shorter retry for index access
   }
 
   /**
    * Upsert document chunks to Pinecone
+   * 🔥 ENHANCED: Comprehensive error handling and retry logic
    */
   async upsert(chunks: DocumentChunk[]): Promise<void> {
     try {
@@ -96,7 +220,10 @@ export class PineconeVectorStore implements VectorStore {
         // Get namespace for this batch (use first chunk's metadata)
         const namespace = this.getNamespace(chunks[i]);
         
-        await index.namespace(namespace).upsert(batch);
+        // 🔥 NEW: Wrap each batch operation in retry logic
+        await retryPineconeOperation(async () => {
+          await index.namespace(namespace).upsert(batch);
+        }, PINECONE_NETWORK_CONFIG.RETRY_ATTEMPTS, PINECONE_NETWORK_CONFIG.RETRY_DELAY_BASE, `upsert:${namespace}:batch${Math.floor(i / batchSize) + 1}`);
         
         console.warn(`[RAG:vector-store] Upserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(vectors.length / batchSize)} to namespace: ${namespace}`);
         
@@ -108,6 +235,14 @@ export class PineconeVectorStore implements VectorStore {
 
       console.warn(`[RAG:vector-store] Successfully upserted ${chunks.length} chunks`);
     } catch (error) {
+      const networkError = classifyPineconeError(error instanceof Error ? error : new Error(String(error)), 'upsert');
+      
+      if (networkError.isNetworkError) {
+        console.warn('[RAG:vector-store] 🌐 Network error during upsert (graceful degradation):', error);
+        // Don't throw for network errors during upsert - allow graceful degradation
+        return;
+      }
+      
       console.warn('[ERROR] Failed to upsert chunks to Pinecone:', error);
       throw new Error(`Vector upsert failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -115,6 +250,7 @@ export class PineconeVectorStore implements VectorStore {
 
   /**
    * Search for similar vectors
+   * 🔥 ENHANCED: Network-aware search with retry logic
    */
   async search(queryEmbedding: number[], options: RAGQuery['options'] = {}, filters?: RAGQuery['filters'], context?: RAGQuery['context']): Promise<VectorSearchResult[]> {
     try {
@@ -137,31 +273,49 @@ export class PineconeVectorStore implements VectorStore {
       
       const allResults: VectorSearchResult[] = [];
       
-      // Search in each namespace
+      // Search in each namespace with retry logic
       for (const namespace of namespaces) {
         console.warn(`[RAG:vector-store] Searching in namespace: ${namespace}`);
         
-        const searchRequest = {
-          vector: queryEmbedding,
-          topK,
-          includeMetadata: options.includeMetadata !== false,
-          includeValues: false,
-          ...(pineconeFilter && { filter: pineconeFilter }),
-        };
+        try {
+          const searchRequest = {
+            vector: queryEmbedding,
+            topK,
+            includeMetadata: options.includeMetadata !== false,
+            includeValues: false,
+            ...(pineconeFilter && { filter: pineconeFilter }),
+          };
 
-        const searchResponse = await index.namespace(namespace).query(searchRequest);
-        
-        if (searchResponse.matches) {
-          const namespaceResults = searchResponse.matches
-            .filter(match => match.score && match.score >= threshold)
-            .map(match => ({
-              id: match.id,
-              score: match.score || 0,
-              metadata: match.metadata as DocumentChunk['metadata'],
-              content: match.metadata?.content as string,
-            }));
+          // 🔥 NEW: Wrap search operation in retry logic
+          const searchResponse = await retryPineconeOperation(async () => {
+            return await index.namespace(namespace).query(searchRequest);
+          }, PINECONE_NETWORK_CONFIG.RETRY_ATTEMPTS, PINECONE_NETWORK_CONFIG.RETRY_DELAY_BASE, `search:${namespace}`);
           
-          allResults.push(...namespaceResults);
+          if (searchResponse.matches) {
+            const namespaceResults = searchResponse.matches
+              .filter(match => match.score && match.score >= threshold)
+              .map(match => ({
+                id: match.id,
+                score: match.score || 0,
+                metadata: match.metadata as DocumentChunk['metadata'],
+                content: match.metadata?.content as string,
+              }));
+            
+            allResults.push(...namespaceResults);
+          }
+        } catch (namespaceError) {
+          const networkError = classifyPineconeError(
+            namespaceError instanceof Error ? namespaceError : new Error(String(namespaceError)), 
+            `search:${namespace}`
+          );
+          
+          if (networkError.isNetworkError) {
+            console.warn(`[RAG:vector-store] 🌐 Network error searching namespace ${namespace}, continuing with other namespaces:`, namespaceError);
+            continue; // Continue with other namespaces
+          }
+          
+          console.warn(`[RAG:vector-store] Non-network error in namespace ${namespace}:`, namespaceError);
+          // Continue with other namespaces for non-network errors too
         }
       }
       
@@ -174,6 +328,13 @@ export class PineconeVectorStore implements VectorStore {
       
       return sortedResults;
     } catch (error) {
+      const networkError = classifyPineconeError(error instanceof Error ? error : new Error(String(error)), 'search');
+      
+      if (networkError.isNetworkError) {
+        console.warn('[RAG:vector-store] 🌐 Network error during search, returning empty results:', error);
+        return []; // Return empty results for network errors
+      }
+      
       console.warn('[ERROR] Failed to search vectors in Pinecone:', error);
       throw new Error(`Vector search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -181,7 +342,7 @@ export class PineconeVectorStore implements VectorStore {
 
   /**
    * Delete vectors by IDs
-   * 🔥 FIXED: Handle null pinecone client and 404 errors gracefully
+   * 🔥 ENHANCED: Comprehensive network error handling and graceful degradation
    */
   async delete(ids: string[]): Promise<void> {
     try {
@@ -205,13 +366,27 @@ export class PineconeVectorStore implements VectorStore {
         console.warn(`[RAG:vector-store] Deleting ${namespaceIds.length} vectors from namespace: ${namespace}`);
         
         try {
-          await index.namespace(namespace).deleteMany(namespaceIds);
+          // 🔥 NEW: Wrap each namespace deletion in retry logic
+          await retryPineconeOperation(async () => {
+            await index.namespace(namespace).deleteMany(namespaceIds);
+          }, PINECONE_NETWORK_CONFIG.RETRY_ATTEMPTS, PINECONE_NETWORK_CONFIG.RETRY_DELAY_BASE, `delete:${namespace}`);
+          
           console.warn(`[RAG:vector-store] Successfully deleted ${namespaceIds.length} vectors from namespace: ${namespace}`);
         } catch (namespaceError: any) {
+          const networkError = classifyPineconeError(
+            namespaceError instanceof Error ? namespaceError : new Error(String(namespaceError)), 
+            `delete:${namespace}`
+          );
+          
           // Handle namespace-specific errors
           if (namespaceError.message?.includes('404') || namespaceError.message?.includes('not found')) {
             console.warn(`[RAG:vector-store] Namespace ${namespace} not found (404) - vectors may not exist`);
             continue; // Don't throw error for 404s
+          }
+          
+          if (networkError.isNetworkError) {
+            console.warn(`[RAG:vector-store] 🌐 Network error deleting from namespace ${namespace}, continuing:`, namespaceError);
+            continue; // Continue with other namespaces on network errors
           }
           
           console.warn(`[RAG:vector-store] Failed to delete from namespace ${namespace}:`, namespaceError);
@@ -221,7 +396,9 @@ export class PineconeVectorStore implements VectorStore {
       
       console.warn(`[RAG:vector-store] Completed deletion process for ${ids.length} vectors`);
     } catch (error: any) {
-      // 🔥 FIX: Handle Pinecone initialization errors gracefully
+      const networkError = classifyPineconeError(error instanceof Error ? error : new Error(String(error)), 'delete');
+      
+      // 🔥 ENHANCED: Better error classification and graceful handling
       if (error.message?.includes('Pinecone API key not configured')) {
         console.warn(`[RAG:vector-store] Pinecone not configured - skipping vector deletion: ${error.message}`);
         return; // Don't throw for configuration errors
@@ -231,6 +408,12 @@ export class PineconeVectorStore implements VectorStore {
       if (error.message?.includes('404') || error.message?.includes('not found')) {
         console.warn(`[RAG:vector-store] Vectors not found (404) - this is expected if vectors don't exist: ${error.message}`);
         return; // Don't throw error for 404s
+      }
+      
+      // 🔥 ENHANCED: Handle network errors gracefully
+      if (networkError.isNetworkError) {
+        console.warn(`[RAG:vector-store] 🌐 Network error during deletion (graceful degradation): ${error.message}`);
+        return; // Don't throw for network errors
       }
       
       // 🔥 FIX: Handle other Pinecone errors gracefully
