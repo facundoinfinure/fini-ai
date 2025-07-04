@@ -15,7 +15,7 @@ import {
   ConfigurationManagement,
   SubscriptionManagement
 } from '@/lib/lazy-imports';
-import { ChatPreview } from '@/components/dashboard/chat-preview';
+import { PremiumChatInterface } from '@/components/chat/premium-chat-interface';
 import { DashboardSummary } from '@/components/dashboard/dashboard-summary';
 import { ProfileManagement } from '@/components/dashboard/profile-management';
 import { Store as StoreType } from "@/types/db";
@@ -671,13 +671,24 @@ function DashboardContent() {
         {activeTab === "chat" && (
           <DashboardErrorBoundary>
             <Suspense fallback={<ChatSkeleton />}>
-              <ChatPreview 
-                selectedStore={stores.length > 0 ? stores[0] : undefined}
-                conversations={conversations}
-                selectedConversationId={selectedConversationId}
-                onConversationUpdate={handleConversationUpdate}
-                onConversationDelete={handleConversationDelete}
-              />
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-blue-900 mb-2 flex items-center">
+                    🚀 Chat Premium con RAG Avanzado
+                  </h3>
+                  <p className="text-blue-700 text-sm">
+                    Sistema de conversación de última generación con memoria contextual y análisis específico de tu tienda.
+                  </p>
+                </div>
+                <PremiumChatInterface 
+                  selectedStore={stores.length > 0 ? {
+                    id: stores[0].id,
+                    name: stores[0].name || 'Mi Tienda',
+                    status: stores[0].access_token ? 'connected' : 'disconnected'
+                  } : undefined}
+                  className="shadow-xl"
+                />
+              </div>
             </Suspense>
           </DashboardErrorBoundary>
         )}
