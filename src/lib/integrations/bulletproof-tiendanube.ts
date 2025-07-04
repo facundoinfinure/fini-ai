@@ -69,6 +69,40 @@ export class BulletproofTiendaNube {
         return { success: false, error: `Database save failed: ${saveResult.error}` };
       }
 
+      // 4. 🔥 NUEVO: Validar token inmediatamente después de guardarlo
+      console.log('🔄 [BULLETPROOF] Validating saved token...');
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second for DB propagation
+        
+        const api = new TiendaNubeAPI(access_token, user_id.toString());
+        const testResult = await api.getStore();
+        
+        if (!testResult || !testResult.id) {
+          throw new Error('Token validation failed - store info not accessible');
+        }
+        
+        console.log('✅ [BULLETPROOF] Token validation successful');
+        
+      } catch (tokenError) {
+        console.error('❌ [BULLETPROOF] Token validation failed:', tokenError);
+        return { 
+          success: false, 
+          error: `Token validation failed: ${tokenError instanceof Error ? tokenError.message : 'Unknown error'}` 
+        };
+      }
+
+      // 5. 🔥 NUEVO: Delay antes de inicializar sincronización automática
+      console.log('🔄 [BULLETPROOF] Scheduling delayed auto-sync initialization...');
+      setTimeout(async () => {
+        try {
+          const { initializeForNewStore } = await import('@/lib/integrations/auto-sync-initializer');
+          await initializeForNewStore(saveResult.store!.id);
+          console.log('✅ [BULLETPROOF] Delayed auto-sync initialized for store:', saveResult.store!.name);
+        } catch (error) {
+          console.error('⚠️ [BULLETPROOF] Delayed auto-sync initialization failed:', error);
+        }
+      }, 5000); // 5 second delay
+
       console.log('✅ [BULLETPROOF] Store connection completed successfully!');
       
       return {

@@ -121,15 +121,8 @@ export async function GET(request: NextRequest) {
         syncStatus: connectionResult.syncStatus
       });
 
-      // 🔄 Initialize auto-sync for new store
-      try {
-        const { initializeForNewStore } = await import('@/lib/integrations/auto-sync-initializer');
-        await initializeForNewStore(store.id);
-        console.log('✅ [OAUTH-CALLBACK] Auto-sync initialized for new store:', store.name);
-      } catch (autoSyncError) {
-        console.warn('⚠️ [OAUTH-CALLBACK] Failed to initialize auto-sync for new store:', autoSyncError);
-        // Don't block the OAuth flow if auto-sync fails
-      }
+      // 🔄 Auto-sync initialization is now handled by BulletproofTiendaNube with proper delay
+      console.log('✅ [OAUTH-CALLBACK] Auto-sync will be initialized with delay by BulletproofTiendaNube');
 
       // Redirect based on context
       if (context === 'configuration') {
