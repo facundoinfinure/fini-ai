@@ -392,7 +392,7 @@ export class AutoSyncScheduler {
     try {
       const customers = await api.getCustomers({
         limit: 100,
-        updated_at_min: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        created_at_min: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
       });
 
       // TODO: Implement actual database persistence
@@ -420,7 +420,7 @@ export class AutoSyncScheduler {
       console.error(`[AUTO-SYNC] ❌ Store ${job.storeName} failed ${maxRetries} times, marking for reconnection`);
       
       try {
-        await TiendaNubeTokenManager.markStoreForReconnection(
+        await TiendaNubeTokenManager.getInstance().markStoreForReconnection(
           job.storeId,
           `Auto-sync failed ${maxRetries} times: ${error}`
         );

@@ -229,13 +229,15 @@ export class BulletproofTiendaNube {
         };
       }
 
-      // Realizar sincronización
-      const syncResult = await this.performInitialSync(
-        { id: storeId, platform_store_id: tokenData.platformStoreId },
-        tokenData.token
-      );
-
-      return syncResult;
+      // Realizar sincronización RAG
+      const { getAutoSyncScheduler } = await import('@/lib/services/auto-sync-scheduler');
+      const scheduler = await getAutoSyncScheduler();
+      const syncResult = await scheduler.triggerImmediateSync(storeId);
+      
+      return {
+        success: syncResult.success,
+        error: syncResult.error
+      };
 
     } catch (error) {
       console.error('❌ [BULLETPROOF] Periodic sync failed:', error);

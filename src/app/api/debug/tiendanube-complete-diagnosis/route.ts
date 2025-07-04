@@ -7,7 +7,12 @@ export async function GET(request: NextRequest) {
     environment: process.env.NODE_ENV,
     checks: {} as any,
     issues: [] as string[],
-    recommendations: [] as string[]
+    recommendations: [] as string[],
+    summary: {
+      totalIssues: 0,
+      criticalIssues: 0,
+      status: 'UNKNOWN' as 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'UNKNOWN'
+    }
   };
 
   console.log('[TIENDANUBE-DIAGNOSIS] Starting complete authentication diagnosis...');

@@ -258,7 +258,7 @@ export async function GET(request: NextRequest) {
       stores: storeStatus,
       summary: {
         total: stores.length,
-        active: stores.filter(s => s.isActive).length,
+        active: stores.filter(s => s.is_active).length,
         needsSync: storeStatus.filter(s => s.needsSync).length
       }
     });
