@@ -1,65 +1,86 @@
 /**
  * RAG Engine Exports
- * Main entry point for the Retrieval-Augmented Generation system
+ * Enhanced with LangChain integration
  */
 
-// Main RAG Engine
+// Legacy RAG components (maintained for backward compatibility)
 export { FiniRAGEngine } from './rag-engine';
-
-// Components
+export { RAGDocumentProcessor } from './document-processor';
 export { EmbeddingsService } from './embeddings';
 export { PineconeVectorStore } from './vector-store';
-export { RAGDocumentProcessor } from './document-processor';
-
-// Configuration
+export type { NamespaceManager } from './namespace-manager';
 export { RAG_CONFIG, RAG_CONSTANTS, validateRAGConfig } from './config';
 
+// 🚀 Enhanced LangChain RAG components  
+export { LANGCHAIN_CONFIG, LangChainFactory, validateLangChainConfig } from './langchain-config';
+// TODO: Fix LangChain interface compatibility issues
+// export type { FiniPineconeVectorStore, VectorStoreFactory } from './langchain-vectorstore';
+// export type { LangChainDocumentProcessor } from './langchain-document-processor';
+// export type { FiniRetrievalQA, MultiNamespaceRetriever, RetrievalQAFactory } from './retrieval-qa';
+export { EnhancedRAGEngine, enhancedRAGEngine } from './enhanced-rag-engine';
+
+// 🔄 Streaming RAG components
+export { streamingRAGEngine } from './streaming-rag';
+
+// 🧠 Conversation Memory components  
+export { conversationMemoryManager } from './conversation-memory';
+
+// 🔍 Hybrid Search components
+export { hybridSearchEngine } from './hybrid-search-engine';
+
 // Types
-export type {
-  DocumentChunk,
-  RAGQuery,
-  RAGResult,
-  EmbeddingResult,
+export type { 
+  RAGEngine, 
+  RAGQuery, 
+  RAGResult, 
+  DocumentChunk, 
   VectorSearchResult,
-  RAGEngineConfig,
-  DocumentProcessor,
-  VectorStore,
-  RAGEngine,
+  VectorStore as LegacyVectorStore,
+  DocumentProcessor as LegacyDocumentProcessor
 } from './types';
 
-// Create singleton instance for easy access (lazy initialization)
+export type {
+  RAGAgentType
+} from './langchain-config';
+
+export type {
+  RAGContext
+} from './retrieval-qa';
+
+export type {
+  TiendaNubeDocumentMetadata
+} from './langchain-document-processor';
+
+export type {
+  EnhancedRAGQuery,
+  EnhancedRAGResult  
+} from './enhanced-rag-engine';
+
+// Streaming RAG types
+export type {
+  StreamingRAGQuery,
+  StreamingChunk
+} from './streaming-rag';
+
+// Conversation Memory types
+export type {
+  ConversationContext,
+  MemoryConfig
+} from './conversation-memory';
+
+// Hybrid Search types
+export type {
+  HybridSearchQuery,
+  HybridSearchResult
+} from './hybrid-search-engine';
+
+// Create and export the main RAG instance
+import { enhancedRAGEngine } from './enhanced-rag-engine';
+export { enhancedRAGEngine as ragEngine };
+
+// Create legacy instance for backward compatibility
 import { FiniRAGEngine } from './rag-engine';
+const legacyRagEngine = new FiniRAGEngine();
+export { legacyRagEngine as ragEngineInstance };
 
-let _ragEngineInstance: FiniRAGEngine | null = null;
-
-export const ragEngine = {
-  get instance(): FiniRAGEngine {
-    if (!_ragEngineInstance) {
-      _ragEngineInstance = new FiniRAGEngine();
-    }
-    return _ragEngineInstance;
-  },
-  
-  // For compatibility with existing code
-  async search(query: any): Promise<any> {
-    return this.instance.search(query);
-  },
-  
-  async upsert(documents: any, storeId: string): Promise<any> {
-    return this.instance.upsert(documents, storeId);
-  },
-  
-  async deleteByStoreId(storeId: string): Promise<any> {
-    return this.instance.deleteByStoreId(storeId);
-  },
-
-  // 🔥 CRITICAL: Para eliminar vectores de conversaciones específicas
-  async deleteDocuments(documentIds: string[]): Promise<any> {
-    return this.instance.deleteDocuments(documentIds);
-  },
-
-  // 🔥 FIX: Add missing indexStoreData method
-  async indexStoreData(storeId: string, accessToken?: string): Promise<void> {
-    return this.instance.indexStoreData(storeId, accessToken);
-  }
-}; 
+console.log('[RAG] Enhanced RAG module with LangChain integration loaded'); 

@@ -100,72 +100,72 @@ export abstract class BaseAgent implements Agent {
         return '';
       }
 
+      // 🚀 ENHANCED: Try enhanced RAG first, fallback to legacy
+      const { enhancedRAGEngine } = await import('@/lib/rag/enhanced-rag-engine');
+      
+      // Map AgentType to enhanced RAG agent types
+      const agentTypeMapping: Record<string, string> = {
+        'product_manager': 'product_manager',
+        'analytics': 'analytics', 
+        'customer_service': 'customer_service',
+        'marketing': 'marketing',
+        'orchestrator': 'orchestrator',
+        'stock_manager': 'general', // Map stock_manager to general
+        'general': 'general'
+      };
+
+      const mappedAgentType = agentTypeMapping[this.type] || 'general';
+
       const _ragQuery = {
         query,
         context: {
           storeId: context.storeId,
           userId: context.userId,
           conversationId: context.conversationId,
-          agentType: this.type
+          agentType: mappedAgentType as any,
         },
         options: {
-          topK: this.config.ragConfig.maxResults,
-          threshold: 0.3, // 🔥 LOWERED from 0.7 to 0.3 for better recall
-          includeMetadata: true
-        }
+          topK: 8,
+          scoreThreshold: 0.3, // Use scoreThreshold instead of threshold
+          includeMetadata: true,
+        },
       };
 
-      const ragEngineInstance = await getRagEngine();
-      if (!ragEngineInstance) {
-        if (AGENT_CONFIG.debugMode) {
-          console.warn(`[AGENT:${this.type}] RAG engine not available, skipping context retrieval`);
-        }
-        return '';
-      }
-
-      const _ragResult = await ragEngineInstance.search(_ragQuery);
+      const _ragResult = await enhancedRAGEngine.search(_ragQuery);
       const _executionTime = Date.now() - _startTime;
 
-      if (AGENT_CONFIG.debugMode) {
-        console.warn(`[AGENT:${this.type}] RAG retrieved ${_ragResult.documents.length} contexts in ${_executionTime}ms`);
+      if (_ragResult.sources && _ragResult.sources.length > 0) {
+        console.warn(`[AGENT:${this.type}] Enhanced RAG retrieved ${_ragResult.sources.length} contexts in ${_executionTime}ms`);
       }
 
-      // 🔥 ENHANCED: Check if we have meaningful data with more permissive approach
-      if (_ragResult.documents.length === 0) {
-        console.warn(`[AGENT:${this.type}] ⚠️ No RAG documents found for store: ${context.storeId}`);
-        
-        // 🚀 TRIGGER: Auto-sync if no data found (non-blocking)
+      // Check if we have meaningful context
+      if (_ragResult.sources.length === 0) {
+        console.warn(`[AGENT:${this.type}] No relevant context found - triggering sync`);
         this.triggerRAGSyncIfNeeded(context.storeId);
-        
-        return this.generateDataAvailabilityContext(context.storeId);
+        return 'No hay datos disponibles. Se está sincronizando la información.';
       }
 
-      // 🔥 ENHANCED: Accept all results but classify by quality
-      const highQualityDocs = _ragResult.documents.filter(doc => 
-        doc.metadata.relevanceScore && doc.metadata.relevanceScore > 0.6
+      // Filter and process sources
+      const highQualityDocs = _ragResult.sources.filter(doc =>
+        (doc.score || 0) >= 0.4
       );
 
-      const mediumQualityDocs = _ragResult.documents.filter(doc => 
-        doc.metadata.relevanceScore && doc.metadata.relevanceScore > 0.3 && doc.metadata.relevanceScore <= 0.6
+      const mediumQualityDocs = _ragResult.sources.filter(doc =>
+        (doc.score || 0) >= 0.25 && (doc.score || 0) < 0.4
       );
 
-      // Use high quality docs if available, otherwise use medium quality
-      const docsToUse = highQualityDocs.length > 0 ? highQualityDocs : mediumQualityDocs;
+      console.warn(`[AGENT:${this.type}] Context quality - High: ${highQualityDocs.length}, Medium: ${mediumQualityDocs.length}`);
 
-      if (docsToUse.length === 0) {
-        console.warn(`[AGENT:${this.type}] ⚠️ No quality RAG results for query: "${query}"`);
-        
-        // 🔥 ENHANCED: Still return basic store context even with low quality results
-        return this.generateBasicStoreContext(_ragResult.documents, context.storeId);
+      if (highQualityDocs.length === 0 && mediumQualityDocs.length === 0) {
+        console.warn(`[AGENT:${this.type}] Low quality context - generating basic response`);
+        return this.generateBasicStoreContext(_ragResult.sources, context.storeId);
       }
 
-      // Format context for the agent with quality indicators
-      const _contextSections = docsToUse.map((doc: { metadata?: { type?: string; relevanceScore?: number }; content: string }) => {
-        const qualityTag = doc.metadata?.relevanceScore && doc.metadata.relevanceScore > 0.6 ? '[ALTA RELEVANCIA]' : '[RELEVANCIA MEDIA]';
-        return `${qualityTag} [${doc.metadata?.type || 'data'}] ${doc.content}`;
-      });
+      // Combine high and medium quality documents
+      const relevantDocs = [...highQualityDocs, ...mediumQualityDocs.slice(0, 3)];
+      
+      return relevantDocs.map(doc => doc.pageContent).join('\n\n');
 
-      return _contextSections.join('\n\n');
     } catch (error) {
       console.error(`[ERROR] Agent ${this.type} RAG retrieval failed:`, error);
       
@@ -397,6 +397,28 @@ export abstract class BaseAgent implements Agent {
       case 'error':
         console.error(`${_prefix} ${message}`, data ? data : '');
         break;
+    }
+  }
+
+  protected async hasRelevantData(query: string, context: AgentContext): Promise<boolean> {
+    try {
+      const { enhancedRAGEngine } = await import('@/lib/rag/enhanced-rag-engine');
+      
+      const result = await enhancedRAGEngine.search({
+        query,
+        context: {
+          storeId: context.storeId,
+          userId: context.userId,
+          conversationId: context.conversationId,
+          agentType: 'general' as any,
+        },
+        options: { topK: 1, scoreThreshold: 0.3 },
+      });
+
+      return result.sources.length > 0;
+    } catch (error) {
+      console.error(`[AGENT:${this.type}] Error checking relevant data:`, error);
+      return false;
     }
   }
 } 
