@@ -143,20 +143,33 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
   }
 
-  // Set up SSE
+  console.log(`[PREMIUM-CHAT-STREAM] Starting real streaming for: "${message}"`);
+
+  // Set up SSE headers
+  const headers = new Headers({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Cache-Control',
+  });
+
   const encoder = new TextEncoder();
   
   const stream = new ReadableStream({
     async start(controller) {
-      try {
-        console.log(`[PREMIUM-CHAT-STREAM] Starting stream for: "${message}"`);
+      const sendEvent = (event: string, data: any) => {
+        const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+        controller.enqueue(encoder.encode(message));
+      };
 
+      try {
         // Authentication
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
         
-        if (!user) {
-          controller.enqueue(encoder.encode('data: {"error": "Authentication required"}\n\n'));
+        if (authError || !user) {
+          sendEvent('error', { error: 'Authentication required' });
           controller.close();
           return;
         }
@@ -173,14 +186,26 @@ export async function GET(request: NextRequest) {
           targetStoreId = stores?.[0]?.id || 'no-store';
         }
 
-        // Stream response using premium RAG
-        await premiumRAG.chatStream(
+        // Send initial event
+        sendEvent('start', { 
+          message: 'Iniciando análisis con RAG premium...',
+          conversationId,
+          storeId: targetStoreId 
+        });
+
+        const startTime = Date.now();
+
+        // Use premium RAG streaming
+        const ragResponse = await premiumRAG.chatStream(
           message,
           targetStoreId,
           conversationId,
           (token: string) => {
-            // Send each token as SSE
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token })}\n\n`));
+            // Send each token as it's generated
+            sendEvent('token', { 
+              token,
+              timestamp: Date.now() 
+            });
           },
           {
             config: {
@@ -192,23 +217,64 @@ export async function GET(request: NextRequest) {
           }
         );
 
-        // End stream
-        controller.enqueue(encoder.encode('data: {"done": true}\n\n'));
+        const endTime = Date.now();
+        const processingTime = endTime - startTime;
+
+        // Save to database if user has store
+        if (targetStoreId !== 'no-store') {
+          try {
+            await MessageService.createMessage({
+              conversation_id: conversationId,
+              body: message,
+              direction: 'inbound',
+              processing_time_ms: Math.round(processingTime),
+              confidence: ragResponse.confidence,
+              reasoning: ragResponse.reasoning,
+            });
+
+            await MessageService.createMessage({
+              conversation_id: conversationId,
+              body: ragResponse.answer,
+              direction: 'outbound',
+              processing_time_ms: Math.round(processingTime),
+              confidence: ragResponse.confidence,
+              reasoning: ragResponse.reasoning,
+            });
+          } catch (dbError) {
+            console.warn('[PREMIUM-CHAT-STREAM] Failed to save to database:', dbError);
+          }
+        }
+
+        // Send completion event with metadata
+        sendEvent('complete', {
+          confidence: ragResponse.confidence,
+          reasoning: ragResponse.reasoning,
+          sources: ragResponse.sources.map(doc => ({
+            content: doc.pageContent?.substring(0, 200) + '...',
+            metadata: doc.metadata,
+          })),
+          processingTime,
+          conversationId: ragResponse.conversationId,
+          totalTokens: ragResponse.answer.length,
+        });
+
+        console.log(`[PREMIUM-CHAT-STREAM] Streaming completed in ${processingTime}ms`);
         controller.close();
 
       } catch (error) {
         console.error('[PREMIUM-CHAT-STREAM] Error:', error);
-        controller.enqueue(encoder.encode('data: {"error": "Stream failed"}\n\n'));
+        sendEvent('error', { 
+          error: 'Error interno del servidor',
+          message: 'Disculpa, hubo un problema técnico. Por favor intenta de nuevo.' 
+        });
         controller.close();
       }
     },
+
+    cancel() {
+      console.log('[PREMIUM-CHAT-STREAM] Stream cancelled by client');
+    }
   });
 
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    },
-  });
+  return new Response(stream, { headers });
 } 

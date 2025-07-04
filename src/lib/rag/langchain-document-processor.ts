@@ -267,78 +267,203 @@ export class LangChainDocumentProcessor {
   }
 
   /**
-   * Build comprehensive store content
+   * Enhanced store content builder with comprehensive information
    */
   private buildStoreContent(store: Record<string, any>): string {
-    const parts: string[] = [];
+    const parts = [];
     
-    if (store.name) parts.push(`Tienda: ${this.sanitizeText(store.name)}`);
-    if (store.description) parts.push(`Descripción: ${this.sanitizeText(store.description)}`);
-    if (store.url) parts.push(`URL: ${store.url}`);
-    if (store.domain) parts.push(`Dominio: ${store.domain}`);
-    if (store.country) parts.push(`País: ${store.country}`);
-    if (store.currency) parts.push(`Moneda: ${store.currency}`);
-    if (store.business_name) parts.push(`Nombre del negocio: ${this.sanitizeText(store.business_name)}`);
-    if (store.business_id) parts.push(`ID de negocio: ${store.business_id}`);
+    // Basic store info
+    const name = this.sanitizeText(store.name || 'Tienda sin nombre');
+    const description = this.sanitizeText(store.description || '');
     
-    // Add category information if available
-    if (store.main_category) parts.push(`Categoría principal: ${this.sanitizeText(store.main_category)}`);
-    if (store.categories && Array.isArray(store.categories)) {
-      const categories = store.categories.map((cat: any) => this.sanitizeText(cat.name || cat)).join(', ');
-      parts.push(`Categorías: ${categories}`);
-    }
+    parts.push(`TIENDA: ${name}`);
     
-    return parts.join('\n');
-  }
-
-  /**
-   * Build detailed product content
-   */
-  private buildProductContent(product: Record<string, any>): string {
-    const parts: string[] = [];
-    
-    if (product.name) parts.push(`Producto: ${this.sanitizeText(product.name)}`);
-    if (product.description) parts.push(`Descripción: ${this.sanitizeText(product.description)}`);
-    if (product.price) parts.push(`Precio: $${product.price}`);
-    if (product.stock !== undefined) parts.push(`Stock: ${product.stock} unidades`);
-    if (product.sku) parts.push(`SKU: ${product.sku}`);
-    
-    // Categories
-    if (product.categories && Array.isArray(product.categories)) {
-      const categories = product.categories.map((cat: any) => this.sanitizeText(cat.name || cat)).join(', ');
-      parts.push(`Categorías: ${categories}`);
-    }
-    
-    // Variants
-    if (product.variants && Array.isArray(product.variants)) {
-      const variants = product.variants.map((variant: any) => {
-        const variantParts: string[] = [];
-        if (variant.size) variantParts.push(`Talle: ${variant.size}`);
-        if (variant.color) variantParts.push(`Color: ${variant.color}`);
-        if (variant.price) variantParts.push(`Precio: $${variant.price}`);
-        return variantParts.join(', ');
-      }).filter(Boolean);
-      
-      if (variants.length > 0) {
-        parts.push(`Variantes: ${variants.join('; ')}`);
+    if (description) {
+      const cleanDesc = description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (cleanDesc.length > 10) {
+        parts.push(`DESCRIPCIÓN: ${cleanDesc}`);
       }
     }
     
-    // Tags
-    if (product.tags && Array.isArray(product.tags)) {
-      const tags = product.tags.map((tag: any) => this.sanitizeText(tag.name || tag)).join(', ');
-      parts.push(`Etiquetas: ${tags}`);
+    // Store URL and domain
+    if (store.url) {
+      parts.push(`SITIO WEB: ${store.url}`);
     }
     
-    // Attributes
-    if (product.attributes && Array.isArray(product.attributes)) {
-      const attributes = product.attributes.map((attr: any) => 
-        `${attr.name}: ${attr.value}`
-      ).join(', ');
-      parts.push(`Atributos: ${attributes}`);
+    // Contact information
+    if (store.email) {
+      parts.push(`EMAIL: ${store.email}`);
     }
     
-    return parts.join('\n');
+    if (store.phone) {
+      parts.push(`TELÉFONO: ${store.phone}`);
+    }
+    
+    // Address information
+    if (store.address) {
+      const addressParts = [];
+      if (store.address.address) addressParts.push(store.address.address);
+      if (store.address.city) addressParts.push(store.address.city);
+      if (store.address.province) addressParts.push(store.address.province);
+      if (store.address.country) addressParts.push(store.address.country);
+      
+      if (addressParts.length > 0) {
+        parts.push(`DIRECCIÓN: ${addressParts.join(', ')}`);
+      }
+    }
+    
+    // Currency and language
+    if (store.currency) {
+      parts.push(`MONEDA: ${store.currency}`);
+    }
+    
+    if (store.language) {
+      parts.push(`IDIOMA: ${store.language}`);
+    }
+    
+    // Store status and configuration
+    if (store.plan_name) {
+      parts.push(`PLAN: ${store.plan_name}`);
+    }
+    
+    // Business information
+    if (store.business_name) {
+      parts.push(`RAZÓN SOCIAL: ${this.sanitizeText(store.business_name)}`);
+    }
+    
+    if (store.business_id) {
+      parts.push(`CUIT/CUIL: ${store.business_id}`);
+    }
+    
+    // Social media and marketing
+    if (store.facebook) {
+      parts.push(`FACEBOOK: ${store.facebook}`);
+    }
+    
+    if (store.twitter) {
+      parts.push(`TWITTER: ${store.twitter}`);
+    }
+    
+    if (store.instagram) {
+      parts.push(`INSTAGRAM: ${store.instagram}`);
+    }
+    
+    // Store policies
+    if (store.shipping_policy) {
+      const policy = this.sanitizeText(store.shipping_policy).replace(/<[^>]*>/g, ' ');
+      if (policy.length > 10) {
+        parts.push(`POLÍTICA DE ENVÍO: ${policy}`);
+      }
+    }
+    
+    if (store.return_policy) {
+      const policy = this.sanitizeText(store.return_policy).replace(/<[^>]*>/g, ' ');
+      if (policy.length > 10) {
+        parts.push(`POLÍTICA DE DEVOLUCIÓN: ${policy}`);
+      }
+    }
+    
+    return this.cleanContent(parts.join('\n'));
+  }
+
+  /**
+   * Enhanced product content builder with semantic information
+   */
+  private buildProductContent(product: Record<string, any>): string {
+    const parts = [];
+    
+    // Basic product info
+    const name = this.sanitizeText(product.name || 'Producto sin nombre');
+    const description = this.sanitizeText(product.description || '');
+    const price = this.parseNumber(product.price);
+    const stock = this.parseNumber(product.stock);
+    
+    parts.push(`PRODUCTO: ${name}`);
+    
+    // Enhanced description processing
+    if (description) {
+      // Remove HTML tags and clean up
+      const cleanDesc = description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (cleanDesc.length > 10) {
+        parts.push(`DESCRIPCIÓN: ${cleanDesc}`);
+      }
+    }
+    
+    // Price information with context
+    if (price !== undefined && price > 0) {
+      parts.push(`PRECIO: $${price.toLocaleString('es-AR')}`);
+      
+      // Add price category context
+      if (price < 1000) parts.push('CATEGORÍA DE PRECIO: Económico');
+      else if (price < 5000) parts.push('CATEGORÍA DE PRECIO: Medio');
+      else if (price < 20000) parts.push('CATEGORÍA DE PRECIO: Alto');
+      else parts.push('CATEGORÍA DE PRECIO: Premium');
+    }
+    
+    // Stock information with availability context
+    if (stock !== undefined) {
+      parts.push(`STOCK: ${stock} unidades`);
+      
+      if (stock === 0) parts.push('DISPONIBILIDAD: Sin stock');
+      else if (stock < 5) parts.push('DISPONIBILIDAD: Stock limitado');
+      else if (stock < 20) parts.push('DISPONIBILIDAD: Stock moderado');
+      else parts.push('DISPONIBILIDAD: Stock abundante');
+    }
+    
+    // Category information
+    const category = this.sanitizeText(product.categories?.[0]?.name || 'Sin categoría');
+    if (category && category !== 'Sin categoría') {
+      parts.push(`CATEGORÍA: ${category}`);
+    }
+    
+    // Variants information
+    if (product.variants && Array.isArray(product.variants) && product.variants.length > 1) {
+      const variantInfo = product.variants.map((v: any) => {
+        const variantParts = [];
+        if (v.option1) variantParts.push(v.option1);
+        if (v.option2) variantParts.push(v.option2);
+        if (v.option3) variantParts.push(v.option3);
+        return variantParts.join(' - ');
+      }).filter(Boolean);
+      
+      if (variantInfo.length > 0) {
+        parts.push(`VARIANTES: ${variantInfo.slice(0, 5).join(', ')}`);
+      }
+    }
+    
+    // SEO information
+    if (product.seo_title) {
+      parts.push(`TÍTULO SEO: ${this.sanitizeText(product.seo_title)}`);
+    }
+    
+    if (product.seo_description) {
+      parts.push(`DESCRIPCIÓN SEO: ${this.sanitizeText(product.seo_description)}`);
+    }
+    
+    // Tags and keywords
+    if (product.tags && Array.isArray(product.tags) && product.tags.length > 0) {
+      const tags = product.tags.map(tag => this.sanitizeText(tag)).filter(Boolean);
+      if (tags.length > 0) {
+        parts.push(`ETIQUETAS: ${tags.join(', ')}`);
+      }
+    }
+    
+    // Weight and dimensions
+    if (product.weight) {
+      parts.push(`PESO: ${product.weight}g`);
+    }
+    
+    // Status and visibility
+    if (product.published !== undefined) {
+      parts.push(`ESTADO: ${product.published ? 'Publicado' : 'No publicado'}`);
+    }
+    
+    // Images information
+    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+      parts.push(`IMÁGENES: ${product.images.length} imagen${product.images.length > 1 ? 'es' : ''}`);
+    }
+    
+    return this.cleanContent(parts.join('\n'));
   }
 
   /**
@@ -386,42 +511,109 @@ export class LangChainDocumentProcessor {
   }
 
   /**
-   * Build analytics content
+   * Enhanced analytics content builder with insights
    */
   private buildAnalyticsContent(analytics: unknown, period: string): string {
-    const parts: string[] = [];
-    const data = analytics as Record<string, any>;
-    
-    if (!data || typeof data !== 'object') {
+    if (!analytics || typeof analytics !== 'object') {
       return '';
     }
     
-    parts.push(`Análisis del período: ${period}`);
+    const data = analytics as Record<string, any>;
+    const parts = [];
+    
+    parts.push(`ANALYTICS PERÍODO: ${period.toUpperCase()}`);
     
     // Sales metrics
-    if (data.sales) {
-      if (data.sales.total) parts.push(`Ventas totales: $${data.sales.total}`);
-      if (data.sales.count) parts.push(`Número de ventas: ${data.sales.count}`);
-      if (data.sales.average) parts.push(`Venta promedio: $${data.sales.average}`);
+    if (data.totalSales !== undefined) {
+      const sales = this.parseNumber(data.totalSales) || 0;
+      parts.push(`VENTAS TOTALES: $${sales.toLocaleString('es-AR')}`);
+      
+      // Add context
+      if (sales === 0) parts.push('ESTADO VENTAS: Sin ventas en el período');
+      else if (sales < 10000) parts.push('ESTADO VENTAS: Ventas bajas');
+      else if (sales < 100000) parts.push('ESTADO VENTAS: Ventas moderadas');
+      else parts.push('ESTADO VENTAS: Ventas altas');
     }
     
-    // Traffic metrics
-    if (data.traffic) {
-      if (data.traffic.visits) parts.push(`Visitas: ${data.traffic.visits}`);
-      if (data.traffic.conversion_rate) parts.push(`Tasa de conversión: ${data.traffic.conversion_rate}%`);
+    if (data.totalOrders !== undefined) {
+      const orders = this.parseNumber(data.totalOrders) || 0;
+      parts.push(`ÓRDENES TOTALES: ${orders}`);
+      
+      if (orders === 0) parts.push('ESTADO ÓRDENES: Sin órdenes');
+      else if (orders < 10) parts.push('ESTADO ÓRDENES: Pocas órdenes');
+      else if (orders < 50) parts.push('ESTADO ÓRDENES: Órdenes moderadas');
+      else parts.push('ESTADO ÓRDENES: Muchas órdenes');
     }
     
-    // Product metrics
-    if (data.products) {
-      if (data.products.top_selling && Array.isArray(data.products.top_selling)) {
-        const topProducts = data.products.top_selling.map((product: any) => 
-          this.sanitizeText(product.name || product)
-        ).join(', ');
-        parts.push(`Productos más vendidos: ${topProducts}`);
+    // Calculate average order value
+    if (data.totalSales && data.totalOrders) {
+      const avgOrder = (data.totalSales / data.totalOrders);
+      if (avgOrder > 0) {
+        parts.push(`TICKET PROMEDIO: $${avgOrder.toLocaleString('es-AR')}`);
+        
+        if (avgOrder < 1000) parts.push('TICKET PROMEDIO: Bajo');
+        else if (avgOrder < 5000) parts.push('TICKET PROMEDIO: Medio');
+        else parts.push('TICKET PROMEDIO: Alto');
       }
     }
     
-    return parts.join('\n');
+    // Customer metrics
+    if (data.totalCustomers !== undefined) {
+      const customers = this.parseNumber(data.totalCustomers) || 0;
+      parts.push(`CLIENTES TOTALES: ${customers}`);
+    }
+    
+    if (data.newCustomers !== undefined) {
+      const newCustomers = this.parseNumber(data.newCustomers) || 0;
+      parts.push(`CLIENTES NUEVOS: ${newCustomers}`);
+    }
+    
+    // Product metrics
+    if (data.totalProducts !== undefined) {
+      const products = this.parseNumber(data.totalProducts) || 0;
+      parts.push(`PRODUCTOS TOTALES: ${products}`);
+      
+      if (products === 0) parts.push('CATÁLOGO: Sin productos');
+      else if (products < 10) parts.push('CATÁLOGO: Catálogo pequeño');
+      else if (products < 100) parts.push('CATÁLOGO: Catálogo mediano');
+      else parts.push('CATÁLOGO: Catálogo amplio');
+    }
+    
+    // Top products
+    if (data.topProducts && Array.isArray(data.topProducts)) {
+      const topProductNames = data.topProducts
+        .slice(0, 5)
+        .map((p: any) => this.sanitizeText(p.name || p.title))
+        .filter(Boolean);
+      
+      if (topProductNames.length > 0) {
+        parts.push(`PRODUCTOS MÁS VENDIDOS: ${topProductNames.join(', ')}`);
+      }
+    }
+    
+    // Conversion and performance metrics
+    if (data.conversionRate !== undefined) {
+      const rate = this.parseNumber(data.conversionRate) || 0;
+      parts.push(`TASA DE CONVERSIÓN: ${(rate * 100).toFixed(2)}%`);
+      
+      if (rate < 0.01) parts.push('CONVERSIÓN: Muy baja');
+      else if (rate < 0.03) parts.push('CONVERSIÓN: Baja');
+      else if (rate < 0.05) parts.push('CONVERSIÓN: Buena');
+      else parts.push('CONVERSIÓN: Excelente');
+    }
+    
+    // Traffic metrics
+    if (data.pageViews !== undefined) {
+      const views = this.parseNumber(data.pageViews) || 0;
+      parts.push(`VISITAS: ${views.toLocaleString('es-AR')}`);
+    }
+    
+    if (data.uniqueVisitors !== undefined) {
+      const visitors = this.parseNumber(data.uniqueVisitors) || 0;
+      parts.push(`VISITANTES ÚNICOS: ${visitors.toLocaleString('es-AR')}`);
+    }
+    
+    return this.cleanContent(parts.join('\n'));
   }
 
   /**
