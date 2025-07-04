@@ -24,6 +24,8 @@ export function useAuth() {
           console.log('[INFO] Existing session found for user:', session.user.email)
           // The auth callback handles profile creation, so we just verify here
           await ensureUserProfile()
+          // Initialize auto-sync for existing user
+          await initializeAutoSyncForUser(session.user.id)
         }
         
         setLoading(false)
@@ -60,6 +62,38 @@ export function useAuth() {
       }
     }
 
+    const initializeAutoSyncForUser = async (userId: string) => {
+      try {
+        console.log('[INFO] Initializing auto-sync for user:', userId)
+        
+        // Call the auto-sync scheduler API to initialize for user
+        const response = await fetch('/api/stores/auto-sync-scheduler', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'initialize'
+          })
+        })
+        
+        if (!response.ok) {
+          console.error('[ERROR] Failed to initialize auto-sync:', response.statusText)
+          return
+        }
+        
+        const result = await response.json()
+        if (result.success) {
+          console.log('[INFO] Auto-sync initialized successfully for user:', userId)
+        } else {
+          console.error('[ERROR] Failed to initialize auto-sync:', result.error)
+        }
+      } catch (error) {
+        console.error('[ERROR] Exception initializing auto-sync:', error)
+        // Don't throw error, just log it
+      }
+    }
+
     getSession()
 
     // Listen for auth changes
@@ -74,6 +108,8 @@ export function useAuth() {
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('[INFO] User signed in, verifying profile exists')
           await ensureUserProfile()
+          // Initialize auto-sync for new user session
+          await initializeAutoSyncForUser(session.user.id)
         }
 
         // Only redirect on sign out, let individual pages handle sign in redirects

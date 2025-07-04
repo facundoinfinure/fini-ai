@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { exchangeCodeForToken } from '@/lib/integrations/tiendanube';
-import { TiendaNubeAPI } from '@/lib/integrations/tiendanube';
-import { StoreService } from '@/lib/database/client';
+import { BulletproofTiendaNube } from '@/lib/integrations/bulletproof-tiendanube';
 
 // Forzar renderizado dinámico
 export const dynamic = 'force-dynamic';
@@ -17,7 +15,7 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
     const error = searchParams.get('error');
 
-    console.log('[INFO] OAuth callback received:', { 
+    console.log('🛡️ [OAUTH-CALLBACK] OAuth callback received:', { 
       hasCode: !!code, 
       hasState: !!state, 
       hasError: !!error,
@@ -34,23 +32,23 @@ export async function GET(request: NextRequest) {
     });
 
     if (error) {
-      console.error('[ERROR] OAuth error from Tienda Nube:', error);
+      console.error('❌ [OAUTH-CALLBACK] OAuth error from TiendaNube:', error);
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=${encodeURIComponent(error)}&debug=oauth_error_from_tn`);
     }
 
     if (!code || !state) {
-      console.error('[ERROR] Missing code or state in OAuth callback');
+      console.error('❌ [OAUTH-CALLBACK] Missing code or state in OAuth callback');
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=missing_parameters&debug=missing_code_or_state`);
     }
 
-    // Decode state parameter to get user ID, store information, and context
+    // Decode state parameter
     let stateData: { userId: string; storeUrl: string; storeName: string; context?: string; timestamp: number };
     try {
       const decodedState = decodeURIComponent(state);
       const stateJson = Buffer.from(decodedState, 'base64').toString();
       stateData = JSON.parse(stateJson);
       
-      console.log('[DEBUG] Decoded state:', {
+      console.log('🛡️ [OAUTH-CALLBACK] Decoded state:', {
         userId: stateData.userId,
         storeUrl: stateData.storeUrl,
         storeName: stateData.storeName,
@@ -70,24 +68,20 @@ export async function GET(request: NextRequest) {
       }
       
     } catch (stateError) {
-      console.error('[ERROR] Failed to decode state parameter:', stateError);
+      console.error('❌ [OAUTH-CALLBACK] Failed to decode state parameter:', stateError);
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=invalid_state&debug=state_decode_error`);
     }
 
-    const userId = stateData.userId;
-    const storeUrl = stateData.storeUrl;
-    const storeName = stateData.storeName;
-    const context = stateData.context || 'onboarding'; // Default a onboarding si no se especifica
+    const { userId, storeUrl, storeName, context = 'onboarding' } = stateData;
 
-    console.log('[INFO] Processing OAuth callback for user:', userId, 'store:', storeName, 'context:', context);
+    console.log('🛡️ [OAUTH-CALLBACK] Processing OAuth callback for user:', userId, 'store:', storeName, 'context:', context);
 
-    const supabase = createClient();
-    
     // Verify user session
+    const supabase = createClient();
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError || !session?.user || session.user.id !== userId) {
-      console.error('[ERROR] Session verification failed:', {
+      console.error('❌ [OAUTH-CALLBACK] Session verification failed:', {
         sessionError: sessionError?.message,
         hasSession: !!session,
         hasUser: !!session?.user,
@@ -99,179 +93,62 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      console.log('[INFO] Starting token exchange with code:', `${code.substring(0, 10)  }...`);
+      console.log('🛡️ [OAUTH-CALLBACK] Starting bulletproof store connection...');
       
-      // Exchange authorization code for access token
-      const authResponse = await exchangeCodeForToken(code);
-      
-      if (!authResponse.access_token) {
-        throw new Error('No access token received from Tienda Nube');
-      }
-
-      console.log('[INFO] Token exchange successful, user_id:', authResponse.user_id);
-
-      // 🔥 FIX: Get store ID first by making a direct API call to get user's stores
-      // Tienda Nube API structure: https://api.tiendanube.com/v1/{store_id}/...
-      // But the OAuth response gives us user_id, not store_id
-      // We need to get the store_id by making a request to the stores endpoint
-      
-      console.log('[DEBUG] Making request to get store information with user_id:', authResponse.user_id);
-      
-      // Try using user_id as store_id first (common case in Tienda Nube)
-      let storeInfo: any;
-      let actualStoreId = authResponse.user_id.toString();
-      
-      try {
-        // First attempt: try using user_id as store_id
-        const testAPI = new TiendaNubeAPI(authResponse.access_token, actualStoreId);
-        storeInfo = await testAPI.getStore();
-        console.log('[DEBUG] Successfully retrieved store using user_id as store_id');
-      } catch (userIdError) {
-        console.log('[DEBUG] Failed to get store with user_id, trying alternative method:', userIdError);
-        
-        // Alternative approach: Make direct API call to get stores list
-        try {
-          const storesResponse = await fetch(`https://api.tiendanube.com/v1/stores`, {
-            headers: {
-              'Authentication': `bearer ${authResponse.access_token}`,
-              'User-Agent': 'Fini-AI/1.0',
-              'Content-Type': 'application/json',
-            },
-          });
-          
-          if (storesResponse.ok) {
-            const storesData = await storesResponse.json();
-            console.log('[DEBUG] Stores API response:', storesData);
-            
-            if (storesData && storesData.length > 0) {
-              // Use the first store (most common case)
-              const firstStore = storesData[0];
-              actualStoreId = firstStore.id.toString();
-              storeInfo = firstStore;
-              console.log('[DEBUG] Using first store from stores list:', actualStoreId);
-            } else {
-              throw new Error('No stores found for this user');
-            }
-          } else {
-            throw new Error(`Stores API failed: ${storesResponse.status}`);
-          }
-        } catch (storesError) {
-          console.error('[ERROR] Failed to retrieve store information:', storesError);
-          throw new Error(`Failed to retrieve store information: ${storesError.message}`);
-        }
-      }
-
-      console.log('[INFO] Store info retrieved:', {
-        actualStoreId,
-        storeId: storeInfo.id,
-        storeName: storeInfo.name || 'No name available'
+      // Use bulletproof connection system
+      const connectionResult = await BulletproofTiendaNube.connectStore({
+        userId,
+        storeUrl,
+        storeName,
+        authCode: code,
+        context
       });
 
-      // Store the access token and store info
-      // Handle name field - Tienda Nube sends localized names as objects
-      let finalStoreName = 'Mi Tienda';
-      if (storeInfo.name) {
-        if (typeof storeInfo.name === 'object' && storeInfo.name !== null) {
-          // Extract name from localized object (e.g., {es: "nombre", en: "name"})
-          const nameObj = storeInfo.name as any;
-          finalStoreName = nameObj.es || nameObj.en || nameObj.pt || Object.values(nameObj)[0] || 'Mi Tienda';
-        } else if (typeof storeInfo.name === 'string') {
-          finalStoreName = storeInfo.name;
-        }
+      if (!connectionResult.success) {
+        console.error('❌ [OAUTH-CALLBACK] Bulletproof connection failed:', connectionResult.error);
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=connection_failed&message=${encodeURIComponent(connectionResult.error || 'Unknown error')}`);
       }
 
-      const storeData = {
-        user_id: session.user.id,
-        platform: 'tiendanube' as const,
-        platform_store_id: actualStoreId, // 🔥 FIX: Use the actualStoreId we determined
-        name: finalStoreName,
-        domain: storeInfo.url || '',
-        access_token: authResponse.access_token,
-        refresh_token: null, // Tienda Nube doesn't use refresh tokens
-        token_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      // Save store to database with the user-provided information
-      // 🔥 FIX: Use createOrUpdateStore to handle OAuth reconnections gracefully
-      console.log('[DEBUG] Attempting to save store with data:', {
-        userId: storeData.user_id,
-        platform: storeData.platform,
-        platformStoreId: storeData.platform_store_id,
-        name: storeData.name,
-        domain: storeData.domain,
-        hasAccessToken: !!storeData.access_token,
-        tokenExpiresAt: storeData.token_expires_at
-      });
-
-      const storeResult = await StoreService.createOrUpdateStore(storeData);
-
-      console.log('[DEBUG] Store creation result:', {
-        success: storeResult.success,
-        error: storeResult.error,
-        hasStore: !!storeResult.store
-      });
-
-      if (!storeResult.success) {
-        console.error('[ERROR] Store creation failed with detailed error:', {
-          error: storeResult.error,
-          storeData: {
-            ...storeData,
-            access_token: storeData.access_token ? '[REDACTED]' : null
-          }
-        });
-        throw new Error(`Failed to save store: ${storeResult.error}`);
-      }
-
+      const store = connectionResult.store!;
       const totalTime = Date.now() - startTime;
-      console.log('[INFO] Tienda Nube store connected successfully:', {
-        storeName: finalStoreName,
-        actualStoreId,
-        storeId: storeInfo.id,
-        context,
-        totalTime: `${totalTime}ms`
-      });
-
-      // Redirigir según el contexto
-      if (context === 'configuration') {
-        // Si vino de configuración, redirigir al dashboard con pestaña de configuración
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?tab=configuration&success=store_connected&store_name=${encodeURIComponent(finalStoreName)}&store_id=${actualStoreId}`);
-      } else {
-        // Si vino del onboarding, continuar con el flujo de onboarding
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=2&success=store_connected&store_name=${encodeURIComponent(finalStoreName)}&store_id=${actualStoreId}`);
-      }
-
-    } catch (oauthError) {
-      const totalTime = Date.now() - startTime;
-      console.error('[ERROR] OAuth token exchange failed:', {
-        error: oauthError instanceof Error ? oauthError.message : oauthError,
-        code: code ? `${code.substring(0, 10)  }...` : 'missing',
+      
+      console.log('✅ [OAUTH-CALLBACK] TiendaNube store connected successfully:', {
+        storeName: store.name,
+        storeId: store.id,
+        platformStoreId: store.platform_store_id,
         context,
         totalTime: `${totalTime}ms`,
-        stack: oauthError instanceof Error ? oauthError.stack : undefined
+        syncStatus: connectionResult.syncStatus
       });
-      
-      // Provide more specific error information
-      const errorMessage = oauthError instanceof Error ? oauthError.message : 'Unknown error';
-      const debugInfo = encodeURIComponent(`${errorMessage}|time:${totalTime}ms|context:${context}`);
-      
-      // Redirigir según contexto también en caso de error
-      if (context === 'configuration') {
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?tab=configuration&error=token_exchange_failed&message=token_exchange_failed&debug=${debugInfo}`);
-      } else {
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=token_exchange_failed&message=token_exchange_failed&debug=${debugInfo}`);
+
+      // 🔄 Initialize auto-sync for new store
+      try {
+        const { initializeForNewStore } = await import('@/lib/integrations/auto-sync-initializer');
+        await initializeForNewStore(store.id);
+        console.log('✅ [OAUTH-CALLBACK] Auto-sync initialized for new store:', store.name);
+      } catch (autoSyncError) {
+        console.warn('⚠️ [OAUTH-CALLBACK] Failed to initialize auto-sync for new store:', autoSyncError);
+        // Don't block the OAuth flow if auto-sync fails
       }
+
+      // Redirect based on context
+      if (context === 'configuration') {
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?tab=configuration&success=store_connected&store_name=${encodeURIComponent(store.name)}&store_id=${store.id}`);
+      } else {
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=2&success=store_connected&store_name=${encodeURIComponent(store.name)}&store_id=${store.id}`);
+      }
+
+    } catch (connectionError) {
+      console.error('❌ [OAUTH-CALLBACK] Critical connection error:', connectionError);
+      
+      const errorMessage = connectionError instanceof Error ? connectionError.message : 'Unknown connection error';
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=connection_failed&message=${encodeURIComponent(errorMessage)}`);
     }
 
   } catch (error) {
-    const totalTime = Date.now() - startTime;
-    console.error('[ERROR] OAuth callback processing failed:', {
-      error: error instanceof Error ? error.message : error,
-      totalTime: `${totalTime}ms`,
-      stack: error instanceof Error ? error.stack : undefined
-    });
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?error=oauth_failed&message=internal_error&debug=callback_processing_failed`);
+    console.error('❌ [OAUTH-CALLBACK] Critical callback error:', error);
+    
+    const errorMessage = error instanceof Error ? error.message : 'Unknown callback error';
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=callback_failed&message=${encodeURIComponent(errorMessage)}`);
   }
 } 
