@@ -32,6 +32,8 @@ export interface RAGContext {
  * Enhanced retriever that supports multiple namespaces and filtering
  */
 export class MultiNamespaceRetriever extends BaseRetriever {
+  lc_namespace: string[] = ['fini', 'retrievers', 'multi_namespace'];
+  
   private vectorStores: Map<string, FiniPineconeVectorStore> = new Map();
   private storeId: string;
   private k: number;
@@ -184,7 +186,7 @@ export class MultiNamespaceRetriever extends BaseRetriever {
  * Advanced RAG QA System with streaming and memory
  */
 export class FiniRetrievalQA {
-  private retriever: MultiNamespaceRetriever;
+  public retriever: MultiNamespaceRetriever;
   private llm: ChatOpenAI;
   private memory: ConversationSummaryBufferMemory;
   private qaChain: RunnableSequence<any, any>;
@@ -197,7 +199,7 @@ export class FiniRetrievalQA {
     });
     this.llm = LangChainFactory.createChatModel(true); // Enable streaming
     this.memory = new ConversationSummaryBufferMemory({
-      llm: this.llm,
+      llm: this.llm as any, // Type cast to fix version incompatibility
       maxTokenLimit: LANGCHAIN_CONFIG.memory.maxTokenLimit,
       memoryKey: LANGCHAIN_CONFIG.memory.memoryKey,
       returnMessages: LANGCHAIN_CONFIG.memory.returnMessages,

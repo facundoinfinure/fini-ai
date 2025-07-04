@@ -55,8 +55,9 @@ export class ConversationMemoryManager {
 
     const finalConfig = { ...this.defaultConfig, ...config };
     
+    // Temporary fix for LangChain version compatibility
     const memory = new ConversationSummaryBufferMemory({
-      llm: this.llm,
+      llm: this.llm as any, // Type cast to fix version incompatibility
       maxTokenLimit: finalConfig.maxTokenLimit,
       returnMessages: finalConfig.returnMessages,
       memoryKey: finalConfig.memoryKey,
