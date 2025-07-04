@@ -8,9 +8,9 @@ import { Document } from '@langchain/core/documents';
 import { TiendaNubeAPI } from '../integrations/tiendanube';
 
 import { LANGCHAIN_CONFIG, validateLangChainConfig } from './langchain-config';
-import { FiniPineconeVectorStore, VectorStoreFactory } from './langchain-vectorstore';
-import { LangChainDocumentProcessor, type TiendaNubeDocumentMetadata } from './langchain-document-processor';
-import { FiniRetrievalQA, RetrievalQAFactory, type RAGContext } from './retrieval-qa';
+import { VectorStoreFactory, EnhancedPineconeStore } from './langchain-vectorstore';
+import { LangChainDocumentProcessor } from './langchain-document-processor';
+import { FiniRetrievalQA, RetrievalQAFactory, type RAGContext } from './langchain-retrieval-qa';
 
 /**
  * Enhanced RAG query interface

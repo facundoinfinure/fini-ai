@@ -11,7 +11,7 @@ import { RunnableSequence } from '@langchain/core/runnables';
 import { StringOutputParser } from '@langchain/core/output_parsers';
 import { RunnablePassthrough } from '@langchain/core/runnables';
 
-import { FiniPineconeVectorStore, VectorStoreFactory } from './langchain-vectorstore';
+import { VectorStoreFactory, EnhancedPineconeStore } from './langchain-vectorstore';
 import { LANGCHAIN_CONFIG, LangChainFactory, getAgentThreshold, type RAGAgentType } from './langchain-config';
 
 export interface RAGContext {
@@ -23,7 +23,9 @@ export interface RAGContext {
 }
 
 export class MultiNamespaceRetriever extends BaseRetriever {
-  private vectorStores: Map<string, FiniPineconeVectorStore> = new Map();
+  lc_namespace: string[] = ['fini', 'retrievers', 'multi_namespace'];
+  
+  private vectorStores: Map<string, EnhancedPineconeStore> = new Map();
   private storeId: string;
   private k: number;
   private scoreThreshold: number;
@@ -46,7 +48,7 @@ export class MultiNamespaceRetriever extends BaseRetriever {
     
     for (const dataType of dataTypes) {
       try {
-        const vectorStore = await VectorStoreFactory.createForStore(this.storeId, dataType);
+        const vectorStore = await VectorStoreFactory.createEnhancedStore(this.storeId, dataType);
         this.vectorStores.set(dataType, vectorStore);
       } catch (error) {
         console.warn(`[MULTI-RETRIEVER] Failed to initialize ${dataType} vector store:`, error);
@@ -68,7 +70,6 @@ export class MultiNamespaceRetriever extends BaseRetriever {
         const results = await vectorStore.similaritySearchWithScore(
           query,
           this.k,
-          undefined,
           {
             scoreThreshold: this.scoreThreshold,
           }
@@ -98,7 +99,7 @@ export class MultiNamespaceRetriever extends BaseRetriever {
 }
 
 export class FiniRetrievalQA {
-  private retriever: MultiNamespaceRetriever;
+  public retriever: MultiNamespaceRetriever;
   private llm: ChatOpenAI;
   private qaChain: RunnableSequence<any, any>;
   private context: RAGContext;
