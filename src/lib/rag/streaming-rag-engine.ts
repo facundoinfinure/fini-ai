@@ -34,6 +34,8 @@ export interface StreamingChunk {
     totalTokens?: number;
     sourcesUsed?: number;
     processingTime?: number;
+    responseLength?: number;
+    error?: string;
   };
 }
 

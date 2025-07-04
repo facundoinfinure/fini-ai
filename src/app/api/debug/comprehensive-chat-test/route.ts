@@ -63,11 +63,10 @@ export async function GET() {
           userId: user.id,
           agentType: 'analytics' as any
         },
-        options: {
-          topK: 3,
-          threshold: 0.3,
-          includeMetadata: true
-        }
+                  options: {
+            topK: 3,
+            scoreThreshold: 0.3
+          }
       });
 
       ragTest = {
