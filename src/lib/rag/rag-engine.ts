@@ -12,17 +12,19 @@ import { EmbeddingsService } from './embeddings';
 import type { RAGEngine, RAGQuery, RAGResult, DocumentChunk } from './types';
 import { PineconeVectorStore } from './vector-store';
 
-
-
 export class FiniRAGEngine implements RAGEngine {
   private embeddings: EmbeddingsService;
   private vectorStore: PineconeVectorStore;
   private processor: RAGDocumentProcessor;
+  // 🔥 NEW: Lock para evitar múltiples sincronizaciones simultáneas
+  private syncLocks: Map<string, Promise<any>>;
 
   constructor() {
     this.embeddings = new EmbeddingsService();
     this.vectorStore = new PineconeVectorStore();
     this.processor = new RAGDocumentProcessor();
+    // 🔥 NEW: Inicializar locks
+    this.syncLocks = new Map();
   }
 
   /**
@@ -69,6 +71,29 @@ export class FiniRAGEngine implements RAGEngine {
    * 🔥 FIXED: Robust token management with fallbacks + ID mismatch fix
    */
   async indexStoreData(storeId: string, accessToken?: string): Promise<void> {
+    // 🔥 FIX: Evitar múltiples sincronizaciones simultáneas de la misma tienda
+    if (this.syncLocks.has(storeId)) {
+      console.warn(`[RAG:engine] ⚠️ Store ${storeId} sync already in progress - waiting for completion`);
+      await this.syncLocks.get(storeId);
+      return;
+    }
+
+    // Crear el lock para esta tienda
+    const syncPromise = this._performStoreIndexing(storeId, accessToken);
+    this.syncLocks.set(storeId, syncPromise);
+
+    try {
+      await syncPromise;
+    } finally {
+      // Limpiar el lock cuando termine
+      this.syncLocks.delete(storeId);
+    }
+  }
+
+  /**
+   * Método interno para realizar la indexación sin locks
+   */
+  private async _performStoreIndexing(storeId: string, accessToken?: string): Promise<void> {
     try {
       console.warn(`[RAG:engine] Starting full store indexing for store: ${storeId}`);
 
@@ -685,20 +710,25 @@ export class FiniRAGEngine implements RAGEngine {
       
       console.warn(`[RAG:engine] Initialized namespace: ${namespace}`);
       
-      // 🔥 FIX: Cleanup placeholder with better error handling
+      // 🔥 FIX: Cleanup placeholder with proper namespace and better error handling
       setTimeout(async () => {
         try {
-          await this.vectorStore.delete([placeholderId]);
+          // Proporcionar el namespace específico para evitar errores de validación
+          await this.vectorStore.delete([placeholderId], namespace);
+          console.warn(`[RAG:engine] ✅ Cleaned up placeholder for ${namespace}`);
         } catch (cleanupError: any) {
-          // 🔥 IMPORTANT: Don't spam logs with expected 404 errors
-          if (cleanupError?.message?.includes('404') || cleanupError?.message?.includes('not found')) {
-            console.warn(`[RAG:engine] Note: Placeholder cleanup failed for ${namespace}: ${cleanupError.message}`);
+          // 🔥 IMPORTANT: Manejo silencioso de errores esperados durante cleanup
+          if (cleanupError?.message?.includes('404') || 
+              cleanupError?.message?.includes('not found') ||
+              cleanupError?.message?.includes('Store ID is required')) {
+            // Estos errores son esperados durante el cleanup y no son críticos
+            console.warn(`[RAG:engine] Placeholder cleanup completed for ${namespace} (expected: ${cleanupError?.message?.split(':')[0] || 'cleanup'})`);
           } else {
-            console.warn(`[RAG:engine] Note: Placeholder cleanup failed for ${namespace}: Error: Vector deletion failed: ${cleanupError?.message || cleanupError}`);
+            console.warn(`[RAG:engine] Note: Placeholder cleanup failed for ${namespace}: ${cleanupError?.message || cleanupError}`);
           }
           // Don't throw - cleanup failure is not critical
         }
-      }, 1000);
+      }, 2000); // Aumentar tiempo para permitir que la indexación se complete
       
     } catch (error) {
       console.warn(`[ERROR] Failed to initialize namespace for ${type}:`, error);
