@@ -414,6 +414,49 @@ Análisis de precios completado con datos específicos de tu tienda.`;
    * 🔥 NEW: Generate specific, concise pricing responses
    */
   private async generateSpecificPricingResponse(context: AgentContext, ragContext: string): Promise<string> {
+    // Check if we have actual product data
+    const hasProductData = ragContext && 
+      ragContext.length > 100 && 
+      !ragContext.includes('Error al obtener contexto') && 
+      !ragContext.includes('No hay datos') &&
+      !ragContext.includes('ESTADO DE DATOS') &&
+      (ragContext.includes('producto') || ragContext.includes('price') || ragContext.includes('Precio'));
+
+    if (!hasProductData) {
+      // 🔥 ENHANCED: Specific guidance for pricing queries when no data available
+      const userMessage = context.userMessage.toLowerCase();
+      
+      if (userMessage.includes('caro') || userMessage.includes('barato')) {
+        return `❌ **No puedo acceder a los datos de tu tienda**
+
+Para identificar tu producto más caro necesito sincronizar los datos de tu tienda.
+
+**🔧 Solución rápida:**
+1. Ve a **Configuración** → **Tienda**
+2. Haz click en **Reconectar Tienda**
+3. Regresa en unos minutos y pregunta de nuevo
+
+**💡 Mientras tanto:**
+• Revisa tus productos en TiendaNube
+• Organiza por precio para identificar el más caro
+• Asegúrate que los productos estén publicados
+
+¿Necesitas ayuda para reconectar tu tienda?`;
+      }
+      
+      return `📊 **Datos de tienda no disponibles**
+
+Para analizar precios específicos necesito acceso a tu catálogo.
+
+**🔧 Pasos para solucionarlo:**
+1. **Configuración** → **Tienda** → **Reconectar**
+2. Espera 2-3 minutos para sincronización
+3. Pregunta nuevamente sobre tus productos
+
+¿Te ayudo con otro tema mientras tanto?`;
+    }
+
+    // When we do have product data, use the enhanced system prompt
     const systemPrompt = `Eres un experto en análisis de productos. Responde de forma DIRECTA y CONCISA.
 
 INSTRUCCIONES CRÍTICAS:
