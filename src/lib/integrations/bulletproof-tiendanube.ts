@@ -83,25 +83,27 @@ export class BulletproofTiendaNube {
       //   };
       // }
 
-      // 5. 🚀 ULTRA-FAST: Preparar y guardar datos directamente (sin lifecycle manager)
-      const storeData = this.prepareStoreData(data, storeInfo, access_token);
-      const saveResult = await this.saveStoreWithRetry(storeData);
+      // 5. 🚀 ULTRA-FAST: Detectar caso de uso (nueva vs reconexión)
+      const caseType = await this.detectStoreConnectionType(data.userId, user_id.toString());
+      console.log(`🔄 [BULLETPROOF] Case detected: ${caseType}`);
+
+      // 6. 🚀 ULTRA-FAST: Guardar datos básicos según el caso
+      const saveResult = await this.handleStoreConnectionCase(caseType, data, storeInfo, access_token);
       
       if (!saveResult.success) {
-        return { success: false, error: `Database save failed: ${saveResult.error}` };
+        return { success: false, error: `Store ${caseType} failed: ${saveResult.error}` };
       }
 
-      // 6. 🚀 ULTRA-FAST: Disparar sync en background DESPUÉS del retorno exitoso
-      console.log('🔄 [BULLETPROOF] Scheduling background sync...');
+      // 7. 🚀 ULTRA-FAST: Disparar operaciones background según el caso
+      console.log('🔄 [BULLETPROOF] Scheduling background operations...');
       setTimeout(async () => {
         try {
-          const { initializeForNewStore } = await import('@/lib/integrations/auto-sync-initializer');
-          await initializeForNewStore(saveResult.store!.id);
-          console.log('✅ [BULLETPROOF] Background sync completed for store:', saveResult.store!.name);
+          await this.executeBackgroundOperations(caseType, saveResult.store!.id, access_token);
+          console.log(`✅ [BULLETPROOF] Background ${caseType} completed for store:`, saveResult.store!.name);
         } catch (error) {
-          console.error('⚠️ [BULLETPROOF] Background sync failed:', error);
+          console.error(`⚠️ [BULLETPROOF] Background ${caseType} failed:`, error);
         }
-      }, 2000); // 2 second delay
+      }, 1500); // 1.5 second delay
 
       console.log('✅ [BULLETPROOF] Store connection completed successfully!');
       
@@ -347,6 +349,163 @@ export class BulletproofTiendaNube {
         issues: ['Health check failed'],
         recommendations: ['Contact support']
       };
+    }
+  }
+
+  /**
+   * 🔍 DETECTAR TIPO DE CONEXIÓN
+   * ============================
+   * Determina si es nueva conexión o reconexión
+   */
+  private static async detectStoreConnectionType(userId: string, platformStoreId: string): Promise<'new_connection' | 'reconnection'> {
+    try {
+      const existingStoreResult = await StoreService.getStoresByUserId(userId);
+      
+      if (existingStoreResult.success && existingStoreResult.stores) {
+        const hasExistingStore = existingStoreResult.stores.some(
+          store => store.platform_store_id === platformStoreId
+        );
+        
+        return hasExistingStore ? 'reconnection' : 'new_connection';
+      }
+      
+      return 'new_connection';
+    } catch (error) {
+      console.error('🔍 [BULLETPROOF] Error detecting connection type:', error);
+      return 'new_connection'; // Default to new connection
+    }
+  }
+
+  /**
+   * 💾 MANEJAR CASOS DE CONEXIÓN
+   * ============================
+   * Guarda datos según el tipo de conexión
+   */
+  private static async handleStoreConnectionCase(
+    caseType: 'new_connection' | 'reconnection',
+    data: any,
+    storeInfo: any,
+    access_token: string
+  ): Promise<{ success: boolean; error?: string; store?: any }> {
+    try {
+      const storeData = this.prepareStoreData(data, storeInfo, access_token);
+      
+      if (caseType === 'reconnection') {
+        console.log('🔄 [BULLETPROOF] Handling reconnection - updating existing store');
+        // Para reconexión, usar createOrUpdateStore que maneja duplicados
+        return await StoreService.createOrUpdateStore(storeData);
+      } else {
+        console.log('🆕 [BULLETPROOF] Handling new connection - creating new store');
+        // Para nueva conexión, intentar crear directo
+        const createResult = await StoreService.createStore(storeData);
+        
+        if (!createResult.success && createResult.error?.includes('duplicate key')) {
+          console.log('🔄 [BULLETPROOF] Duplicate detected, switching to update mode');
+          return await StoreService.createOrUpdateStore(storeData);
+        }
+        
+        return createResult;
+      }
+    } catch (error) {
+      console.error(`💾 [BULLETPROOF] Error handling ${caseType}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+  /**
+   * 🚀 EJECUTAR OPERACIONES BACKGROUND
+   * ===================================
+   * Ejecuta operaciones lentas según el tipo de conexión
+   */
+  private static async executeBackgroundOperations(
+    caseType: 'new_connection' | 'reconnection',
+    storeId: string,
+    access_token: string
+  ): Promise<void> {
+    try {
+      if (caseType === 'new_connection') {
+        console.log('🆕 [BULLETPROOF] Executing new connection background operations');
+        
+        // 1. Inicializar namespace de vectores
+        const { initializeForNewStore } = await import('@/lib/integrations/auto-sync-initializer');
+        await initializeForNewStore(storeId);
+        
+        // 2. Sync inicial de datos
+        await this.triggerInitialSync(storeId, access_token);
+        
+      } else if (caseType === 'reconnection') {
+        console.log('🔄 [BULLETPROOF] Executing reconnection background operations');
+        
+        // 1. Limpiar datos antiguos
+        await this.triggerCleanupAndResync(storeId, access_token);
+        
+        // 2. Re-sync completo
+        await this.triggerInitialSync(storeId, access_token);
+      }
+      
+      console.log(`✅ [BULLETPROOF] Background operations completed for ${caseType}`);
+    } catch (error) {
+      console.error(`🚀 [BULLETPROOF] Background operations failed for ${caseType}:`, error);
+    }
+  }
+
+  /**
+   * 🔄 TRIGGER SYNC INICIAL
+   * =======================
+   * Dispara sync inicial de datos
+   */
+  private static async triggerInitialSync(storeId: string, access_token: string): Promise<void> {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      
+      // Fire-and-forget HTTP request
+      fetch(`${baseUrl}/api/stores/background-sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          storeId,
+          isNewStore: true,
+          authToken: access_token,
+          jobId: `sync-${storeId}-${Date.now()}`
+        })
+      }).catch(error => {
+        console.warn('🔄 [BULLETPROOF] Background sync HTTP call failed:', error);
+      });
+    } catch (error) {
+      console.warn('🔄 [BULLETPROOF] Failed to trigger initial sync:', error);
+    }
+  }
+
+  /**
+   * 🧹 TRIGGER CLEANUP Y RESYNC
+   * ===========================
+   * Dispara cleanup y re-sync para reconexiones
+   */
+  private static async triggerCleanupAndResync(storeId: string, access_token: string): Promise<void> {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      
+      // Fire-and-forget HTTP request
+      fetch(`${baseUrl}/api/stores/background-cleanup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          storeId,
+          authToken: access_token,
+          jobId: `cleanup-${storeId}-${Date.now()}`
+        })
+      }).catch(error => {
+        console.warn('🧹 [BULLETPROOF] Background cleanup HTTP call failed:', error);
+      });
+    } catch (error) {
+      console.warn('🧹 [BULLETPROOF] Failed to trigger cleanup and resync:', error);
     }
   }
 } 
