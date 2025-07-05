@@ -590,6 +590,121 @@ export class FiniRAGEngine implements RAGEngine {
   }
 
   /**
+   * Clean up store vectors for reconnection (partial cleanup)
+   */
+  async cleanupStoreVectors(storeId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.warn(`[RAG:engine] Cleaning up vectors for store reconnection: ${storeId}`);
+
+      const namespaces = [
+        `store-${storeId}`,
+        `store-${storeId}-products`,
+        `store-${storeId}-orders`,
+        `store-${storeId}-customers`,
+        `store-${storeId}-analytics`,
+        `store-${storeId}-conversations`,
+      ];
+
+      // Delete vectors from all namespaces
+      for (const namespace of namespaces) {
+        try {
+          console.warn(`[RAG:engine] Cleaning namespace: ${namespace}`);
+          await this.vectorStore.deleteAll(namespace);
+        } catch (namespaceError) {
+          console.warn(`[RAG:engine] Failed to clean namespace ${namespace}:`, namespaceError);
+          // Continue with other namespaces
+        }
+      }
+
+      console.warn(`[RAG:engine] ✅ Vector cleanup completed for store: ${storeId}`);
+      return { success: true };
+    } catch (error) {
+      console.warn('[ERROR] Failed to cleanup store vectors:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+  /**
+   * Delete all vectors for a store (hard delete)
+   */
+  async deleteStoreVectors(storeId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.warn(`[RAG:engine] Deleting all vectors for store: ${storeId}`);
+
+      const namespaces = [
+        `store-${storeId}`,
+        `store-${storeId}-products`,
+        `store-${storeId}-orders`,
+        `store-${storeId}-customers`,
+        `store-${storeId}-analytics`,
+        `store-${storeId}-conversations`,
+      ];
+
+      // Delete vectors from all namespaces
+      for (const namespace of namespaces) {
+        try {
+          console.warn(`[RAG:engine] Deleting vectors from namespace: ${namespace}`);
+          await this.vectorStore.deleteAll(namespace);
+        } catch (namespaceError) {
+          console.warn(`[RAG:engine] Failed to delete from namespace ${namespace}:`, namespaceError);
+          // Continue with other namespaces
+        }
+      }
+
+      console.warn(`[RAG:engine] ✅ Vector deletion completed for store: ${storeId}`);
+      return { success: true };
+    } catch (error) {
+      console.warn('[ERROR] Failed to delete store vectors:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+  /**
+   * Delete all namespaces for a store (hard delete)
+   */
+  async deleteStoreNamespaces(storeId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.warn(`[RAG:engine] Deleting all namespaces for store: ${storeId}`);
+
+      const namespaces = [
+        `store-${storeId}`,
+        `store-${storeId}-products`,
+        `store-${storeId}-orders`,
+        `store-${storeId}-customers`,
+        `store-${storeId}-analytics`,
+        `store-${storeId}-conversations`,
+      ];
+
+      // Pinecone doesn't have explicit namespace deletion
+      // But we can delete all vectors in each namespace
+      for (const namespace of namespaces) {
+        try {
+          console.warn(`[RAG:engine] Clearing namespace: ${namespace}`);
+          await this.vectorStore.deleteAll(namespace);
+        } catch (namespaceError) {
+          console.warn(`[RAG:engine] Failed to clear namespace ${namespace}:`, namespaceError);
+          // Continue with other namespaces
+        }
+      }
+
+      console.warn(`[RAG:engine] ✅ Namespace cleanup completed for store: ${storeId}`);
+      return { success: true };
+    } catch (error) {
+      console.warn('[ERROR] Failed to delete store namespaces:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+  /**
    * Delete specific documents by IDs
    * 🔥 CRITICAL: Para eliminar vectores de conversaciones específicas
    */

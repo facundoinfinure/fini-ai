@@ -518,6 +518,39 @@ export class PineconeVectorStore implements VectorStore {
   }
 
   /**
+   * Delete all vectors from a namespace
+   * 🔥 NEW: For complete namespace cleanup
+   */
+  async deleteAll(namespace: string): Promise<void> {
+    try {
+      console.warn(`[RAG:vector-store] Deleting all vectors from namespace: ${namespace}`);
+
+      const index = await this.getIndex();
+      
+      // Use Pinecone's deleteAll to remove all vectors in the namespace
+      await retryPineconeOperation(async () => {
+        await index.namespace(namespace).deleteAll();
+      }, PINECONE_NETWORK_CONFIG.RETRY_ATTEMPTS, PINECONE_NETWORK_CONFIG.RETRY_DELAY_BASE, `deleteAll:${namespace}`);
+      
+      console.warn(`[RAG:vector-store] ✅ Successfully deleted all vectors from namespace: ${namespace}`);
+    } catch (error) {
+      const networkError = classifyPineconeError(error instanceof Error ? error : new Error(String(error)), 'deleteAll');
+      
+      // 🔥 IMPROVED: Handle 404 errors gracefully
+      if (error instanceof Error && error.message.includes('404')) {
+        console.warn(`[RAG:vector-store] Namespace ${namespace} not found (404) - may already be empty`);
+        // This is OK - just means the namespace was already empty or doesn't exist
+      } else if (networkError.isNetworkError) {
+        console.warn(`[RAG:vector-store] 🌐 Network error deleting all from namespace ${namespace}:`, error);
+        // Don't throw for network errors - the vectors might be deleted eventually
+      } else {
+        console.warn(`[RAG:vector-store] ❌ Failed to delete all from namespace ${namespace}:`, error);
+        throw error;
+      }
+    }
+  }
+
+  /**
    * Get vector store statistics
    */
   async getStats(): Promise<{ totalVectors: number; dimension: number }> {

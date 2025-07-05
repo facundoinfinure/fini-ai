@@ -199,40 +199,29 @@ export class StoreService {
 
       console.log(`[SUCCESS] Store created successfully: ${store.id}`);
 
-      // 🔥 STEP 3: Auto-trigger RAG sync for immediate functionality
-      // This runs in background and doesn't block the response
-      setImmediate(async () => {
-        try {
-          console.log(`[RAG:AUTO-SYNC] Starting automatic RAG sync for new store: ${store.id}`);
-          
-          // Import RAG engine dynamically to avoid circular dependencies
-          const { FiniRAGEngine } = await import('@/lib/rag');
-          const ragEngine = new FiniRAGEngine();
-          
-          // Initialize namespaces and sync data
-          await ragEngine.indexStoreData(store.id, store.access_token);
-          
-          console.log(`[RAG:AUTO-SYNC] ✅ Automatic sync completed for store: ${store.id}`);
-        } catch (ragError) {
-          // 🔥 CRITICAL: RAG sync failure should NOT break store creation
-          console.warn(`[RAG:AUTO-SYNC] ⚠️ Auto-sync failed for store ${store.id}:`, ragError);
-          
-          // Log the failure but don't throw - store is still created successfully
-          console.warn(`[RAG:AUTO-SYNC] Store ${store.id} created successfully but will need manual sync`);
-        }
-      });
-
-      // 🔥 STEP 4: Initialize store namespaces in parallel (non-blocking)
-      setImmediate(async () => {
-        try {
-          const { FiniRAGEngine } = await import('@/lib/rag');
-          const ragEngine = new FiniRAGEngine();
-          await ragEngine.initializeStoreNamespaces(store.id);
-          console.log(`[RAG:NAMESPACES] ✅ Namespaces initialized for store: ${store.id}`);
-        } catch (namespaceError) {
-          console.warn(`[RAG:NAMESPACES] ⚠️ Namespace initialization failed for store ${store.id}:`, namespaceError);
-        }
-      });
+      // 🔥 STEP 3: Trigger background sync via HTTP call (non-blocking)
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        // Fire-and-forget HTTP request to background sync
+        fetch(`${baseUrl}/api/stores/background-sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            storeId: store.id,
+            isNewStore: true,
+            authToken: store.access_token,
+            jobId: `sync-${store.id}-${Date.now()}`
+          })
+        }).catch(error => {
+          console.warn(`[RAG:AUTO-SYNC] Background sync HTTP call failed for store ${store.id}:`, error);
+        });
+        
+        console.log(`[RAG:AUTO-SYNC] Background sync triggered for store: ${store.id}`);
+      } catch (error) {
+        console.warn(`[RAG:AUTO-SYNC] Failed to trigger background sync for store ${store.id}:`, error);
+      }
 
       return { success: true, store };
     } catch (error) {
@@ -396,38 +385,48 @@ export class StoreService {
         console.log('[SUCCESS] Store created successfully:', store.id);
       }
 
-      // 🔥 STEP 4: Trigger RAG sync (same as original method)
-      if (!existingStore) {
-        // Only trigger full sync for new stores
-        setImmediate(async () => {
-          try {
-            console.log(`[RAG:AUTO-SYNC] Starting automatic RAG sync for store: ${store.id}`);
-            
-            const { FiniRAGEngine } = await import('@/lib/rag');
-            const ragEngine = new FiniRAGEngine();
-            
-            await ragEngine.indexStoreData(store.id, store.access_token);
-            
-            console.log(`[RAG:AUTO-SYNC] ✅ Automatic sync completed for store: ${store.id}`);
-          } catch (ragError) {
-            console.warn(`[RAG:AUTO-SYNC] ⚠️ Auto-sync failed for store ${store.id}:`, ragError);
-            console.warn(`[RAG:AUTO-SYNC] Store ${store.id} created successfully but will need manual sync`);
-          }
-        });
-
-        // Initialize namespaces for new stores
-        setImmediate(async () => {
-          try {
-            const { FiniRAGEngine } = await import('@/lib/rag');
-            const ragEngine = new FiniRAGEngine();
-            await ragEngine.initializeStoreNamespaces(store.id);
-            console.log(`[RAG:NAMESPACES] ✅ Namespaces initialized for store: ${store.id}`);
-          } catch (namespaceError) {
-            console.warn(`[RAG:NAMESPACES] ⚠️ Namespace initialization failed for store ${store.id}:`, namespaceError);
-          }
-        });
-      } else {
-        console.log('[INFO] Store was updated, skipping full RAG sync');
+      // 🔥 STEP 4: Trigger background sync based on store state
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        
+        if (!existingStore) {
+          // New store: trigger full sync
+          fetch(`${baseUrl}/api/stores/background-sync`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              storeId: store.id,
+              isNewStore: true,
+              authToken: store.access_token,
+              jobId: `sync-${store.id}-${Date.now()}`
+            })
+          }).catch(error => {
+            console.warn(`[RAG:AUTO-SYNC] Background sync HTTP call failed for new store ${store.id}:`, error);
+          });
+          
+          console.log(`[RAG:AUTO-SYNC] Background sync triggered for new store: ${store.id}`);
+        } else {
+          // Existing store: trigger cleanup + re-sync
+          fetch(`${baseUrl}/api/stores/background-cleanup`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              storeId: store.id,
+              authToken: store.access_token,
+              jobId: `cleanup-${store.id}-${Date.now()}`
+            })
+          }).catch(error => {
+            console.warn(`[RAG:AUTO-SYNC] Background cleanup HTTP call failed for store ${store.id}:`, error);
+          });
+          
+          console.log(`[RAG:AUTO-SYNC] Background cleanup triggered for existing store: ${store.id}`);
+        }
+      } catch (error) {
+        console.warn(`[RAG:AUTO-SYNC] Failed to trigger background operations for store ${store.id}:`, error);
       }
 
       return { success: true, store };

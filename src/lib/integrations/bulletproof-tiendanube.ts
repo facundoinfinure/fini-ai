@@ -16,6 +16,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { TiendaNubeAPI, exchangeCodeForToken } from './tiendanube';
 import { StoreService } from '@/lib/database/client';
+import { StoreLifecycleManager } from '@/lib/services/store-lifecycle-manager';
 
 interface ConnectionResult {
   success: boolean;
@@ -61,19 +62,19 @@ export class BulletproofTiendaNube {
 
       const storeInfo = storeInfoResult.data!;
 
-      // 3. Preparar y guardar datos
-      const storeData = this.prepareStoreData(data, storeInfo, access_token);
-      const saveResult = await this.saveStoreWithRetry(storeData);
-      
-      if (!saveResult.success) {
-        return { success: false, error: `Database save failed: ${saveResult.error}` };
-      }
+      // 3. 🔥 NUEVO: Usar StoreLifecycleManager para manejo completo
+      const storeCreationData = {
+        userId: data.userId,
+        storeUrl: data.storeUrl,
+        storeName: data.storeName,
+        platformStoreId: user_id.toString(),
+        accessToken: access_token,
+        context: data.context
+      };
 
-      // 4. 🔥 NUEVO: Validar token inmediatamente después de guardarlo
-      console.log('🔄 [BULLETPROOF] Validating saved token...');
+      // 4. 🔥 NUEVO: Validar token antes de proceder
+      console.log('🔄 [BULLETPROOF] Validating token...');
       try {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second for DB propagation
-        
         const api = new TiendaNubeAPI(access_token, user_id.toString());
         const testResult = await api.getStore();
         
@@ -91,23 +92,30 @@ export class BulletproofTiendaNube {
         };
       }
 
-      // 5. 🔥 NUEVO: Delay antes de inicializar sincronización automática
-      console.log('🔄 [BULLETPROOF] Scheduling delayed auto-sync initialization...');
-      setTimeout(async () => {
-        try {
-          const { initializeForNewStore } = await import('@/lib/integrations/auto-sync-initializer');
-          await initializeForNewStore(saveResult.store!.id);
-          console.log('✅ [BULLETPROOF] Delayed auto-sync initialized for store:', saveResult.store!.name);
-        } catch (error) {
-          console.error('⚠️ [BULLETPROOF] Delayed auto-sync initialization failed:', error);
-        }
-      }, 5000); // 5 second delay
+      // 5. 🔥 NUEVO: Detectar si es tienda nueva o reconexión
+      const existingStoreResult = await StoreService.getStoresByUserId(data.userId);
+      const isReconnection = existingStoreResult.success && 
+        existingStoreResult.stores?.some(s => s.platform_store_id === user_id.toString());
+
+      console.log(`🔄 [BULLETPROOF] Store ${isReconnection ? 'reconnection' : 'creation'} detected`);
+
+      // 6. 🔥 NUEVO: Usar StoreLifecycleManager apropiado
+      const lifecycleResult = isReconnection 
+        ? await StoreLifecycleManager.reconnectExistingStore(storeCreationData)
+        : await StoreLifecycleManager.createNewStore(storeCreationData);
+      
+      if (!lifecycleResult.success) {
+        return { 
+          success: false, 
+          error: `Store ${isReconnection ? 'reconnection' : 'creation'} failed: ${lifecycleResult.error}` 
+        };
+      }
 
       console.log('✅ [BULLETPROOF] Store connection completed successfully!');
       
       return {
         success: true,
-        store: saveResult.store,
+        store: lifecycleResult.store,
         syncStatus: 'completed'
       };
 
