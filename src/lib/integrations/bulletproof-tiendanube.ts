@@ -72,25 +72,25 @@ export class BulletproofTiendaNube {
         context: data.context
       };
 
-      // 4. 🔥 NUEVO: Validar token antes de proceder
-      console.log('🔄 [BULLETPROOF] Validating token...');
-      try {
-        const api = new TiendaNubeAPI(access_token, user_id.toString());
-        const testResult = await api.getStore();
-        
-        if (!testResult || !testResult.id) {
-          throw new Error('Token validation failed - store info not accessible');
-        }
-        
-        console.log('✅ [BULLETPROOF] Token validation successful');
-        
-      } catch (tokenError) {
-        console.error('❌ [BULLETPROOF] Token validation failed:', tokenError);
-        return { 
-          success: false, 
-          error: `Token validation failed: ${tokenError instanceof Error ? tokenError.message : 'Unknown error'}` 
-        };
-      }
+      // 4. 🔥 COMENTADO TEMPORALMENTE: Validar token antes de proceder
+      // console.log('🔄 [BULLETPROOF] Validating token...');
+      // try {
+      //   const api = new TiendaNubeAPI(access_token, user_id.toString());
+      //   const testResult = await api.getStore();
+      //   
+      //   if (!testResult || !testResult.id) {
+      //     throw new Error('Token validation failed - store info not accessible');
+      //   }
+      //   
+      //   console.log('✅ [BULLETPROOF] Token validation successful');
+      //   
+      // } catch (tokenError) {
+      //   console.error('❌ [BULLETPROOF] Token validation failed:', tokenError);
+      //   return { 
+      //     success: false, 
+      //     error: `Token validation failed: ${tokenError instanceof Error ? tokenError.message : 'Unknown error'}` 
+      //   };
+      // }
 
       // 5. 🔥 NUEVO: Detectar si es tienda nueva o reconexión
       const existingStoreResult = await StoreService.getStoresByUserId(data.userId);
