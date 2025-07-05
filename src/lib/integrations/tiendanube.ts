@@ -678,12 +678,13 @@ export const exchangeCodeForToken = async (code: string): Promise<TiendaNubeAuth
       throw new Error('Server configuration error: Tienda Nube credentials are missing. Please configure TIENDANUBE_CLIENT_ID and TIENDANUBE_CLIENT_SECRET in your environment variables.');
     }
 
-    const requestBody = {
+    // 🔥 FIX: Use application/x-www-form-urlencoded as per OAuth2 standard
+    const requestBody = new URLSearchParams({
       client_id: CLIENT_ID,
       client_secret: CLIENT_SECRET,
       grant_type: 'authorization_code',
       code,
-    };
+    });
 
     console.log('[DEBUG] Token exchange request body:', {
       client_id: CLIENT_ID,
@@ -695,10 +696,10 @@ export const exchangeCodeForToken = async (code: string): Promise<TiendaNubeAuth
     const response = await fetch(`https://www.tiendanube.com/apps/authorize/token`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
         'User-Agent': 'FiniAI/1.0 (WhatsApp Analytics for TiendaNube)',
       },
-      body: JSON.stringify(requestBody),
+      body: requestBody.toString(),
     });
 
     const responseText = await response.text();
