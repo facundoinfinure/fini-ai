@@ -16,7 +16,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { TiendaNubeAPI, exchangeCodeForToken } from './tiendanube';
 import { StoreService } from '@/lib/database/client';
-import { StoreLifecycleManager } from '@/lib/services/store-lifecycle-manager';
 
 interface ConnectionResult {
   success: boolean;
@@ -62,15 +61,7 @@ export class BulletproofTiendaNube {
 
       const storeInfo = storeInfoResult.data!;
 
-      // 3. 🔥 NUEVO: Usar StoreLifecycleManager para manejo completo
-      const storeCreationData = {
-        userId: data.userId,
-        storeUrl: data.storeUrl,
-        storeName: data.storeName,
-        platformStoreId: user_id.toString(),
-        accessToken: access_token,
-        context: data.context
-      };
+      // 3. 🚀 ULTRA-FAST: Solo preparar datos básicos
 
       // 4. 🔥 COMENTADO TEMPORALMENTE: Validar token antes de proceder
       // console.log('🔄 [BULLETPROOF] Validating token...');
@@ -92,30 +83,31 @@ export class BulletproofTiendaNube {
       //   };
       // }
 
-      // 5. 🔥 NUEVO: Detectar si es tienda nueva o reconexión
-      const existingStoreResult = await StoreService.getStoresByUserId(data.userId);
-      const isReconnection = existingStoreResult.success && 
-        existingStoreResult.stores?.some(s => s.platform_store_id === user_id.toString());
-
-      console.log(`🔄 [BULLETPROOF] Store ${isReconnection ? 'reconnection' : 'creation'} detected`);
-
-      // 6. 🔥 NUEVO: Usar StoreLifecycleManager apropiado
-      const lifecycleResult = isReconnection 
-        ? await StoreLifecycleManager.reconnectExistingStore(storeCreationData)
-        : await StoreLifecycleManager.createNewStore(storeCreationData);
+      // 5. 🚀 ULTRA-FAST: Preparar y guardar datos directamente (sin lifecycle manager)
+      const storeData = this.prepareStoreData(data, storeInfo, access_token);
+      const saveResult = await this.saveStoreWithRetry(storeData);
       
-      if (!lifecycleResult.success) {
-        return { 
-          success: false, 
-          error: `Store ${isReconnection ? 'reconnection' : 'creation'} failed: ${lifecycleResult.error}` 
-        };
+      if (!saveResult.success) {
+        return { success: false, error: `Database save failed: ${saveResult.error}` };
       }
+
+      // 6. 🚀 ULTRA-FAST: Disparar sync en background DESPUÉS del retorno exitoso
+      console.log('🔄 [BULLETPROOF] Scheduling background sync...');
+      setTimeout(async () => {
+        try {
+          const { initializeForNewStore } = await import('@/lib/integrations/auto-sync-initializer');
+          await initializeForNewStore(saveResult.store!.id);
+          console.log('✅ [BULLETPROOF] Background sync completed for store:', saveResult.store!.name);
+        } catch (error) {
+          console.error('⚠️ [BULLETPROOF] Background sync failed:', error);
+        }
+      }, 2000); // 2 second delay
 
       console.log('✅ [BULLETPROOF] Store connection completed successfully!');
       
       return {
         success: true,
-        store: lifecycleResult.store,
+        store: saveResult.store,
         syncStatus: 'completed'
       };
 
