@@ -7,7 +7,8 @@ import {
   OperationNotification, 
   OperationType, 
   SystemStatus,
-  shouldBlockChatAccess
+  shouldBlockChatAccess,
+  getOperationConfig
 } from '@/types/operations';
 import { operationManager } from '@/lib/operations/operation-manager';
 
@@ -130,7 +131,7 @@ export function useOperations(): UseOperationsReturn {
   const chatBlockReason = (() => {
     if (!canAccessChat) {
       const blockingOps = operations.filter(op => {
-        const config = operationManager.getOperationConfig?.(op.type);
+        const config = getOperationConfig(op.type);
         return config?.blocksChatAccess && [
           'pending', 'starting', 'in_progress', 'completing'
         ].includes(op.status);
@@ -214,7 +215,7 @@ export function useOperations(): UseOperationsReturn {
   );
 
   const hasCriticalOperations = operations.some(op => {
-    const config = operationManager.getOperationConfig?.(op.type);
+    const config = getOperationConfig(op.type);
     return config?.priority === 'critical' && ['pending', 'starting', 'in_progress', 'completing'].includes(op.status);
   });
 
@@ -266,7 +267,7 @@ export function useChatAccess(): {
   const { operations, canAccessChat, chatBlockReason, estimatedWaitTime } = useOperations();
   
   const blockingOperations = operations.filter(op => {
-    const config = operationManager.getOperationConfig?.(op.type);
+    const config = getOperationConfig(op.type);
     return config?.blocksChatAccess && ['pending', 'starting', 'in_progress', 'completing'].includes(op.status);
   });
 

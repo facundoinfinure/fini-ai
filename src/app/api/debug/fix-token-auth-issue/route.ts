@@ -91,30 +91,12 @@ export async function POST(request: NextRequest) {
 
         if (!tokenIsValid) {
           results.summary.storesWithInvalidTokens++;
+          storeResult.issues.push('Token is invalid - manual reconnection required');
+          storeResult.fixes.push('Store needs to be reconnected via OAuth flow');
+          storeResult.status = 'error';
           
-                     // 3. Intentar regenerar el token usando el bulletproof system
-           try {
-             const { BulletproofTiendaNube } = await import('@/lib/integrations/bulletproof-tiendanube');
-             
-                          // Verificar salud de la tienda
-             const healthResult = await BulletproofTiendaNube.checkStoreHealth(store.id);
-             
-             if (healthResult.healthy) {
-               storeResult.fixes.push('Store health check passed - no action needed');
-               storeResult.status = 'healthy';
-             } else {
-               storeResult.issues.push(`Store health issues: ${healthResult.issues.join(', ')}`);
-               storeResult.fixes.push(`Recommendations: ${healthResult.recommendations.join(', ')}`);
-               storeResult.status = 'error';
-               
-               // Si hay problemas de salud, marcar para reconexión
-               storeResult.fixes.push('Store marked for manual reconnection');
-             }
-          } catch (error) {
-            console.error(`[TOKEN-FIX] Bulletproof reconnect failed for store ${store.id}:`, error);
-            storeResult.issues.push(`Bulletproof reconnect failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-            storeResult.status = 'error';
-          }
+          // Note: Bulletproof health check temporarily disabled
+          // TODO: Re-implement after BulletproofTiendaNube refactor
         } else {
           storeResult.status = 'healthy';
         }

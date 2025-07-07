@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { scenario, storeId = 'test-store-123', storeName = 'Tienda de Prueba' } = body;
     
-    let createdOperations: any[] = [];
+    const createdOperations: any[] = [];
     
     switch (scenario) {
       case 'initial_connection':
