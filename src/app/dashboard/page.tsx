@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
+import { useOperations } from "@/hooks/useOperations";
 import { Bot, LogOut, User, BarChart3, MessageSquare, CheckCircle, AlertCircle, X, RefreshCw, Store as StoreIcon, Phone, CreditCard, BarChart } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense, useCallback } from "react";
@@ -18,6 +19,7 @@ import {
 import { PremiumChatInterface } from '@/components/chat/premium-chat-interface';
 import { DashboardSummary } from '@/components/dashboard/dashboard-summary';
 import { ProfileManagement } from '@/components/dashboard/profile-management';
+import { OperationNotifications } from '@/components/dashboard/operation-notifications';
 import { Store as StoreType } from "@/types/db";
 import { SidebarLayout } from '@/components/ui/sidebar-layout';
 
@@ -62,6 +64,25 @@ function DashboardContent() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // Operations and notifications management
+  const {
+    operations,
+    notifications,
+    systemStatus,
+    canAccessChat,
+    chatBlockReason,
+    dismissNotification: dismissOperationNotification,
+    cancelOperation,
+    retryOperation,
+    pauseOperation,
+    resumeOperation,
+    createStoreConnection,
+    createDataUpdate,
+    createRAGSync,
+    hasActiveOperations,
+    estimatedWaitTime
+  } = useOperations();
   
   // State management
   const [stores, setStores] = useState<StoreType[]>([]);
@@ -113,10 +134,21 @@ function DashboardContent() {
         type: 'success',
         message: `¡Tienda "${decodeURIComponent(storeName)}" conectada exitosamente!`
       });
-      // Auto refresh data after successful connection
-      setTimeout(() => {
-        fetchDashboardData();
-      }, 1000);
+      
+      // 🎯 Create initial connection operation for the new store
+      try {
+        // Get the store ID from stores array after fetching
+        setTimeout(async () => {
+          await fetchDashboardData();
+          // Find the newly connected store
+          const newStore = stores.find(s => s.name === decodeURIComponent(storeName));
+          if (newStore && user?.id) {
+            createStoreConnection(newStore.id, newStore.name || 'Tienda');
+          }
+        }, 1000);
+      } catch (error) {
+        console.warn('[DASHBOARD] Could not create store connection operation:', error);
+      }
     } else if (success === 'true' && sessionId) {
       // Handle successful Stripe checkout
       handleStripeCheckoutSuccess(sessionId);
@@ -269,6 +301,15 @@ function DashboardContent() {
   };
 
   const handleRefresh = () => {
+    // 🎯 Create data update operations for active stores
+    if (stores.length > 0 && user?.id) {
+      stores.forEach(store => {
+        if (store.access_token && store.is_active) {
+          createDataUpdate(store.id, store.name || 'Tienda', 'manual_refresh');
+        }
+      });
+    }
+    
     fetchDashboardData();
   };
 
@@ -680,6 +721,36 @@ function DashboardContent() {
                     Sistema de conversación de última generación con memoria contextual y análisis específico de tu tienda.
                   </p>
                 </div>
+                
+                {/* Chat Access Control */}
+                {!canAccessChat && (
+                  <Alert className="border-orange-200 bg-orange-50">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-orange-800">
+                      <div className="font-semibold mb-1">Chat temporalmente no disponible</div>
+                      <div className="text-sm">{chatBlockReason}</div>
+                      {estimatedWaitTime > 0 && (
+                        <div className="text-xs mt-1">
+                          Tiempo estimado de espera: {Math.ceil(estimatedWaitTime / 60)} minutos
+                        </div>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                {/* System Status Warning */}
+                {hasActiveOperations && canAccessChat && (
+                  <Alert className="border-yellow-200 bg-yellow-50">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-yellow-800">
+                      <div className="font-semibold mb-1">Operaciones en curso</div>
+                      <div className="text-sm">
+                        El chat está disponible, pero puede mostrar información no actualizada mientras se completan las operaciones en curso.
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
                 <PremiumChatInterface 
                   selectedStore={stores.length > 0 ? {
                     id: stores[0].id,
@@ -736,6 +807,18 @@ function DashboardContent() {
           </DashboardErrorBoundary>
         )}
       </div>
+      
+      {/* Operation Notifications - Global overlay */}
+      <OperationNotifications
+        operations={operations}
+        notifications={notifications}
+        systemStatus={systemStatus}
+        onDismissNotification={dismissOperationNotification}
+        onCancelOperation={cancelOperation}
+        onRetryOperation={retryOperation}
+        onPauseOperation={pauseOperation}
+        onResumeOperation={resumeOperation}
+      />
     </SidebarLayout>
   );
 }

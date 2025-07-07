@@ -212,6 +212,7 @@ export class StoreService {
             storeId: store.id,
             isNewStore: true,
             authToken: store.access_token,
+            userId: store.user_id,
             jobId: `sync-${store.id}-${Date.now()}`
           })
         }).catch(error => {
@@ -400,6 +401,7 @@ export class StoreService {
               storeId: store.id,
               isNewStore: true,
               authToken: store.access_token,
+              userId: store.user_id,
               jobId: `sync-${store.id}-${Date.now()}`
             })
           }).catch(error => {
@@ -417,6 +419,7 @@ export class StoreService {
             body: JSON.stringify({
               storeId: store.id,
               authToken: store.access_token,
+              userId: store.user_id,
               jobId: `cleanup-${store.id}-${Date.now()}`
             })
           }).catch(error => {
