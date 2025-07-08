@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Send, 
   Bot, 
@@ -17,25 +14,24 @@ import {
   Plus,
   MoreHorizontal,
   Trash2,
-  Edit,
+  Edit3,
   Check,
   X,
   AlertCircle,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  CheckCheck,
+  Cog,
+  BarChart3,
+  Users,
+  Sparkles,
+  Package,
+  DollarSign,
+  Briefcase,
+  ShoppingCart,
+  Target
 } from 'lucide-react';
 import { ChatAccessGuard } from './chat-access-guard';
-import { useChat, Message } from '@/hooks/useChat';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { fetchGetWithAuth, fetchPostWithAuth } from '@/lib/fetch-with-auth';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -43,6 +39,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator 
 } from '@/components/ui/dropdown-menu';
+import { fetchGetWithAuth } from '@/lib/fetch-with-auth';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface Message {
   id: string;
