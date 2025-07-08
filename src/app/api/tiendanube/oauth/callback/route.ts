@@ -93,11 +93,11 @@ export async function GET(request: NextRequest) {
         updated_at: new Date().toISOString()
       };
 
-      // Insert directo sin validaciones complejas
+      // Insert directo sin validaciones complejas  
       const { data: store, error: insertError } = await supabase
         .from('stores')
         .upsert(storeData, { 
-          onConflict: 'user_id,platform_store_id'
+          onConflict: 'user_id,platform,platform_store_id' // ✅ Fixed: Added missing 'platform' field
         })
         .select()
         .single();
