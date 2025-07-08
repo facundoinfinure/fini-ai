@@ -184,7 +184,7 @@ export class BulletproofTiendaNube {
     return {
       user_id: connectionData.userId,
       name: connectionData.storeName,
-      url: connectionData.storeUrl,
+      domain: connectionData.storeUrl, // ✅ Fixed: url -> domain (correct field name)
       platform: 'tiendanube' as const,
       platform_store_id: storeInfo.id?.toString() || '',
       access_token: accessToken,
@@ -192,7 +192,7 @@ export class BulletproofTiendaNube {
       timezone: storeInfo.timezone || 'America/Argentina/Buenos_Aires',
       language: storeInfo.language || 'es',
       is_active: true,
-      last_sync: null,
+      last_sync_at: null, // ✅ Fixed: last_sync -> last_sync_at (correct field name)
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };

@@ -303,6 +303,9 @@ export class StoreService {
             ...storeData,
             store_name: storeData.name,
             store_url: storeData.domain,
+            currency: storeData.currency || 'ARS',
+            timezone: storeData.timezone || 'America/Argentina/Buenos_Aires',
+            language: storeData.language || 'es',
             is_active: true,
             updated_at: new Date().toISOString()
           };
@@ -318,6 +321,9 @@ export class StoreService {
             tiendanube_store_id: storeData.platform_store_id,
             store_name: storeData.name,
             store_url: storeData.domain,
+            currency: storeData.currency || 'ARS',
+            timezone: storeData.timezone || 'America/Argentina/Buenos_Aires',
+            language: storeData.language || 'es',
             is_active: true,
             updated_at: new Date().toISOString()
           };

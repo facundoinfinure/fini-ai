@@ -76,19 +76,19 @@ export async function GET(request: NextRequest) {
 
       console.log('✅ [ULTRA-FAST-CALLBACK] Token exchange successful');
 
-      // PASO 2: Guardar datos MÍNIMOS en DB (ULTRA-FAST)
+      // PASO 2: Guardar datos COMPLETOS en DB (ULTRA-FAST)
       const storeData = {
         user_id: userId,
         name: storeName,
-        url: storeUrl,
+        domain: storeUrl,
         platform: 'tiendanube' as const,
         platform_store_id: authResult.user_id.toString(),
         access_token: authResult.access_token,
-        currency: 'ARS',
-        timezone: 'America/Argentina/Buenos_Aires',
-        language: 'es',
+        currency: 'ARS', // ✅ Default currency for Argentina
+        timezone: 'America/Argentina/Buenos_Aires', // ✅ Default timezone  
+        language: 'es', // ✅ Default language
         is_active: true,
-        last_sync: null,
+        last_sync_at: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };

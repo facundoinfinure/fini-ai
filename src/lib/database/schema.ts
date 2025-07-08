@@ -25,6 +25,9 @@ export interface Store {
   access_token: string;
   refresh_token: string | null;
   token_expires_at: string;
+  currency?: string;
+  timezone?: string;
+  language?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -163,6 +166,9 @@ CREATE TABLE IF NOT EXISTS stores (
   access_token TEXT NOT NULL,
   refresh_token TEXT,
   token_expires_at TIMESTAMP WITH TIME ZONE,
+  currency TEXT DEFAULT 'ARS',
+  timezone TEXT DEFAULT 'America/Argentina/Buenos_Aires',
+  language TEXT DEFAULT 'es',
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

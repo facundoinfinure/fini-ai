@@ -10,6 +10,9 @@ export interface Store {
   access_token: string;
   refresh_token?: string | null;
   token_expires_at?: string | null;
+  currency?: string;
+  timezone?: string;
+  language?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
