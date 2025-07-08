@@ -444,19 +444,24 @@ export class UniversalTokenManager {
     if (error || !stores || stores.length === 0) {
       return {
         totalStores: 0,
-        storesByPlatform: {},
+        storesByPlatform: {
+          tiendanube: 0,
+          shopify: 0,
+          woocommerce: 0,
+          other: 0
+        } as Record<Platform, number>,
         validStores: 0,
         invalidStores: 0,
         reconnectionRequired: []
       };
     }
 
-    const storesByPlatform: Record<Platform, number> = {
+    const storesByPlatform = {
       tiendanube: 0,
       shopify: 0,
       woocommerce: 0,
       other: 0
-    };
+    } as Record<Platform, number>;
 
     let validStores = 0;
     let invalidStores = 0;
