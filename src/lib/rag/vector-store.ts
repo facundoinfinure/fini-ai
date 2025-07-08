@@ -80,7 +80,7 @@ function classifyPineconeError(error: Error, context: string): PineconeNetworkEr
 }
 
 /**
- * 🔥 NEW: Implements retry logic specifically for Pinecone operations
+ * 🔥 ENHANCED: Retry operation with network awareness and graceful 404 handling
  */
 async function retryPineconeOperation<T>(
   operation: () => Promise<T>,
@@ -95,31 +95,47 @@ async function retryPineconeOperation<T>(
       return await operation();
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      
       const networkError = classifyPineconeError(lastError, context);
       
-      console.error(`[RAG:vector-store] Attempt ${attempt}/${maxAttempts} failed for ${context}:`, {
-        message: lastError.message,
-        isNetwork: networkError.isNetworkError,
-        isTimeout: networkError.isTimeoutError,
-        isPinecone: networkError.isPineconeError,
-        willRetry: networkError.shouldRetry && attempt < maxAttempts
-      });
+      // 🔥 NEW: Handle 404 errors gracefully and silently for cleanup operations
+      if (lastError.message.includes('404') && (context.includes('delete') || context.includes('cleanup'))) {
+        console.warn(`[RAG:vector-store] ${context} - Namespace/vectors not found (404) - operation completed (already clean)`);
+        return undefined as unknown as T; // Return gracefully for delete operations
+      }
       
-      // Don't retry configuration errors or authentication errors
-      if (!networkError.shouldRetry) {
-        console.error(`[RAG:vector-store] Non-retryable error for ${context}: ${lastError.message}`);
+      // 🔥 ENHANCED: More nuanced retry logic
+      if (!networkError.shouldRetry || attempt === maxAttempts) {
+        // Only log error details if it's not a graceful 404
+        if (!lastError.message.includes('404')) {
+          console.warn(`[RAG:vector-store] ${networkError.shouldRetry ? 'Max retries exceeded' : 'Non-retryable error'} for ${context}:`, {
+            message: lastError.message,
+            isNetwork: networkError.isNetworkError,
+            isTimeout: networkError.isTimeoutError,
+            isPinecone: networkError.isPineconeError,
+            willRetry: false
+          });
+        }
         throw lastError;
       }
       
-      if (attempt === maxAttempts) {
-        console.error(`[RAG:vector-store] Max retry attempts (${maxAttempts}) reached for ${context}`);
-        throw lastError;
+      // Calculate exponential backoff with jitter
+      const delay = Math.min(
+        baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000,
+        30000 // Max 30 seconds
+      );
+      
+      // Only log retry attempts for non-404 errors
+      if (!lastError.message.includes('404')) {
+        console.warn(`[RAG:vector-store] Attempt ${attempt}/${maxAttempts} failed for ${context}:`, {
+          message: lastError.message,
+          isNetwork: networkError.isNetworkError,
+          isTimeout: networkError.isTimeoutError,
+          isPinecone: networkError.isPineconeError,
+          willRetry: attempt < maxAttempts
+        });
       }
       
-      const delay = baseDelay * Math.pow(1.5, attempt - 1); // Gradual backoff
-      console.warn(`[RAG:vector-store] Retrying ${context} in ${delay}ms due to network error`);
-      
+      // Wait before retry
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
@@ -534,13 +550,16 @@ export class PineconeVectorStore implements VectorStore {
       
       console.warn(`[RAG:vector-store] ✅ Successfully deleted all vectors from namespace: ${namespace}`);
     } catch (error) {
+      // 🔥 ENHANCED: More specific error handling for cleanup operations
+      if (error instanceof Error && error.message.includes('404')) {
+        console.warn(`[RAG:vector-store] Namespace ${namespace} not found (404) - already clean`);
+        // This is OK - just means the namespace was already empty or doesn't exist
+        return; // Exit gracefully
+      }
+      
       const networkError = classifyPineconeError(error instanceof Error ? error : new Error(String(error)), 'deleteAll');
       
-      // 🔥 IMPROVED: Handle 404 errors gracefully
-      if (error instanceof Error && error.message.includes('404')) {
-        console.warn(`[RAG:vector-store] Namespace ${namespace} not found (404) - may already be empty`);
-        // This is OK - just means the namespace was already empty or doesn't exist
-      } else if (networkError.isNetworkError) {
+      if (networkError.isNetworkError) {
         console.warn(`[RAG:vector-store] 🌐 Network error deleting all from namespace ${namespace}:`, error);
         // Don't throw for network errors - the vectors might be deleted eventually
       } else {

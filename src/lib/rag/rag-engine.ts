@@ -605,18 +605,28 @@ export class FiniRAGEngine implements RAGEngine {
         `store-${storeId}-conversations`,
       ];
 
+      let cleanedNamespaces = 0;
+      let emptyNamespaces = 0;
+
       // Delete vectors from all namespaces
       for (const namespace of namespaces) {
         try {
           console.warn(`[RAG:engine] Cleaning namespace: ${namespace}`);
           await this.vectorStore.deleteAll(namespace);
+          cleanedNamespaces++;
         } catch (namespaceError) {
-          console.warn(`[RAG:engine] Failed to clean namespace ${namespace}:`, namespaceError);
-          // Continue with other namespaces
+          // 🔥 ENHANCED: Differentiate between expected and unexpected errors
+          if (namespaceError instanceof Error && namespaceError.message.includes('404')) {
+            console.warn(`[RAG:engine] Namespace ${namespace} was already empty (404) - skipping`);
+            emptyNamespaces++;
+          } else {
+            console.warn(`[RAG:engine] Failed to clean namespace ${namespace}:`, namespaceError);
+            // Continue with other namespaces for non-critical errors
+          }
         }
       }
 
-      console.warn(`[RAG:engine] ✅ Vector cleanup completed for store: ${storeId}`);
+      console.warn(`[RAG:engine] ✅ Vector cleanup completed for store: ${storeId} (cleaned: ${cleanedNamespaces}, already empty: ${emptyNamespaces})`);
       return { success: true };
     } catch (error) {
       console.warn('[ERROR] Failed to cleanup store vectors:', error);
