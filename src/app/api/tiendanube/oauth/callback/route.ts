@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { exchangeCodeForToken } from '@/lib/integrations/tiendanube';
+import { StoreService } from '@/lib/database/client';
 
 // Forzar renderizado dinámico
 export const dynamic = 'force-dynamic';
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
 
       console.log('✅ [ULTRA-FAST-CALLBACK] Token exchange successful');
 
-      // PASO 2: Guardar datos COMPLETOS en DB (ULTRA-FAST)
+      // PASO 2: Usar StoreService para manejo robusto del UPSERT
       const storeData = {
         user_id: userId,
         name: storeName,
@@ -84,29 +85,24 @@ export async function GET(request: NextRequest) {
         platform: 'tiendanube' as const,
         platform_store_id: authResult.user_id.toString(),
         access_token: authResult.access_token,
+        refresh_token: null,
+        token_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
         currency: 'ARS', // ✅ Default currency for Argentina
         timezone: 'America/Argentina/Buenos_Aires', // ✅ Default timezone  
         language: 'es', // ✅ Default language
         is_active: true,
-        last_sync_at: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        last_sync_at: null
       };
 
-      // Insert directo sin validaciones complejas  
-      const { data: store, error: insertError } = await supabase
-        .from('stores')
-        .upsert(storeData, { 
-          onConflict: 'user_id,platform,platform_store_id' // ✅ Fixed: Added missing 'platform' field
-        })
-        .select()
-        .single();
+      // Usar StoreService que maneja correctamente el UPSERT y la compatibilidad del schema
+      const storeResult = await StoreService.createOrUpdateStore(storeData);
 
-      if (insertError) {
-        console.error('❌ [ULTRA-FAST-CALLBACK] DB insert error:', insertError);
-        throw new Error(`Database error: ${insertError.message}`);
+      if (!storeResult.success) {
+        console.error('❌ [ULTRA-FAST-CALLBACK] Store service error:', storeResult.error);
+        throw new Error(`Store creation failed: ${storeResult.error}`);
       }
 
+      const store = storeResult.store!;
       const totalTime = Date.now() - startTime;
       console.log(`✅ [ULTRA-FAST-CALLBACK] Completed in ${totalTime}ms, store ID: ${store.id}`);
 
