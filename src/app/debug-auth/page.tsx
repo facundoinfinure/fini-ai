@@ -76,6 +76,41 @@ export default function AuthDebugPage() {
     }
   };
 
+  const testCookieDiagnosis = async () => {
+    try {
+      addTestResult({
+        name: 'Cookie Diagnosis',
+        status: 'pending',
+        message: 'Analyzing cookies and headers...'
+      });
+
+      const response = await fetchGetWithAuth('/api/debug/cookie-diagnosis');
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        addTestResult({
+          name: 'Cookie Diagnosis',
+          status: 'success',
+          message: `Cookies: ${data.data.cookieAnalysis.totalCookies}, Supabase: ${data.data.cookieAnalysis.supabaseCookies.length}, Auth: ${data.data.supabaseTest.hasUser ? 'YES' : 'NO'}`,
+          details: data.data
+        });
+      } else {
+        addTestResult({
+          name: 'Cookie Diagnosis',
+          status: 'error',
+          message: data.error || `HTTP ${response.status}: ${response.statusText}`,
+          details: data
+        });
+      }
+    } catch (error) {
+      addTestResult({
+        name: 'Cookie Diagnosis',
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
   const testStoreConnection = async () => {
     try {
       addTestResult({
@@ -116,11 +151,57 @@ export default function AuthDebugPage() {
     }
   };
 
+  const testCookiePost = async () => {
+    try {
+      addTestResult({
+        name: 'Cookie POST Test',
+        status: 'pending',
+        message: 'Testing POST endpoint with same logic as oauth/connect...'
+      });
+
+      const response = await fetchPostWithAuth('/api/debug/cookie-diagnosis', {
+        storeUrl: storeUrl,
+        storeName: 'Test Store',
+        context: 'configuration'
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        addTestResult({
+          name: 'Cookie POST Test',
+          status: 'success',
+          message: 'POST endpoint works! OAuth should work too! ✅',
+          details: data.data
+        });
+      } else {
+        addTestResult({
+          name: 'Cookie POST Test',
+          status: 'error',
+          message: data.error || `HTTP ${response.status}: ${response.statusText}`,
+          details: data
+        });
+      }
+    } catch (error) {
+      addTestResult({
+        name: 'Cookie POST Test',
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
   const runAllTests = async () => {
     setIsRunningTests(true);
     setTestResults([]);
 
     await checkAuthStatus();
+    await new Promise(resolve => setTimeout(resolve, 500)); // Small delay
+
+    await testCookieDiagnosis();
+    await new Promise(resolve => setTimeout(resolve, 500)); // Small delay
+
+    await testCookiePost();
     await new Promise(resolve => setTimeout(resolve, 500)); // Small delay
 
     await testStoreConnection();
@@ -283,8 +364,8 @@ export default function AuthDebugPage() {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            <strong>✅ DIAGNÓSTICO RÁPIDO:</strong> Si ves &quot;Authenticated: Yes&quot; y &quot;Store Connection Test: success&quot;, 
-            entonces tu problema está resuelto y puedes conectar tiendas desde Dashboard → Configuración.
+            <strong>🔍 DIAGNÓSTICO COMPLETO:</strong> Si ves &quot;Authenticated: Yes&quot;, &quot;Cookie Diagnosis: success&quot;, &quot;Cookie POST Test: success&quot; y &quot;Store Connection Test: success&quot;, 
+            entonces tu problema está 100% resuelto. Si &quot;Cookie POST Test&quot; funciona pero &quot;Store Connection Test&quot; falla, hay un bug específico en oauth/connect.
             Si algún test falla, los detalles te dirán exactamente qué arreglar.
           </AlertDescription>
         </Alert>
