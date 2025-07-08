@@ -271,7 +271,8 @@ export class EnhancedRAGEngine {
       console.warn('[ENHANCED-RAG] DeleteDocuments called - delegating to legacy RAG');
       const { ragEngine } = await import('./index');
       if (ragEngine && typeof ragEngine.deleteDocuments === 'function') {
-        return await ragEngine.deleteDocuments(vectorIds);
+        const result = await ragEngine.deleteDocuments(vectorIds);
+        return result.success;
       }
       return false;
     } catch (error) {

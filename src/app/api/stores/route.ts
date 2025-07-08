@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getStoreDataManager, type OAuthData } from '@/lib/services/store-data-manager';
 
 export const dynamic = 'force-dynamic';
 
 // GET - Get all stores for the current user
 export async function GET() {
   try {
-    console.log('[INFO] Fetching user stores from database');
+    console.log('[STORES-GET] 📋 Fetching user stores from database');
     
     const supabase = createClient();
     
@@ -14,14 +15,14 @@ export async function GET() {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
     if (userError || !user) {
-      console.error('[ERROR] Authentication failed:', userError?.message);
+      console.error('[STORES-GET] ❌ Authentication failed:', userError?.message);
       return NextResponse.json(
         { success: false, error: 'User not authenticated' },
         { status: 401 }
       );
     }
 
-    console.log('[INFO] Testing column access for user:', user.id);
+    console.log('[STORES-GET] 🔍 Testing column access for user:', user.id);
 
     // First, test which columns are available
     const { data: testData, error: testError } = await supabase
@@ -30,7 +31,7 @@ export async function GET() {
       .limit(1);
 
     if (testError) {
-      console.error('[ERROR] Cannot access stores table:', testError);
+      console.error('[STORES-GET] ❌ Cannot access stores table:', testError);
       return NextResponse.json(
         { success: false, error: 'Cannot access stores table' },
         { status: 500 }
@@ -38,7 +39,7 @@ export async function GET() {
     }
 
     const availableColumns = testData?.[0] ? Object.keys(testData[0]) : [];
-    console.log('[INFO] Available columns:', availableColumns);
+    console.log('[STORES-GET] ✅ Available columns:', availableColumns);
 
     // Use the actual column names that exist in the database
     const hasNewColumns = availableColumns.includes('domain') && availableColumns.includes('name');
@@ -57,7 +58,8 @@ export async function GET() {
         access_token,
         is_active,
         created_at,
-        updated_at
+        updated_at,
+        last_sync_at
       `;
     } else if (hasOldColumns) {
       // Use old column names and alias them
@@ -83,7 +85,7 @@ export async function GET() {
       `;
     }
 
-    console.log('[INFO] Using select query columns:', selectQuery.replace(/\s+/g, ' ').trim());
+    console.log('[STORES-GET] 📝 Using select query columns:', selectQuery.replace(/\s+/g, ' ').trim());
 
     // Obtener las tiendas del usuario
     const { data: rawStores, error: storesError } = await supabase
@@ -94,7 +96,7 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (storesError) {
-      console.error('[ERROR] Failed to fetch stores:', storesError.message);
+      console.error('[STORES-GET] ❌ Failed to fetch stores:', storesError.message);
       return NextResponse.json(
         { success: false, error: `Failed to fetch stores: ${storesError.message}` },
         { status: 500 }
@@ -136,6 +138,7 @@ export async function GET() {
           is_active: (store as any).is_active,
           created_at: (store as any).created_at,
           updated_at: (store as any).updated_at,
+          last_sync_at: (store as any).last_sync_at || null,
           // Información de WhatsApp
           whatsapp_number: hasWhatsApp ? whatsappInfo.phone_number : null,
           whatsapp_display_name: hasWhatsApp ? whatsappInfo.display_name : null,
@@ -145,10 +148,9 @@ export async function GET() {
       })
     );
 
-    // Normalize the data to use consistent field names
     const stores = storesWithWhatsApp;
 
-    console.log(`[INFO] Found ${stores.length} stores for user ${user.id}`);
+    console.log(`[STORES-GET] ✅ Found ${stores.length} stores for user ${user.id}`);
 
     return NextResponse.json({
       success: true,
@@ -156,7 +158,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('[ERROR] Failed to fetch stores:', error);
+    console.error('[STORES-GET] ❌ Failed to fetch stores:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -164,19 +166,19 @@ export async function GET() {
   }
 }
 
-// POST - Create a new store
+// POST - Create a new store using unified architecture
 export async function POST(request: NextRequest) {
   try {
+    console.log('[STORES-POST] 🆕 Creating new store with unified architecture');
+    
     const body = await request.json();
-    console.log('[INFO] Creating new store:', body);
-
     const supabase = createClient();
     
     // Obtener el usuario actual
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
     if (userError || !user) {
-      console.error('[ERROR] Authentication failed:', userError?.message);
+      console.error('[STORES-POST] ❌ Authentication failed:', userError?.message);
       return NextResponse.json(
         { success: false, error: 'User not authenticated' },
         { status: 401 }
@@ -184,91 +186,160 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar datos requeridos
-    const { name, domain, platform_store_id, access_token, platform = 'tiendanube' } = body;
+    const { 
+      name, 
+      domain, 
+      platform_store_id, 
+      access_token, 
+      authorization_code,
+      platform = 'tiendanube' 
+    } = body;
     
-    if (!name || !domain || !platform_store_id || !access_token) {
+    if (!name || !domain || !platform_store_id) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
+        { success: false, error: 'Missing required fields: name, domain, platform_store_id' },
         { status: 400 }
       );
     }
 
-    // Test which columns are available for INSERT
-    const { data: testData } = await supabase
-      .from('stores')
-      .select('*')
-      .limit(1);
-
-    const availableColumns = testData?.[0] ? Object.keys(testData[0]) : [];
-    const hasNewColumns = availableColumns.includes('domain') && availableColumns.includes('name');
-
-    let insertData: any;
-
-    if (hasNewColumns) {
-      // Use new column names
-      insertData = {
-        user_id: user.id,
-        name,
-        domain,
-        platform,
-        platform_store_id,
-        access_token,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-    } else {
-      // Use old column names
-      insertData = {
-        user_id: user.id,
-        store_name: name,
-        store_url: domain,
-        platform,
-        platform_store_id,
-        access_token,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
+    if (!access_token && !authorization_code) {
+      return NextResponse.json(
+        { success: false, error: 'Either access_token or authorization_code is required' },
+        { status: 400 }
+      );
     }
 
-    // Crear la nueva tienda
-    const { data: newStore, error: createError } = await supabase
+    // Use unified StoreDataManager
+    const storeManager = getStoreDataManager();
+    
+    const oauthData: OAuthData = {
+      userId: user.id,
+      authorizationCode: authorization_code || '',
+      platformStoreId: platform_store_id,
+      storeName: name,
+      storeUrl: domain,
+      accessToken: access_token
+    };
+
+    // Check if store already exists for reconnection logic
+    const { data: existingStore } = await supabase
       .from('stores')
-      .insert(insertData)
-      .select()
+      .select('id, name')
+      .eq('user_id', user.id)
+      .eq('platform_store_id', platform_store_id)
+      .eq('platform', platform)
       .single();
 
-    if (createError) {
-      console.error('[ERROR] Failed to create store:', createError.message);
+    let result;
+    
+    if (existingStore) {
+      // Reconnect existing store
+      console.log('[STORES-POST] 🔄 Reconnecting existing store:', existingStore.id);
+      result = await storeManager.reconnectExistingStore(existingStore.id, oauthData);
+    } else {
+      // Create new store
+      console.log('[STORES-POST] 🆕 Creating new store');
+      result = await storeManager.createNewStore(oauthData);
+    }
+
+    if (!result.success) {
+      console.error('[STORES-POST] ❌ Store operation failed:', result.error);
       return NextResponse.json(
-        { success: false, error: 'Failed to create store' },
+        { success: false, error: result.error },
         { status: 500 }
       );
     }
 
-    console.log('[INFO] Store created successfully:', newStore.id);
+    const store = result.store!;
+    
+    console.log(`[STORES-POST] ✅ Store operation completed: ${store.id}, job: ${result.backgroundJobId}`);
 
-    // Normalize the response
-    const normalizedStore = {
-      id: (newStore as any).id,
-      name: hasNewColumns ? (newStore as any).name : (newStore as any).store_name,
-      domain: hasNewColumns ? (newStore as any).domain : (newStore as any).store_url,
-      platform: (newStore as any).platform,
-      platform_store_id: (newStore as any).platform_store_id,
-      access_token: (newStore as any).access_token,
-      is_active: (newStore as any).is_active,
-      created_at: (newStore as any).created_at,
-      updated_at: (newStore as any).updated_at
-    };
-
+    // Return successful response with job information
     return NextResponse.json({
       success: true,
-      data: normalizedStore
+      data: {
+        id: store.id,
+        name: store.name,
+        domain: store.domain,
+        platform: store.platform,
+        platform_store_id: store.platform_store_id,
+        is_active: store.is_active,
+        created_at: store.created_at,
+        updated_at: store.updated_at,
+        last_sync_at: store.last_sync_at
+      },
+      metadata: {
+        operation: existingStore ? 'reconnected' : 'created',
+        backgroundJobId: result.backgroundJobId,
+        syncStatus: result.syncStatus,
+        operations: result.operations
+      }
     });
 
   } catch (error) {
-    console.error('[ERROR] Failed to create store:', error);
+    console.error('[STORES-POST] ❌ Failed to create/reconnect store:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Delete a store using unified architecture
+export async function DELETE(request: NextRequest) {
+  try {
+    console.log('[STORES-DELETE] 🗑️ Deleting store with unified architecture');
+    
+    const { searchParams } = new URL(request.url);
+    const storeId = searchParams.get('storeId');
+    
+    if (!storeId) {
+      return NextResponse.json(
+        { success: false, error: 'Store ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const supabase = createClient();
+    
+    // Obtener el usuario actual
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      console.error('[STORES-DELETE] ❌ Authentication failed:', userError?.message);
+      return NextResponse.json(
+        { success: false, error: 'User not authenticated' },
+        { status: 401 }
+      );
+    }
+
+    // Use unified StoreDataManager
+    const storeManager = getStoreDataManager();
+    
+    const result = await storeManager.deleteStore(storeId, user.id);
+
+    if (!result.success) {
+      console.error('[STORES-DELETE] ❌ Store deletion failed:', result.error);
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status: 500 }
+      );
+    }
+
+    console.log(`[STORES-DELETE] ✅ Store deleted: ${storeId}, cleanup job: ${result.backgroundJobId}`);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Store deleted successfully',
+      metadata: {
+        storeId,
+        backgroundJobId: result.backgroundJobId,
+        operations: result.operations
+      }
+    });
+
+  } catch (error) {
+    console.error('[STORES-DELETE] ❌ Failed to delete store:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

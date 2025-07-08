@@ -3,8 +3,14 @@
  * Enhanced with LangChain integration
  */
 
+// 🔄 NEW UNIFIED RAG ENGINE (Primary - Production Ready)
+export { UnifiedFiniRAGEngine, getUnifiedRAGEngine } from './unified-rag-engine';
+
+// ⚡ COMPATIBILITY: Export UnifiedFiniRAGEngine as FiniRAGEngine for backward compatibility
+export { UnifiedFiniRAGEngine as FiniRAGEngine } from './unified-rag-engine';
+
 // Legacy RAG components (maintained for backward compatibility)
-export { FiniRAGEngine } from './rag-engine';
+export { FiniRAGEngine as LegacyFiniRAGEngine } from './rag-engine';
 export { RAGDocumentProcessor } from './document-processor';
 export { EmbeddingsService } from './embeddings';
 export { PineconeVectorStore } from './vector-store';
@@ -17,7 +23,7 @@ export { LANGCHAIN_CONFIG, LangChainFactory, validateLangChainConfig } from './l
 // export type { FiniPineconeVectorStore, VectorStoreFactory } from './langchain-vectorstore';
 // export type { LangChainDocumentProcessor } from './langchain-document-processor';
 // export type { FiniRetrievalQA, MultiNamespaceRetriever, RetrievalQAFactory } from './retrieval-qa';
-export { EnhancedRAGEngine, enhancedRAGEngine } from './enhanced-rag-engine';
+export { EnhancedRAGEngine } from './enhanced-rag-engine';
 
 // 🔄 Streaming RAG components
 export { streamingRAGEngine } from './streaming-rag';
@@ -74,13 +80,17 @@ export type {
   HybridSearchResult
 } from './hybrid-search-engine';
 
-// Create and export the main RAG instance
-import { enhancedRAGEngine } from './enhanced-rag-engine';
-export { enhancedRAGEngine as ragEngine };
+// 🚀 MAIN RAG INSTANCE: UnifiedFiniRAGEngine is now the primary engine
+import { getUnifiedRAGEngine } from './unified-rag-engine';
+export const ragEngine = getUnifiedRAGEngine();
 
-// Create legacy instance for backward compatibility
-import { FiniRAGEngine } from './rag-engine';
-const legacyRagEngine = new FiniRAGEngine();
+// Enhanced RAG engine (still available)
+import { enhancedRAGEngine } from './enhanced-rag-engine';
+export { enhancedRAGEngine };
+
+// Create legacy instance for backward compatibility ONLY
+import { FiniRAGEngine as LegacyFiniRAGEngineClass } from './rag-engine';
+const legacyRagEngine = new LegacyFiniRAGEngineClass();
 export { legacyRagEngine as ragEngineInstance };
 
 console.log('[RAG] Enhanced RAG module with LangChain integration loaded'); 

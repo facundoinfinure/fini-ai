@@ -181,10 +181,10 @@ async function testRAGSystem(stores: any[]) {
 
     return {
       status: 'HEALTHY',
-      documentsFound: ragResult.documents.length,
+      documentsFound: ragResult.sources.length,
       testStoreId: testStore.id,
-      hasData: ragResult.documents.length > 0,
-      sampleDocuments: ragResult.documents.slice(0, 2).map(doc => ({
+      hasData: ragResult.sources.length > 0,
+      sampleDocuments: ragResult.sources.slice(0, 2).map(doc => ({
         type: doc.metadata?.type || 'unknown',
         contentPreview: doc.pageContent?.substring(0, 100) || 'No content',
         relevanceScore: doc.metadata?.relevanceScore || 0

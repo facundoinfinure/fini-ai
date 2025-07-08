@@ -28,8 +28,8 @@ export class FiniNamespaceManager implements NamespaceManager {
       console.log(`[NAMESPACE] Creating namespace for store: ${storeId}`);
       
       // Dynamic import to avoid build issues
-      const { FiniRAGEngine } = await import('@/lib/rag');
-      const ragEngine = new FiniRAGEngine();
+      const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+      const ragEngine = getUnifiedRAGEngine();
       
       // Create all namespaces for the store
       const result = await ragEngine.initializeStoreNamespaces(storeId);
@@ -67,11 +67,11 @@ export class FiniNamespaceManager implements NamespaceManager {
       }
       
       // Dynamic import to avoid build issues
-      const { FiniRAGEngine } = await import('@/lib/rag');
-      const ragEngine = new FiniRAGEngine();
+      const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+      const ragEngine = getUnifiedRAGEngine();
       
       // Delete all data for the store (this handles all namespaces)
-      await ragEngine.deleteStoreData(storeId);
+      await ragEngine.deleteStoreNamespaces(storeId);
       
       console.log(`[NAMESPACE] ✅ Successfully deleted namespace for store: ${storeId}`);
       return { success: true };
@@ -125,8 +125,8 @@ export class FiniNamespaceManager implements NamespaceManager {
       }
 
       // Dynamic import to avoid build issues
-      const { FiniRAGEngine } = await import('@/lib/rag');
-      const ragEngine = new FiniRAGEngine();
+      const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+      const ragEngine = getUnifiedRAGEngine();
       
       // Sync store data (non-blocking, fire-and-forget)
       ragEngine.indexStoreData(storeId, store.access_token).catch(error => {

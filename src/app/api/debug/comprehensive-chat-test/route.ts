@@ -72,8 +72,8 @@ export async function GET() {
       ragTest = {
         success: true,
         details: {
-          documentsFound: ragResult.documents.length,
-          hasData: ragResult.documents.length > 0,
+          documentsFound: ragResult.sources.length,
+          hasData: ragResult.sources.length > 0,
           storeId: firstStore.id
         }
       };

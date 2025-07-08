@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { TiendaNubeAPI } from '@/lib/integrations/tiendanube';
 import { TiendaNubeTokenManager } from '@/lib/integrations/tiendanube-token-manager';
-import { FiniRAGEngine } from '@/lib/rag/rag-engine';
+import { getUnifiedRAGEngine } from '@/lib/rag/unified-rag-engine';
 
 interface HealthCheckResult {
   service: string;
@@ -284,7 +284,7 @@ async function checkStoreHealth(storeId: string): Promise<StoreHealthStatus> {
   const ragTest = async (): Promise<HealthCheckResult> => {
     const startTime = Date.now();
     try {
-      const ragEngine = new FiniRAGEngine();
+      const ragEngine = getUnifiedRAGEngine();
       
       // Test if we can get RAG stats (this tests Pinecone connectivity)
       const stats = await ragEngine.getStats();

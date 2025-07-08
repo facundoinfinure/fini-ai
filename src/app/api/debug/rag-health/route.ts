@@ -26,8 +26,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let ragError = null;
 
     try {
-      const { FiniRAGEngine } = await import('@/lib/rag');
-      const ragEngine = new FiniRAGEngine();
+      const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+      const ragEngine = getUnifiedRAGEngine();
       
       // Get RAG stats
       ragStats = await ragEngine.getStats();

@@ -194,8 +194,8 @@ export async function GET(request: NextRequest) {
     
     try {
       // Dynamic import to avoid build issues
-      const { FiniRAGEngine } = await import('@/lib/rag');
-      const ragEngine = new FiniRAGEngine();
+      const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+      const ragEngine = getUnifiedRAGEngine();
       
       // Test search for basic query
       const searchResults = await ragEngine.search({
@@ -207,15 +207,15 @@ export async function GET(request: NextRequest) {
         },
         options: {
           topK: 5,
-          threshold: 0.5,
-          includeMetadata: true
+          scoreThreshold: 0.5,
+          includeSources: true
         }
       });
       
       diagnosis.checks.ragData = {
-        status: searchResults.documents.length > 0 ? 'PASSED' : 'FAILED',
-        documentCount: searchResults.documents.length,
-        hasData: searchResults.documents.length > 0,
+        status: searchResults.sources.length > 0 ? 'PASSED' : 'FAILED',
+        documentCount: searchResults.sources.length,
+        hasData: searchResults.sources.length > 0,
         searchQuery: 'products',
         confidence: searchResults.confidence,
         processingTime: searchResults.processingTime
@@ -235,17 +235,17 @@ export async function GET(request: NextRequest) {
               agentType: 'analytics'
             },
             filters: {
-              type: [namespace as any]
+              dataTypes: [namespace as any]
             },
             options: {
               topK: 3,
-              threshold: 0.3,
-              includeMetadata: true
+              scoreThreshold: 0.3,
+              includeSources: true
             }
           });
           namespaceChecks[namespace] = {
-            status: nsResults.documents.length > 0 ? 'HAS_DATA' : 'EMPTY',
-            documentCount: nsResults.documents.length
+            status: nsResults.sources.length > 0 ? 'HAS_DATA' : 'EMPTY',
+            documentCount: nsResults.sources.length
           };
         } catch (nsError) {
           namespaceChecks[namespace] = {

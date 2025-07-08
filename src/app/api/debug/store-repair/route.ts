@@ -88,8 +88,8 @@ export async function POST(request: NextRequest) {
           console.log('[STORE-REPAIR] 3. Force RAG sync...');
           
           try {
-            const { FiniRAGEngine } = await import('@/lib/rag');
-            const ragEngine = new FiniRAGEngine();
+            const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+            const ragEngine = getUnifiedRAGEngine();
             
             // Initialize namespaces first
             console.log('[STORE-REPAIR] Initializing namespaces...');
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
             
             // Then index store data
             console.log('[STORE-REPAIR] Indexing store data...');
-            await ragEngine.indexStoreData(storeId, store.access_token);
+            const indexResult = await ragEngine.indexStoreData(storeId, store.access_token);
             
             // Update last sync timestamp
             await supabase
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
               status: 'SUCCESS',
               data: {
                 namespacesInitialized: namespaceResult.success,
-                dataIndexed: true,
+                dataIndexed: indexResult.success,
                 timestampUpdated: true
               }
             });
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
               },
               options: {
                 topK: 5,
-                threshold: 0.3
+                scoreThreshold: 0.3
               }
             };
 
@@ -140,13 +140,13 @@ export async function POST(request: NextRequest) {
             repairResults.steps.push({
               step: 4,
               name: 'RAG Retrieval Test',
-              status: ragResult.documents.length > 0 ? 'SUCCESS' : 'WARNING',
+              status: ragResult.sources.length > 0 ? 'SUCCESS' : 'WARNING',
               data: {
-                documentsFound: ragResult.documents.length,
+                documentsFound: ragResult.sources.length,
                 confidence: ragResult.confidence,
-                sampleContent: ragResult.documents.slice(0, 2).map(doc => ({
+                sampleContent: ragResult.sources.slice(0, 2).map(doc => ({
                   type: doc.metadata?.type,
-                  contentPreview: doc.content?.substring(0, 100) + '...'
+                  contentPreview: doc.pageContent?.substring(0, 100) + '...'
                 }))
               }
             });

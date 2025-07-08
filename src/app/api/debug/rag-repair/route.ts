@@ -158,8 +158,8 @@ export async function POST(request: NextRequest) {
       console.log(`[RAG-REPAIR] 4. Testing agent response...`);
       
       try {
-        const { FiniRAGEngine } = await import('@/lib/rag');
-        const ragEngine = new FiniRAGEngine();
+        const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+        const ragEngine = getUnifiedRAGEngine();
         
         // Test basic search
         const testSearch = await ragEngine.search({
@@ -171,18 +171,18 @@ export async function POST(request: NextRequest) {
           },
           options: {
             topK: 3,
-            threshold: 0.5
+            scoreThreshold: 0.5
           }
         });
         
         repairResults.repairs.push({
           type: 'agent_test',
-          status: testSearch.documents.length > 0 ? 'SUCCESS' : 'WARNING',
-          message: testSearch.documents.length > 0 
-            ? `Found ${testSearch.documents.length} documents, agents should work properly`
+          status: testSearch.sources.length > 0 ? 'SUCCESS' : 'WARNING',
+          message: testSearch.sources.length > 0 
+            ? `Found ${testSearch.sources.length} documents, agents should work properly`
             : 'No documents found, agents may need more time for sync to complete',
           data: {
-            documentsFound: testSearch.documents.length,
+            documentsFound: testSearch.sources.length,
             confidence: testSearch.confidence,
             processingTime: testSearch.processingTime
           }

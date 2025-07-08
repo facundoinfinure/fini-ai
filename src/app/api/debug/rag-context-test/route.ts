@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { FiniRAGEngine } from '@/lib/rag';
+import { getUnifiedRAGEngine } from '@/lib/rag/unified-rag-engine';
 import type { AgentContext } from '@/lib/agents/types';
 
 export async function POST(request: NextRequest) {
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Test RAG context retrieval
-    const ragEngine = new FiniRAGEngine();
+    const ragEngine = getUnifiedRAGEngine();
     const startTime = Date.now();
     
     try {

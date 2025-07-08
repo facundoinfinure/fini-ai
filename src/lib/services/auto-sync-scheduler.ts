@@ -309,12 +309,12 @@ export class AutoSyncScheduler {
 
       // 5. Trigger RAG engine sync
       try {
-        const { FiniRAGEngine } = await import('@/lib/rag');
-        const ragEngine = new FiniRAGEngine();
+        const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+        const ragEngine = getUnifiedRAGEngine();
         
         // Update RAG index with fresh data
-        await ragEngine.indexStoreData(storeId, tokenData.token);
-        result.actions.push('✅ RAG index updated');
+        const syncResult = await ragEngine.indexStoreData(storeId, tokenData.token);
+        result.actions.push(syncResult.success ? '✅ RAG index updated' : `⚠️ RAG sync partial: ${syncResult.error || 'Unknown error'}`);
         
       } catch (ragError) {
         result.actions.push(`⚠️ RAG sync failed: ${ragError instanceof Error ? ragError.message : 'Unknown error'}`);

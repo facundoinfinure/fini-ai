@@ -500,9 +500,9 @@ export class StoreService {
         console.log(`[DEBUG] Starting async namespace initialization for store: ${storeId}`);
         
         // Dynamic import to avoid circular dependencies and reduce bundle size
-        const { FiniRAGEngine } = await import('@/lib/rag');
+        const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
         
-        const ragEngine = new FiniRAGEngine();
+        const ragEngine = getUnifiedRAGEngine();
         const result = await ragEngine.initializeStoreNamespaces(storeId);
         
         if (result.success) {
@@ -562,8 +562,8 @@ export class StoreService {
       }
 
       // Dynamic import to avoid build issues
-      const { FiniRAGEngine } = await import('@/lib/rag');
-      const ragEngine = new FiniRAGEngine();
+      const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+      const ragEngine = getUnifiedRAGEngine();
       
       // 1. Initialize namespaces with timeout
       console.log(`[STORE-SERVICE] Initializing namespaces for: ${storeId}`);
@@ -578,10 +578,14 @@ export class StoreService {
 
       // 2. Index store data with timeout
       console.log(`[STORE-SERVICE] Indexing store data for: ${storeId}`);
-      await Promise.race<void>([
+      const indexResult = await Promise.race<any>([
         ragEngine.indexStoreData(storeId, store.store.access_token),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Indexing timeout')), 60000))
       ]);
+      
+      if (!indexResult.success) {
+        console.warn(`[STORE-SERVICE] ⚠️ Partial indexing failure: ${indexResult.error}`);
+      }
       
       // 3. Update last sync timestamp
       await this.updateStore(storeId, { 
@@ -615,8 +619,8 @@ export class StoreService {
         }
 
         // Initialize namespaces first
-        const { FiniRAGEngine } = await import('@/lib/rag');
-        const ragEngine = new FiniRAGEngine();
+        const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+        const ragEngine = getUnifiedRAGEngine();
         
         // 1. Initialize namespaces
         console.log(`[DEBUG] Initializing RAG namespaces for store: ${storeId}`);
@@ -629,7 +633,11 @@ export class StoreService {
 
         // 2. Sync complete store data
         console.log(`[DEBUG] Starting full data indexing for store: ${storeId}`);
-        await ragEngine.indexStoreData(storeId, storeData.access_token);
+        const indexResult = await ragEngine.indexStoreData(storeId, storeData.access_token);
+        
+        if (!indexResult.success) {
+          console.warn(`[WARNING] Partial indexing failure for store ${storeId}:`, indexResult.error);
+        }
         
         console.log(`[SUCCESS] Complete RAG data sync finished for store: ${storeId}`);
         

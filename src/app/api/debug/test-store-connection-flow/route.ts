@@ -183,20 +183,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         results.tests.agent_access = {
           status: 'success',
           data: {
-            documentsFound: searchResult.documents.length,
-            relevantContexts: searchResult.documents.length > 0,
-            sampleResults: searchResult.documents.slice(0, 2).map(doc => ({
+            documentsFound: searchResult.sources.length,
+            relevantContexts: searchResult.sources.length > 0,
+            sampleResults: searchResult.sources.slice(0, 2).map(doc => ({
               type: doc.metadata.type,
               source: doc.metadata.source,
-              contentSnippet: doc.content.substring(0, 100) + '...'
+              contentSnippet: doc.pageContent.substring(0, 100) + '...'
             })),
-            message: searchResult.documents.length > 0 ? 
+            message: searchResult.sources.length > 0 ? 
               'Agents can successfully access store data' : 
               'No data found - may need more time for indexing'
           }
         };
         
-        console.log(`[TEST-STORE-FLOW] ✅ Agent access test completed - found ${searchResult.documents.length} documents`);
+        console.log(`[TEST-STORE-FLOW] ✅ Agent access test completed - found ${searchResult.sources.length} documents`);
         
       } catch (error) {
         results.tests.agent_access = {

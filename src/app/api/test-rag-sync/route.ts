@@ -62,8 +62,8 @@ export async function GET(): Promise<NextResponse> {
     // Test RAG engine if fully configured
     if (isFullyConfigured) {
       try {
-        const { FiniRAGEngine } = await import('@/lib/rag');
-        const ragEngine = new FiniRAGEngine();
+        const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+        const ragEngine = getUnifiedRAGEngine();
         const stats = await ragEngine.getStats();
         
         ragStatus = {

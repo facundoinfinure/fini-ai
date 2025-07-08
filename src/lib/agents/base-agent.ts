@@ -246,7 +246,7 @@ export abstract class BaseAgent implements Agent {
       };
 
       const result = await ragEngineInstance.search(testQuery);
-      return result.documents.length > 0;
+      return result.sources.length > 0;
     } catch (error) {
       console.warn(`[AGENT:${this.type}] RAG data check failed:`, error);
       return false;

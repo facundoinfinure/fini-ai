@@ -94,8 +94,8 @@ export async function POST(request: NextRequest) {
 
       // 2. Verificar y reparar namespaces RAG
       try {
-        const { FiniRAGEngine } = await import('@/lib/rag');
-        const ragEngine = new FiniRAGEngine();
+        const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+        const ragEngine = getUnifiedRAGEngine();
         
         // Forzar reinicialización de namespaces
         const namespaceResult = await ragEngine.initializeStoreNamespaces(store.id);
@@ -127,11 +127,11 @@ export async function POST(request: NextRequest) {
            console.log(`[RAG-FIX] Analyzing RAG logs for store: ${store.id}`);
            
            // Forzar reinicialización de namespaces RAG
-           const { FiniRAGEngine } = await import('@/lib/rag');
-           const ragEngine = new FiniRAGEngine();
+           const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+           const ragEngine = getUnifiedRAGEngine();
            
            // Limpiar y reinicializar namespaces
-           await ragEngine.deleteStoreData(store.id);
+           await ragEngine.deleteStoreNamespaces(store.id);
            const namespaceResult = await ragEngine.initializeStoreNamespaces(store.id);
            
            if (namespaceResult.success) {

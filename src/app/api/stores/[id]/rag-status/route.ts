@@ -84,8 +84,8 @@ export async function GET(
     let ragStats = null;
 
     try {
-      const { FiniRAGEngine } = await import('@/lib/rag');
-      const ragEngine = new FiniRAGEngine();
+      const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+      const ragEngine = getUnifiedRAGEngine();
       
       // Test if we have any data for this store
       const testQuery = {
@@ -97,12 +97,12 @@ export async function GET(
         },
         options: {
           topK: 1,
-          threshold: 0.1
+          scoreThreshold: 0.1
         }
       };
 
       const result = await ragEngine.search(testQuery);
-      hasRAGData = result.documents.length > 0;
+      hasRAGData = result.sources.length > 0;
 
       // Get RAG engine statistics
       ragStats = await ragEngine.getStats();
