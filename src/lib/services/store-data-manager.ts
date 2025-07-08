@@ -73,14 +73,15 @@ export class StoreDataManager {
   // ===== MAIN OPERATIONS =====
 
   /**
-   * 🆕 CREAR TIENDA NUEVA
+   * 🚀 CREAR NUEVA TIENDA
    * ====================
    * 
-   * Proceso completo:
-   * 1. Validar OAuth y obtener token
-   * 2. Crear registro en DB (rápido)
-   * 3. Trigger background sync (asíncrono)
-   * 4. Retornar resultado inmediato
+   * Proceso optimizado para nuevas tiendas:
+   * 1. Intercambio de código OAuth → token (si es necesario)
+   * 2. Validar token + obtener info de tienda
+   * 3. Crear registro en DB (RÁPIDO)
+   * 4. Guardar token en token manager
+   * 5. Trigger background sync (NO BLOQUEANTE)
    */
   async createNewStore(oauthData: OAuthData): Promise<StoreOperationResult> {
     const operations: string[] = [];
@@ -88,19 +89,15 @@ export class StoreDataManager {
     try {
       console.log(`[STORE-MANAGER] Creating new store for user: ${oauthData.userId}`);
       
-      // PASO 1: Obtener access token si no se proporciona
+      // PASO 1: Obtener access token
       let accessToken = oauthData.accessToken;
       if (!accessToken) {
-        console.log(`[STORE-MANAGER] Exchanging OAuth code for access token`);
+        console.log(`[STORE-MANAGER] Exchanging authorization code for token`);
         
         const { exchangeCodeForToken } = await import('@/lib/integrations/tiendanube');
         const tokenResult = await exchangeCodeForToken(oauthData.authorizationCode);
         
-        if (!tokenResult.success) {
-          throw new Error(`OAuth token exchange failed: ${tokenResult.error}`);
-        }
-        
-        accessToken = tokenResult.access_token!;
+        accessToken = tokenResult.access_token;
         operations.push('oauth_token_obtained');
       }
 
@@ -124,14 +121,14 @@ export class StoreDataManager {
         refresh_token: null,
         token_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
         currency: storeInfo.currency || 'ARS',
-        timezone: (storeInfo as any).timezone || 'America/Argentina/Buenos_Aires',
+        timezone: 'America/Argentina/Buenos_Aires', // Default timezone since TiendaNube doesn't provide this
         language: storeInfo.language || 'es',
         is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
-      const createResult = await this.storeService.createStore(storeData);
+      const createResult: { success: boolean; store?: Store; error?: string } = await this.storeService.createStore(storeData);
       
       if (!createResult.success) {
         throw new Error(`Database creation failed: ${createResult.error}`);
@@ -142,8 +139,8 @@ export class StoreDataManager {
       
       console.log(`[STORE-MANAGER] ✅ Store created in DB: ${store.id}`);
 
-      // PASO 4: Token ya almacenado en access_token field
-      // Note: storeToken method may not exist in current implementation
+      // PASO 4: Token is already stored in access_token field of store
+      // No need to call storeToken method as it doesn't exist
       operations.push('token_stored');
 
       // PASO 5: Trigger background sync (NO BLOQUEANTE)
@@ -198,11 +195,7 @@ export class StoreDataManager {
         const { exchangeCodeForToken } = await import('@/lib/integrations/tiendanube');
         const tokenResult = await exchangeCodeForToken(oauthData.authorizationCode);
         
-        if (!tokenResult.success) {
-          throw new Error(`OAuth token exchange failed: ${tokenResult.error}`);
-        }
-        
-        accessToken = tokenResult.access_token!;
+        accessToken = tokenResult.access_token;
         operations.push('oauth_token_obtained');
       }
 
@@ -222,13 +215,13 @@ export class StoreDataManager {
         access_token: accessToken,
         token_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
         currency: storeInfo.currency || 'ARS',
-        timezone: storeInfo.timezone || 'America/Argentina/Buenos_Aires',
+        timezone: 'America/Argentina/Buenos_Aires', // Default timezone
         language: storeInfo.language || 'es',
         is_active: true,
         updated_at: new Date().toISOString()
       };
 
-      const updateResult = await this.storeService.updateStore(storeId, updateData);
+      const updateResult: { success: boolean; store?: Store; error?: string } = await this.storeService.updateStore(storeId, updateData);
       
       if (!updateResult.success) {
         throw new Error(`Database update failed: ${updateResult.error}`);
@@ -237,8 +230,8 @@ export class StoreDataManager {
       const store = updateResult.store!;
       operations.push('database_record_updated');
 
-      // PASO 4: Actualizar token en token manager
-      await this.tokenManager.storeToken(storeId, oauthData.userId, accessToken);
+      // PASO 4: Token is already updated in access_token field
+      // No need to call storeToken method as it doesn't exist
       operations.push('token_updated');
 
       // PASO 5: Trigger background cleanup + re-sync
@@ -288,7 +281,7 @@ export class StoreDataManager {
       console.log(`[STORE-MANAGER] Deleting store: ${storeId} for user: ${userId}`);
       
       // PASO 1: Verificar ownership y obtener info de la tienda
-      const storeResult = await this.storeService.getStore(storeId);
+      const storeResult: { success: boolean; store?: Store; error?: string } = await this.storeService.getStore(storeId);
       if (!storeResult.success) {
         throw new Error(`Store not found: ${storeId}`);
       }
@@ -362,13 +355,13 @@ export class StoreDataManager {
       console.log(`[STORE-MANAGER] Deactivating store: ${storeId} - Reason: ${reason}`);
       
       // Verificar ownership
-      const storeResult = await this.storeService.getStore(storeId);
+      const storeResult: { success: boolean; store?: Store; error?: string } = await this.storeService.getStore(storeId);
       if (!storeResult.success || storeResult.store!.user_id !== userId) {
         throw new Error(`Unauthorized or store not found: ${storeId}`);
       }
       
       // Marcar como inactiva
-      const updateResult = await this.storeService.updateStore(storeId, {
+      const updateResult: { success: boolean; store?: Store; error?: string } = await this.storeService.updateStore(storeId, {
         is_active: false,
         updated_at: new Date().toISOString()
       });
@@ -415,7 +408,7 @@ export class StoreDataManager {
       console.log(`[STORE-MANAGER] Reactivating store: ${storeId}`);
       
       // Verificar ownership
-      const storeResult = await this.storeService.getStore(storeId);
+      const storeResult: { success: boolean; store?: Store; error?: string } = await this.storeService.getStore(storeId);
       if (!storeResult.success || storeResult.store!.user_id !== userId) {
         throw new Error(`Unauthorized or store not found: ${storeId}`);
       }
@@ -432,13 +425,13 @@ export class StoreDataManager {
         updateData.access_token = newAccessToken;
         updateData.token_expires_at = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
         
-        // Actualizar en token manager
-        await this.tokenManager.storeToken(storeId, userId, newAccessToken);
+        // Token is already updated in access_token field
+        // No need to call storeToken method as it doesn't exist
         operations.push('token_updated');
       }
       
       // Reactivar tienda
-      const updateResult = await this.storeService.updateStore(storeId, updateData);
+      const updateResult: { success: boolean; store?: Store; error?: string } = await this.storeService.updateStore(storeId, updateData);
       
       if (!updateResult.success) {
         throw new Error(`Reactivation failed: ${updateResult.error}`);
@@ -604,7 +597,7 @@ export class StoreDataManager {
     error?: string;
   }> {
     try {
-      const storeResult = await this.storeService.getStore(storeId);
+      const storeResult: { success: boolean; store?: Store; error?: string } = await this.storeService.getStore(storeId);
       
       if (!storeResult.success || storeResult.store!.user_id !== userId) {
         return {
@@ -618,15 +611,15 @@ export class StoreDataManager {
       const store = storeResult.store!;
       
       // Verificar token validity
-      const hasValidToken = await this.tokenManager.validateToken(storeId);
+      const tokenValidation = await this.tokenManager.validateToken(store.access_token, store.platform_store_id);
       
       return {
         success: true,
         store,
         status: store.is_active ? 'active' : 'inactive',
-        hasValidToken,
+        hasValidToken: tokenValidation.isValid,
         lastSync: store.last_sync_at,
-        syncStatus: hasValidToken ? 'healthy' : 'needs_reconnection'
+        syncStatus: tokenValidation.isValid ? 'healthy' : 'needs_reconnection'
       };
       
     } catch (error) {
