@@ -199,31 +199,9 @@ export class StoreService {
 
       console.log(`[SUCCESS] Store created successfully: ${store.id}`);
 
-      // 🔥 STEP 3: Trigger background sync via HTTP call (non-blocking)
-      try {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-        // Fire-and-forget HTTP request to background sync
-        fetch(`${baseUrl}/api/stores/background-sync`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            storeId: store.id,
-            isNewStore: true,
-            authToken: store.access_token,
-            userId: store.user_id,
-            jobId: `sync-${store.id}-${Date.now()}`
-          })
-        }).catch(error => {
-          console.warn(`[RAG:AUTO-SYNC] Background sync HTTP call failed for store ${store.id}:`, error);
-        });
-        
-        console.log(`[RAG:AUTO-SYNC] Background sync triggered for store: ${store.id}`);
-      } catch (error) {
-        console.warn(`[RAG:AUTO-SYNC] Failed to trigger background sync for store ${store.id}:`, error);
-      }
-
+      // 🔥 REMOVED: Background sync - handled by StoreDataManager to avoid duplicates
+      // This was causing timeouts and duplicate operations
+      
       return { success: true, store };
     } catch (error) {
       console.error('[ERROR] Failed to create store:', error);

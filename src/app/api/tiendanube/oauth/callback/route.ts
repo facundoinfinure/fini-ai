@@ -78,13 +78,19 @@ export async function GET(request: NextRequest) {
       console.log('✅ [UNIFIED-CALLBACK] Token exchange successful');
 
       // PASO 2: Check if store already exists for reconnection logic
-      const { data: existingStore } = await supabase
-        .from('stores')
-        .select('id, name')
-        .eq('user_id', userId)
-        .eq('platform_store_id', authResult.user_id.toString())
-        .eq('platform', 'tiendanube')
-        .single();
+      const { data: existingStore } = await Promise.race([
+        supabase
+          .from('stores')
+          .select('id, name')
+          .eq('user_id', userId)
+          .eq('platform_store_id', authResult.user_id.toString())
+          .eq('platform', 'tiendanube')
+          .single(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Store check timeout')), 5000))
+      ]).catch(error => {
+        console.warn('⚠️ [UNIFIED-CALLBACK] Store check failed, proceeding as new store:', error);
+        return { data: null };
+      }) as any;
 
       // PASO 3: Use unified StoreDataManager
       const storeManager = getStoreDataManager();
@@ -103,11 +109,17 @@ export async function GET(request: NextRequest) {
       if (existingStore) {
         // Reconnect existing store
         console.log('🔄 [UNIFIED-CALLBACK] Reconnecting existing store:', existingStore.id);
-        result = await storeManager.reconnectExistingStore(existingStore.id, oauthData);
+        result = await Promise.race([
+          storeManager.reconnectExistingStore(existingStore.id, oauthData),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Store reconnection timeout')), 25000))
+        ]);
       } else {
         // Create new store
         console.log('🆕 [UNIFIED-CALLBACK] Creating new store');
-        result = await storeManager.createNewStore(oauthData);
+        result = await Promise.race([
+          storeManager.createNewStore(oauthData),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Store creation timeout')), 25000))
+        ]);
       }
 
       if (!result.success) {

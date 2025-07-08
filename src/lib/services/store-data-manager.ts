@@ -104,9 +104,24 @@ export class StoreDataManager {
       // PASO 2: Validar token y obtener información de la tienda
       console.log(`[STORE-MANAGER] Validating token and fetching store info`);
       
-      const api = new TiendaNubeAPI(accessToken, oauthData.platformStoreId);
-      const storeInfo = await api.getStore();
-      operations.push('store_info_validated');
+      let storeInfo: any = {
+        name: oauthData.storeName || 'Tienda sin nombre',
+        url: oauthData.storeUrl || '',
+        currency: 'ARS',
+        language: 'es'
+      };
+      
+      try {
+        const api = new TiendaNubeAPI(accessToken, oauthData.platformStoreId);
+        storeInfo = await Promise.race([
+          api.getStore(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Store info timeout')), 10000))
+        ]) as any;
+        operations.push('store_info_validated');
+      } catch (error) {
+        console.warn(`[STORE-MANAGER] Store info fetch failed, using fallback values:`, error);
+        operations.push('store_info_fallback');
+      }
 
       // PASO 3: Crear registro en base de datos (RÁPIDO)
       console.log(`[STORE-MANAGER] Creating database record`);
@@ -202,9 +217,24 @@ export class StoreDataManager {
       // PASO 2: Validar nuevo token
       console.log(`[STORE-MANAGER] Validating new token`);
       
-      const api = new TiendaNubeAPI(accessToken, oauthData.platformStoreId);
-      const storeInfo = await api.getStore();
-      operations.push('new_token_validated');
+      let storeInfo: any = {
+        name: oauthData.storeName,
+        url: oauthData.storeUrl,
+        currency: 'ARS',
+        language: 'es'
+      };
+      
+      try {
+        const api = new TiendaNubeAPI(accessToken, oauthData.platformStoreId);
+        storeInfo = await Promise.race([
+          api.getStore(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Store info timeout')), 10000))
+        ]) as any;
+        operations.push('new_token_validated');
+      } catch (error) {
+        console.warn(`[STORE-MANAGER] Store info fetch failed during reconnection, using fallback values:`, error);
+        operations.push('new_token_fallback');
+      }
 
       // PASO 3: Actualizar registro en DB
       console.log(`[STORE-MANAGER] Updating database record`);
