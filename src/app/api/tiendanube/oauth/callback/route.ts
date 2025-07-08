@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { BulletproofTiendaNube } from '@/lib/integrations/bulletproof-tiendanube';
+import { exchangeCodeForToken } from '@/lib/integrations/tiendanube';
 
 // Forzar renderizado dinámico
 export const dynamic = 'force-dynamic';
@@ -15,116 +15,118 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
     const error = searchParams.get('error');
 
-    console.log('🛡️ [OAUTH-CALLBACK] OAuth callback received:', { 
+    console.log('🚀 [ULTRA-FAST-CALLBACK] OAuth callback received:', { 
       hasCode: !!code, 
       hasState: !!state, 
       hasError: !!error,
-      url: request.url,
       timestamp: new Date().toISOString()
     });
 
-    // Log environment variables status (without exposing sensitive data)
-    console.log('[DEBUG] Environment check:', {
-      CLIENT_ID_exists: !!process.env.TIENDANUBE_CLIENT_ID,
-      CLIENT_SECRET_exists: !!process.env.TIENDANUBE_CLIENT_SECRET,
-      REDIRECT_URI: process.env.TIENDANUBE_REDIRECT_URI,
-      APP_URL: process.env.NEXT_PUBLIC_APP_URL
-    });
-
     if (error) {
-      console.error('❌ [OAUTH-CALLBACK] OAuth error from TiendaNube:', error);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=${encodeURIComponent(error)}&debug=oauth_error_from_tn`);
+      console.error('❌ [ULTRA-FAST-CALLBACK] OAuth error from TiendaNube:', error);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=${encodeURIComponent(error)}`);
     }
 
     if (!code || !state) {
-      console.error('❌ [OAUTH-CALLBACK] Missing code or state in OAuth callback');
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=missing_parameters&debug=missing_code_or_state`);
+      console.error('❌ [ULTRA-FAST-CALLBACK] Missing code or state');
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=missing_parameters`);
     }
 
-    // Decode state parameter
+    // Decode state parameter FAST
     let stateData: { userId: string; storeUrl: string; storeName: string; context?: string; timestamp: number };
     try {
       const decodedState = decodeURIComponent(state);
       const stateJson = Buffer.from(decodedState, 'base64').toString();
       stateData = JSON.parse(stateJson);
       
-      console.log('🛡️ [OAUTH-CALLBACK] Decoded state:', {
-        userId: stateData.userId,
-        storeUrl: stateData.storeUrl,
-        storeName: stateData.storeName,
-        context: stateData.context || 'onboarding',
-        stateAge: Date.now() - stateData.timestamp
-      });
-      
-      // Validate state data
       if (!stateData.userId || !stateData.storeUrl || !stateData.storeName) {
-        throw new Error('Invalid state data: missing required fields');
-      }
-      
-      // Check if state is not too old (5 minutes)
-      const stateAge = Date.now() - stateData.timestamp;
-      if (stateAge > 5 * 60 * 1000) {
-        throw new Error(`OAuth state expired: ${stateAge}ms old`);
+        throw new Error('Invalid state data');
       }
       
     } catch (stateError) {
-      console.error('❌ [OAUTH-CALLBACK] Failed to decode state parameter:', stateError);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=invalid_state&debug=state_decode_error`);
+      console.error('❌ [ULTRA-FAST-CALLBACK] State decode error:', stateError);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=invalid_state`);
     }
 
     const { userId, storeUrl, storeName, context = 'onboarding' } = stateData;
 
-    console.log('🛡️ [OAUTH-CALLBACK] Processing OAuth callback for user:', userId, 'store:', storeName, 'context:', context);
+    console.log('🚀 [ULTRA-FAST-CALLBACK] Processing for user:', userId, 'store:', storeName);
 
-    // Verify user session
+    // ULTRA-FAST: Solo verificar sesión básica
     const supabase = createClient();
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
     
-    if (sessionError || !session?.user || session.user.id !== userId) {
-      console.error('❌ [OAUTH-CALLBACK] Session verification failed:', {
-        sessionError: sessionError?.message,
-        hasSession: !!session,
-        hasUser: !!session?.user,
-        userIdMatch: session?.user?.id === userId,
-        expectedUserId: userId,
-        actualUserId: session?.user?.id
-      });
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=session_mismatch&debug=session_verification_failed`);
+    if (!session?.user || session.user.id !== userId) {
+      console.error('❌ [ULTRA-FAST-CALLBACK] Session mismatch');
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=oauth_failed&message=session_mismatch`);
     }
 
     try {
-      console.log('🛡️ [OAUTH-CALLBACK] Starting bulletproof store connection...');
+      console.log('🚀 [ULTRA-FAST-CALLBACK] Exchanging code for token...');
       
-      // Use bulletproof connection system
-      const connectionResult = await BulletproofTiendaNube.connectStore({
-        userId,
-        storeUrl,
-        storeName,
-        authCode: code,
-        context
-      });
+      // PASO 1: Solo exchange de token (ULTRA-FAST)
+      const authResult = await Promise.race([
+        exchangeCodeForToken(code),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Token exchange timeout')), 15000))
+      ]) as any;
 
-      if (!connectionResult.success) {
-        console.error('❌ [OAUTH-CALLBACK] Bulletproof connection failed:', connectionResult.error);
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=connection_failed&message=${encodeURIComponent(connectionResult.error || 'Unknown error')}`);
+      if (!authResult || !authResult.access_token || !authResult.user_id) {
+        throw new Error('Invalid token response');
       }
 
-      const store = connectionResult.store!;
+      console.log('✅ [ULTRA-FAST-CALLBACK] Token exchange successful');
+
+      // PASO 2: Guardar datos MÍNIMOS en DB (ULTRA-FAST)
+      const storeData = {
+        user_id: userId,
+        name: storeName,
+        url: storeUrl,
+        platform: 'tiendanube' as const,
+        platform_store_id: authResult.user_id.toString(),
+        access_token: authResult.access_token,
+        currency: 'ARS',
+        timezone: 'America/Argentina/Buenos_Aires',
+        language: 'es',
+        is_active: true,
+        last_sync: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // Insert directo sin validaciones complejas
+      const { data: store, error: insertError } = await supabase
+        .from('stores')
+        .upsert(storeData, { 
+          onConflict: 'user_id,platform_store_id'
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('❌ [ULTRA-FAST-CALLBACK] DB insert error:', insertError);
+        throw new Error(`Database error: ${insertError.message}`);
+      }
+
       const totalTime = Date.now() - startTime;
-      
-      console.log('✅ [OAUTH-CALLBACK] TiendaNube store connected successfully:', {
-        storeName: store.name,
-        storeId: store.id,
-        platformStoreId: store.platform_store_id,
-        context,
-        totalTime: `${totalTime}ms`,
-        syncStatus: connectionResult.syncStatus
-      });
+      console.log(`✅ [ULTRA-FAST-CALLBACK] Completed in ${totalTime}ms, store ID: ${store.id}`);
 
-      // 🔄 Auto-sync initialization is now handled by BulletproofTiendaNube with proper delay
-      console.log('✅ [OAUTH-CALLBACK] Auto-sync will be initialized with delay by BulletproofTiendaNube');
+      // PASO 3: Fire-and-forget background operations
+      setTimeout(() => {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        fetch(`${baseUrl}/api/stores/background-sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            storeId: store.id,
+            accessToken: authResult.access_token,
+            userId,
+            operation: 'full_sync',
+            jobId: `callback-${store.id}-${Date.now()}`
+          })
+        }).catch(e => console.warn('🚀 Background sync call failed:', e));
+      }, 100); // Fire inmediatamente en background
 
-      // Redirect based on context
+      // PASO 4: Redirect inmediato
       if (context === 'configuration') {
         return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?tab=configuration&success=store_connected&store_name=${encodeURIComponent(store.name)}&store_id=${store.id}`);
       } else {
@@ -132,16 +134,16 @@ export async function GET(request: NextRequest) {
       }
 
     } catch (connectionError) {
-      console.error('❌ [OAUTH-CALLBACK] Critical connection error:', connectionError);
+      console.error('❌ [ULTRA-FAST-CALLBACK] Connection error:', connectionError);
       
-      const errorMessage = connectionError instanceof Error ? connectionError.message : 'Unknown connection error';
+      const errorMessage = connectionError instanceof Error ? connectionError.message : 'Connection failed';
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=connection_failed&message=${encodeURIComponent(errorMessage)}`);
     }
 
   } catch (error) {
-    console.error('❌ [OAUTH-CALLBACK] Critical callback error:', error);
+    console.error('❌ [ULTRA-FAST-CALLBACK] Critical error:', error);
     
-    const errorMessage = error instanceof Error ? error.message : 'Unknown callback error';
+    const errorMessage = error instanceof Error ? error.message : 'Callback failed';
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/onboarding?step=1&error=callback_failed&message=${encodeURIComponent(errorMessage)}`);
   }
 } 
