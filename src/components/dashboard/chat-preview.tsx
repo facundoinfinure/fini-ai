@@ -1,34 +1,39 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  MessageSquare, 
-  MoreHorizontal, 
+  Send, 
   Bot, 
   User, 
-  CheckCheck, 
-  Check, 
-  Send, 
-  RefreshCw, 
-  AlertCircle, 
-  Plus, 
-  Trash2, 
-  Edit3, 
-  Sparkles,
-  Loader2,
-  BarChart3,
-  DollarSign,
-  Package,
-  Users,
-  ShoppingCart,
-  Briefcase,
-  Target,
-  Cog
+  Loader2, 
+  MessageSquare, 
+  Plus,
+  MoreHorizontal,
+  Trash2,
+  Edit,
+  Check,
+  X,
+  AlertCircle,
+  ExternalLink,
+  RefreshCw
 } from 'lucide-react';
+import { ChatAccessGuard } from './chat-access-guard';
+import { useChat, Message } from '@/hooks/useChat';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { fetchGetWithAuth, fetchPostWithAuth } from '@/lib/fetch-with-auth';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -119,7 +124,7 @@ export function ChatPreview({
   const checkChatAccess = async () => {
     setChatAccessStatus(prev => ({ ...prev, checking: true }));
     try {
-      const response = await fetch('/api/chat/access-validation');
+      const response = await fetchGetWithAuth('/api/chat/access-validation');
       if (response.ok) {
         const data = await response.json();
         setChatAccessStatus({

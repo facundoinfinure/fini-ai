@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { fetchPostWithAuth } from '@/lib/fetch-with-auth';
 
 interface ConfigurationManagementProps {
   stores: Store[];
@@ -57,16 +58,10 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
       console.log('[INFO] Connecting store from dashboard:', { storeUrl, storeName: finalStoreName });
 
       // Llamar al endpoint de OAuth con context 'configuration'
-      const response = await fetch('/api/tiendanube/oauth/connect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          storeUrl: storeUrl.trim(),
-          storeName: finalStoreName,
-          context: 'configuration' // Important: not 'onboarding'
-        })
+      const response = await fetchPostWithAuth('/api/tiendanube/oauth/connect', {
+        storeUrl: storeUrl.trim(),
+        storeName: finalStoreName,
+        context: 'configuration' // Important: not 'onboarding'
       });
 
       const data = await response.json();

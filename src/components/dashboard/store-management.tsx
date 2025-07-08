@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Store } from '@/types/db';
+import { fetchPostWithAuth } from '@/lib/fetch-with-auth';
 
 // Logo de Tienda Nube como SVG oficial
 const TiendaNubeLogo = () => (
@@ -84,16 +85,10 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
       console.log('[INFO] Starting store connection from dashboard configuration:', { storeUrl, storeName });
 
       // Llamar al endpoint de OAuth para generar la URL de autorización
-      const response = await fetch('/api/tiendanube/oauth/connect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          storeUrl: storeUrl.trim(),
-          storeName,
-          context: 'configuration' // Important: not 'onboarding'
-        })
+      const response = await fetchPostWithAuth('/api/tiendanube/oauth/connect', {
+        storeUrl: storeUrl.trim(),
+        storeName,
+        context: 'configuration' // Important: not 'onboarding'
       });
 
       const data = await response.json();

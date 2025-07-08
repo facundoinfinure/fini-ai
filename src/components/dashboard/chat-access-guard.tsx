@@ -8,22 +8,21 @@
 
 "use client";
 
+import { useAuth } from '@/hooks/useAuth';
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
+import { fetchGetWithAuth } from '@/lib/fetch-with-auth';
 import { Badge } from '@/components/ui/badge';
 import { 
   AlertTriangle, 
   Store, 
   MessageSquare, 
   CreditCard, 
-  CheckCircle,
-  ExternalLink,
-  RefreshCw,
   Shield
 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
 
 export interface ChatAccessStatus {
   canAccess: boolean;
@@ -54,7 +53,7 @@ export function ChatAccessGuard({ children, onAccessStatusChange }: ChatAccessGu
     
     setChecking(true);
     try {
-      const response = await fetch('/api/chat/access-validation');
+      const response = await fetchGetWithAuth('/api/chat/access-validation');
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
