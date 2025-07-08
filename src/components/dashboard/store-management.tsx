@@ -48,12 +48,9 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
   const { showConfirmation, ConfirmationDialog } = useConfirmationDialog();
 
   const handleAddStore = async () => {
-    try {
-      // Redirect to onboarding to collect store information first
-      window.location.href = '/onboarding';
-    } catch (err) {
-      setError('Failed to redirect to onboarding');
-    }
+    // No redirect to onboarding - this should be handled by the parent component (configuration-management)
+    // or by opening an inline modal in the parent
+    console.log('[INFO] Add store action should be handled by parent component');
   };
 
   // Nueva función para conectar tienda directamente desde configuración
@@ -78,13 +75,13 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
       try {
         const urlParts = storeUrl.replace(/^https?:\/\//, '').split('.');
         if (urlParts.length >= 2) {
-          storeName = urlParts[0];
+          storeName = urlParts[0].charAt(0).toUpperCase() + urlParts[0].slice(1);
         }
       } catch (e) {
         console.log('[DEBUG] Could not extract store name from URL, using default');
       }
 
-      console.log('[INFO] Starting store connection from configuration:', { storeUrl, storeName });
+      console.log('[INFO] Starting store connection from dashboard configuration:', { storeUrl, storeName });
 
       // Llamar al endpoint de OAuth para generar la URL de autorización
       const response = await fetch('/api/tiendanube/oauth/connect', {
@@ -95,7 +92,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
         body: JSON.stringify({
           storeUrl: storeUrl.trim(),
           storeName,
-          context: 'configuration'
+          context: 'configuration' // Important: not 'onboarding'
         })
       });
 

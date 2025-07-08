@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+// Cargar variables de entorno desde .env.local
+require('dotenv').config({ path: '.env.local' });
+
 // Script para verificar variables de entorno críticas
 const requiredVars = [
   'NEXT_PUBLIC_SUPABASE_URL',

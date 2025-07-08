@@ -51,49 +51,41 @@ export async function middleware(request: NextRequest) {
 
         // Handle onboarding redirects for users with profiles
         if (pathname.startsWith('/dashboard')) {
-          // Check if user has stores
-          const { data: stores } = await supabase
-            .from('stores')
-            .select('id')
-            .eq('user_id', session.user.id)
-            .limit(1);
+          // 🎯 NEW LOGIC: Only check if user has NEVER completed onboarding
+          // If they have completed onboarding before, they stay in dashboard regardless of missing configs
+          if (userProfile.onboarding_completed === false || userProfile.onboarding_completed === null) {
+            console.log('[INFO] User has never completed onboarding, redirecting from dashboard to onboarding');
+            return NextResponse.redirect(`${request.nextUrl.origin}/onboarding`);
+          } else {
+            // User has completed onboarding before - let them access dashboard
+            // Missing configurations (stores, whatsapp, etc.) should be handled within dashboard
+            console.log('[INFO] User has completed onboarding before, allowing dashboard access');
+            console.log('[INFO] Any missing configurations should be handled within dashboard, not onboarding');
+            return response;
+          }
+        }
 
-          // Log user dashboard access info
-          console.log('[INFO] User accessing dashboard with profile:', {
-            onboarding_completed: userProfile.onboarding_completed,
-            has_stores: stores && stores.length > 0
-          });
+        // If user is trying to access onboarding
+        if (pathname.startsWith('/onboarding')) {
+          // 🎯 NEW LOGIC: If user has already completed onboarding, redirect to dashboard
+          if (userProfile.onboarding_completed === true) {
+            console.log('[INFO] User has already completed onboarding, redirecting to dashboard');
+            console.log('[INFO] User should configure missing settings from dashboard, not onboarding');
+            return NextResponse.redirect(`${request.nextUrl.origin}/dashboard`);
+          } else {
+            // User has never completed onboarding - allow onboarding access
+            console.log('[INFO] User has never completed onboarding, allowing onboarding access');
+            return response;
+          }
         }
       } catch (schemaError) {
         console.log('[WARNING] Schema error when checking onboarding_completed, using fallback logic:', schemaError);
         
-        // Fallback: Check if user has stores and allow dashboard access if they do
-        if (pathname.startsWith('/dashboard')) {
-          try {
-            const { data: stores } = await supabase
-              .from('stores')
-              .select('id')
-              .eq('user_id', session.user.id)
-              .limit(1);
-
-            // If user has stores, consider them "onboarded" and allow dashboard access
-            if (stores && stores.length > 0) {
-              console.log('[INFO] User has stores, allowing dashboard access despite schema issues');
-              return response;
-            } else {
-              // No stores, redirect to onboarding  
-              console.log('[INFO] No stores found, redirecting to onboarding');
-              return NextResponse.redirect(`${request.nextUrl.origin}/onboarding`);
-            }
-          } catch (fallbackError) {
-            console.error('[ERROR] Fallback logic also failed:', fallbackError);
-            // If everything fails, allow the request to proceed to avoid infinite loops
-            return response;
-          }
+        // Fallback: Allow both dashboard and onboarding access if schema is broken
+        if (pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding')) {
+          console.log('[INFO] Schema issues detected, allowing access to avoid blocking users');
+          return response;
         }
-        
-        // For onboarding page access, allow it to proceed
-        return response;
       }
     }
 

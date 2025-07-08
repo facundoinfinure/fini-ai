@@ -123,6 +123,17 @@ export interface UserSettings {
   updated_at: string;
 }
 
+export interface TiendaNubeToken {
+  id: string;
+  store_id: string;
+  user_id: string;
+  access_token: string;
+  refresh_token?: string;
+  expires_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // SQL Schema for Supabase
 export const SQL_SCHEMA = `
 -- Enable UUID extension
@@ -399,4 +410,28 @@ CREATE TRIGGER update_whatsapp_store_connections_updated_at BEFORE UPDATE ON wha
 CREATE TRIGGER update_whatsapp_configs_updated_at BEFORE UPDATE ON whatsapp_configs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_conversations_updated_at BEFORE UPDATE ON conversations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_user_settings_updated_at BEFORE UPDATE ON user_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- TiendaNube tokens table (para OAuth tokens)
+CREATE TABLE IF NOT EXISTS tiendanube_tokens (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT,
+  expires_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(store_id, user_id)
+);
+
+-- Índice para tiendanube_tokens
+CREATE INDEX IF NOT EXISTS idx_tiendanube_tokens_store_id ON tiendanube_tokens(store_id);
+CREATE INDEX IF NOT EXISTS idx_tiendanube_tokens_user_id ON tiendanube_tokens(user_id);
+
+-- RLS para tiendanube_tokens
+ALTER TABLE tiendanube_tokens ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can access own tokens" ON tiendanube_tokens FOR ALL USING (auth.uid()::text = user_id::text);
+
+-- Trigger para tiendanube_tokens
+CREATE TRIGGER update_tiendanube_tokens_updated_at BEFORE UPDATE ON tiendanube_tokens FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 `; 

@@ -97,32 +97,38 @@ export async function GET(_request: NextRequest) {
 
     const userId = session.user.id;
 
-    // Check if user has completed onboarding (with graceful fallback)
+    // Check ONLY the actual onboarding_completed flag from database
+    // Do NOT infer completion from other factors like stores or profile
     let onboardingCompleted = false;
     let userProfile = null;
     
     try {
-      const userResult = await UserService.getUserById(userId);
-      
-      if (userResult.success && userResult.user) {
-        userProfile = userResult.user;
-        onboardingCompleted = userResult.user.onboarding_completed || false;
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, email, full_name, onboarding_completed')
+        .eq('id', userId)
+        .single();
+
+      if (!userError && userData) {
+        userProfile = userData;
+        // ONLY use the explicit onboarding_completed flag
+        onboardingCompleted = userData.onboarding_completed === true;
       }
     } catch (schemaError) {
-      console.log('[WARNING] Schema error checking onboarding_completed, using fallback logic:', schemaError);
+      console.log('[WARNING] Schema error checking onboarding_completed, defaulting to false:', schemaError);
       
-      // Fallback: Check if user exists and has basic profile info
+      // Fallback: Check if user exists, but default to onboarding NOT completed
       try {
         const { data: basicUser, error: basicError } = await supabase
           .from('users')
-          .select('id, email, name, full_name')
+          .select('id, email, full_name')
           .eq('id', userId)
           .single();
 
         if (!basicError && basicUser) {
           userProfile = basicUser;
-          // Consider onboarding complete if user has a name and stores (checked below)
-          onboardingCompleted = !!(basicUser.name || basicUser.full_name);
+          // Default to FALSE - user must explicitly complete onboarding
+          onboardingCompleted = false;
         }
       } catch (fallbackError) {
         console.error('[ERROR] Fallback user check failed:', fallbackError);
@@ -133,7 +139,7 @@ export async function GET(_request: NextRequest) {
       }
     }
 
-    // Check if user has stores
+    // Get stores for reference (but don't use for completion logic)
     const storesResult = await StoreService.getStoresByUserId(userId);
     
     if (!storesResult.success) {
@@ -144,24 +150,17 @@ export async function GET(_request: NextRequest) {
       }, { status: 500 });
     }
 
-    // Final determination: user is complete if they have onboarding_completed=true OR (have name and stores)
-    const hasStores = storesResult.stores && storesResult.stores.length > 0;
-    const hasBasicProfile = !!(userProfile?.name || userProfile?.full_name);
-    
-    const completed = onboardingCompleted || (hasBasicProfile && hasStores);
-
     console.log('[INFO] Onboarding status determined:', {
       userId,
       onboardingCompleted,
-      hasStores,
-      hasBasicProfile,
-      finalCompleted: completed
+      hasStores: !!(storesResult.stores && storesResult.stores.length > 0),
+      explicitFlag: onboardingCompleted
     });
 
     return NextResponse.json({
       success: true,
       data: {
-        completed,
+        completed: onboardingCompleted, // Only based on explicit flag
         user: userProfile,
         stores: storesResult.stores
       }

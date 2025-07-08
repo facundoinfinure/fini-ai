@@ -36,32 +36,33 @@ export async function GET(_request: NextRequest) {
       checks.push({ service: 'Stripe Webhook', status: 'healthy', message: 'Webhook secret configured correctly' });
     }
     
-    // TiendaNube Token Check
+    // Check TiendaNube tokens table exists
     try {
       const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-      const { data: expiredTokens, error } = await supabase
+      const { data: tokensData, error: tokensError } = await supabase
         .from('tiendanube_tokens')
         .select('count')
-        .lt('expires_at', new Date().toISOString())
-        .eq('status', 'active');
-        
-      if (error) throw error;
-      const expiredCount = expiredTokens?.[0]?.count || 0;
-      
-      if (expiredCount > 0) {
+        .limit(1);
+
+      if (tokensError) {
         checks.push({
           service: 'TiendaNube Tokens',
           status: 'warning',
-          message: expiredCount + ' expired tokens require refresh',
-          details: { expiredCount }
+          message: `Table needs manual creation: ${tokensError.message}. Use SQL Editor in Supabase Dashboard to create it.`
         });
-        if (overallStatus === 'healthy') overallStatus = 'warning';
       } else {
-        checks.push({ service: 'TiendaNube Tokens', status: 'healthy', message: 'All tokens are valid' });
+        checks.push({
+          service: 'TiendaNube Tokens',
+          status: 'healthy',
+          message: 'Table exists and accessible'
+        });
       }
-    } catch (error: any) {
-      checks.push({ service: 'TiendaNube Tokens', status: 'warning', message: 'Health check failed: ' + error.message });
-      if (overallStatus === 'healthy') overallStatus = 'warning';
+    } catch (error) {
+      checks.push({
+        service: 'TiendaNube Tokens',
+        status: 'warning',
+        message: `Health check failed: ${error instanceof Error ? error.message : 'Unknown error'} - Create table manually in Supabase Dashboard`
+      });
     }
     
     return NextResponse.json({

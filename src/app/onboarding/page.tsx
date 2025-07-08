@@ -170,22 +170,12 @@ export default function OnboardingPage() {
     try {
       console.log('[INFO] Checking onboarding status for user:', user?.id, 'stepParam:', stepParam);
       
-      // Load saved progress first
-      const currentCompletedSteps = loadProgress();
+      // Check user's onboarding status from database (NOT local storage)
+      const onboardingResponse = await fetch("/api/user/complete-onboarding", { method: 'GET' });
       
-      // Check user's onboarding status and stores in parallel
-      const [onboardingResponse, storesResponse] = await Promise.all([
-        fetch("/api/user/complete-onboarding", { method: 'GET' }),
-        fetch("/api/stores")
-      ]);
+      console.log('[INFO] Onboarding API response:', onboardingResponse.status);
       
-      console.log('[INFO] API responses:', {
-        onboarding: onboardingResponse.status,
-        stores: storesResponse.status
-      });
-      
-      let hasCompletedOnboarding = false;
-      let currentHasStores = false;
+      let hasEverCompletedOnboarding = false;
       
       // Parse onboarding response
       if (onboardingResponse.ok) {
@@ -193,46 +183,56 @@ export default function OnboardingPage() {
         console.log('[INFO] Onboarding data:', onboardingData);
         
         if (onboardingData.success) {
-          hasCompletedOnboarding = onboardingData.data?.completed || false;
+          // Check the actual database flag - if user ever completed onboarding formally
+          hasEverCompletedOnboarding = onboardingData.data?.completed || false;
         }
       }
 
-      // Parse stores response
+      // 🚨 CRITICAL CHANGE: If user has EVER completed onboarding, redirect to dashboard
+      // They should configure missing things from dashboard, NOT from onboarding
+      if (hasEverCompletedOnboarding) {
+        console.log('[INFO] User has already completed onboarding at least once - redirecting to dashboard');
+        console.log('[INFO] Missing configurations should be completed from dashboard, not onboarding');
+        router.push("/dashboard");
+        return;
+      }
+
+      // 🎯 ONBOARDING IS ONLY FOR NEW USERS WHO NEVER COMPLETED IT
+      console.log('[INFO] User has never completed onboarding - proceeding with onboarding flow');
+      
+      // For new users, check if they have stores to determine starting step
+      const storesResponse = await fetch("/api/stores");
+      let currentHasStores = false;
+      
       if (storesResponse.ok) {
         const storesData = await storesResponse.json();
         console.log('[INFO] Stores data:', storesData);
         
         if (storesData.success && storesData.data && storesData.data.length > 0) {
           currentHasStores = true;
-          // If user has stores, mark step 1 as completed
-          if (!currentCompletedSteps.has(1)) {
-            saveProgress(1);
-          }
         }
       }
       
-      // Set state variables
       setHasStores(currentHasStores);
-      setOnboardingCompleted(hasCompletedOnboarding);
+      setOnboardingCompleted(false); // Always false for users who never completed onboarding
 
-      // Determine appropriate step
-      let targetStep = 0; // Default to welcome
+      // Determine appropriate step for NEW USERS
+      let targetStep = 0; // Start with welcome
       
-      // If URL has specific step parameter, use it (from OAuth callback)
+      // If URL has specific step parameter (from OAuth callback), use it
       if (stepParam && !isNaN(parseInt(stepParam))) {
         targetStep = parseInt(stepParam);
         console.log('[INFO] Using step from URL parameter:', targetStep);
       }
-      // If onboarding is completely done, redirect to dashboard
-      else if (hasCompletedOnboarding && currentHasStores) {
-        console.log('[INFO] User has completed onboarding, redirecting to dashboard');
-        router.push("/dashboard");
-        return;
+      // If user already has stores but never completed onboarding, skip to step 2
+      else if (currentHasStores) {
+        targetStep = 2; // Skip store connection, go to analysis
+        console.log('[INFO] User has stores but never completed onboarding, starting at step 2');
       }
-      // Otherwise, determine step based on saved progress
+      // Otherwise start fresh
       else {
-        targetStep = getNextIncompleteStep(currentCompletedSteps);
-        console.log('[INFO] Next incomplete step determined:', targetStep, 'Completed steps:', Array.from(currentCompletedSteps));
+        targetStep = 0; // Welcome step
+        console.log('[INFO] New user with no stores, starting at welcome step');
       }
       
       console.log('[INFO] Setting onboarding step to:', targetStep);
@@ -240,8 +240,8 @@ export default function OnboardingPage() {
       
     } catch (error) {
       console.error('[ERROR] Error checking onboarding status:', error);
-      // Don't redirect on error, let user stay on onboarding page
-      setCurrentStep(0); // Default to welcome step on error
+      // For errors, start at welcome step
+      setCurrentStep(0);
     }
   };
 

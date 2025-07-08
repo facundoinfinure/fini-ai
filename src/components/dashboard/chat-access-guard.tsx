@@ -129,11 +129,40 @@ export function ChatAccessGuard({ children, onAccessStatusChange }: ChatAccessGu
           }
         }
       },
-      onboarding: {
-        text: 'Continuar Onboarding',
-        href: '/onboarding',
+      personal_info: {
+        text: 'Completar Perfil',
+        href: '#profile',
         onClick: () => {
-          window.location.href = '/onboarding';
+          // Try to find profile tab or configuration tab
+          const profileTab = document.querySelector('[data-tab="profile"]') || 
+                            document.querySelector('[data-tab="configuration"]');
+          if (profileTab) {
+            (profileTab as HTMLElement).click();
+          }
+        }
+      },
+      business_info: {
+        text: 'Completar Perfil',
+        href: '#profile',
+        onClick: () => {
+          // Try to find profile tab or configuration tab
+          const profileTab = document.querySelector('[data-tab="profile"]') || 
+                            document.querySelector('[data-tab="configuration"]');
+          if (profileTab) {
+            (profileTab as HTMLElement).click();
+          }
+        }
+      },
+      user_profile: {
+        text: 'Completar Perfil',
+        href: '#profile',
+        onClick: () => {
+          // Try to find profile tab or configuration tab
+          const profileTab = document.querySelector('[data-tab="profile"]') || 
+                            document.querySelector('[data-tab="configuration"]');
+          if (profileTab) {
+            (profileTab as HTMLElement).click();
+          }
         }
       }
     };
