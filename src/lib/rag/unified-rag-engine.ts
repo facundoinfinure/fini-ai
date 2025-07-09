@@ -184,25 +184,41 @@ export class UnifiedFiniRAGEngine {
    */
   private async initializeSingleNamespace(storeId: string, type: string): Promise<void> {
     try {
-      const namespace = `store-${storeId}-${type}`;
+      const namespace = `store-${storeId}${type === 'store' ? '' : `-${type}`}`;
+      const placeholderId = `placeholder-${storeId}-${type}`;
       
       console.log(`[UNIFIED-RAG] 🔧 Creating namespace: ${namespace}`);
       
-      // Create minimal placeholder document
+      // Create minimal placeholder document with proper ID
       const placeholderContent = `Namespace initialized for ${type} data in store ${storeId}`;
-      const placeholderId = `placeholder-${storeId}-${type}`;
       
-      await this.indexDocument(placeholderContent, {
-        type: type as any,
-        storeId,
-        source: 'initialization',
-        timestamp: new Date().toISOString(),
-        isPlaceholder: true
-      });
+      // Create a proper document chunk with the correct structure
+      const documentChunk: DocumentChunk = {
+        id: placeholderId,
+        content: placeholderContent,
+        metadata: {
+          id: placeholderId,
+          type: type as any,
+          storeId,
+          source: 'initialization',
+          timestamp: new Date().toISOString(),
+          isPlaceholder: true,
+          title: `${type} namespace initialization`,
+          category: 'system'
+        },
+        embedding: [] // Will be filled by embeddings service
+      };
+
+      // Generate embedding for the placeholder
+      const embeddingResult = await this.embeddings.generateEmbedding(placeholderContent);
+      documentChunk.embedding = embeddingResult.embedding;
+
+      // Direct upsert to specific namespace to ensure it's created
+      await this.vectorStore.upsert([documentChunk]);
       
-      console.log(`[UNIFIED-RAG] ✅ Initialized namespace: ${namespace}`);
+      console.log(`[UNIFIED-RAG] ✅ Initialized namespace: ${namespace} with placeholder ${placeholderId}`);
       
-      // Cleanup placeholder after 2 seconds
+      // Cleanup placeholder after 3 seconds (longer delay for safety)
       setTimeout(async () => {
         try {
           await this.vectorStore.delete([placeholderId], namespace);
@@ -211,7 +227,7 @@ export class UnifiedFiniRAGEngine {
           // Silent cleanup - not critical
           console.log(`[UNIFIED-RAG] 📝 Placeholder cleanup completed for ${namespace}`);
         }
-      }, 2000);
+      }, 3000);
       
     } catch (error) {
       console.error(`[UNIFIED-RAG] ❌ Failed to initialize namespace ${type}:`, error);
