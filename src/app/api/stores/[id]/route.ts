@@ -121,6 +121,27 @@ export async function DELETE(
       console.error('[ERROR] Failed to disconnect WhatsApp numbers:', disconnectError.message);
     }
 
+    // 🔥 NEW: Trigger Pinecone cleanup BEFORE database deletion
+    console.log(`[INFO] Triggering Pinecone cleanup for store: ${storeId}`);
+    try {
+      // Dynamic import to avoid build issues
+      const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+      const ragEngine = getUnifiedRAGEngine();
+      
+      // Delete all namespaces for the store
+      const cleanupResult = await ragEngine.deleteStoreNamespaces(storeId);
+      
+      if (cleanupResult.success) {
+        console.log(`[INFO] ✅ Pinecone cleanup completed for store: ${storeId}`);
+      } else {
+        console.warn(`[WARN] ⚠️ Pinecone cleanup had issues: ${cleanupResult.error}`);
+        // Continue with database deletion even if Pinecone cleanup fails
+      }
+    } catch (pineconeError) {
+      console.warn(`[WARN] ❌ Pinecone cleanup failed: ${pineconeError instanceof Error ? pineconeError.message : 'Unknown error'}`);
+      // Continue with database deletion even if Pinecone cleanup fails
+    }
+
     // Realizar soft delete de la tienda
     const { error: deleteError } = await supabase
       .from('stores')
@@ -139,7 +160,7 @@ export async function DELETE(
       );
     }
 
-    console.log(`[INFO] Store ${store.name} deleted successfully`);
+    console.log(`[INFO] Store ${store.name} deleted successfully (database + Pinecone cleanup)`);
 
     return NextResponse.json({
       success: true,
