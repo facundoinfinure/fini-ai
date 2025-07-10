@@ -233,29 +233,86 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'reinitialize-namespaces':
-        console.log(`[DEBUG-RECONNECTION] 🏗️ Reinitializing namespaces for store: ${storeId}`);
+        console.log(`[DEBUG-RECONNECTION] 🏗️ PRODUCTION FIX: Reinitializing namespaces for store: ${storeId}`);
         
-        // Get RAG engine and reinitialize namespaces
-        const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
-        const ragEngine = getUnifiedRAGEngine();
-        
-        // Delete existing namespaces first
-        await ragEngine.deleteStoreNamespaces(storeId);
-        
-        // Reinitialize all namespaces
-        const initResult = await ragEngine.initializeStoreNamespaces(storeId);
-        
-        if (!initResult.success) {
-          throw new Error(`Namespace initialization failed: ${initResult.error}`);
+        try {
+          // Get RAG engine
+          const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+          const ragEngine = getUnifiedRAGEngine();
+          
+          // STEP 1: Delete existing namespaces first
+          console.log('[DEBUG-RECONNECTION] 🗑️ Cleaning up existing namespaces');
+          const cleanupResult = await ragEngine.deleteStoreNamespaces(storeId);
+          
+          if (cleanupResult.success) {
+            console.log('[DEBUG-RECONNECTION] ✅ Existing namespaces cleaned');
+          } else {
+            console.warn('[DEBUG-RECONNECTION] ⚠️ Cleanup had issues:', cleanupResult.error);
+          }
+          
+          // Small delay to ensure cleanup is complete
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // STEP 2: Initialize all 6 namespaces  
+          console.log('[DEBUG-RECONNECTION] 🏗️ Initializing all 6 namespaces');
+          const initResult = await ragEngine.initializeStoreNamespaces(storeId);
+          
+          if (!initResult.success) {
+            throw new Error(`Namespace initialization failed: ${initResult.error}`);
+          }
+          
+          console.log('[DEBUG-RECONNECTION] ✅ All namespaces initialized');
+          
+          // STEP 3: Get valid token for data sync
+          const { TiendaNubeTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
+          const accessToken = await TiendaNubeTokenManager.getValidToken(storeId);
+          
+          if (!accessToken) {
+            console.warn('[DEBUG-RECONNECTION] ⚠️ No valid token, namespaces created but not populated');
+            result = {
+              action: 'reinitialize-namespaces',
+              message: 'Namespaces reinitialized successfully but not populated (no valid token)',
+              storeId,
+              namespacesCreated: 6,
+              dataIndexed: false,
+              warning: 'Store needs reconnection to populate data',
+              triggeredAt: new Date().toISOString()
+            };
+          } else {
+            // STEP 4: Index data into all namespaces
+            console.log('[DEBUG-RECONNECTION] 📊 Indexing data into namespaces');
+            const syncResult = await ragEngine.indexStoreData(storeId, accessToken);
+            
+            result = {
+              action: 'reinitialize-namespaces',
+              message: 'Namespaces reinitialized and populated successfully',
+              storeId,
+              namespacesCreated: 6,
+              dataIndexed: syncResult.success,
+              documentsIndexed: syncResult.documentsIndexed || 0,
+              namespacesProcessed: syncResult.namespacesProcessed?.length || 0,
+              syncStatus: syncResult.success ? 'completed' : 'partial',
+              syncError: syncResult.error || null,
+              triggeredAt: new Date().toISOString()
+            };
+            
+            if (syncResult.success) {
+              console.log(`[DEBUG-RECONNECTION] ✅ Data indexed: ${syncResult.documentsIndexed} documents in ${syncResult.namespacesProcessed.length} namespaces`);
+            } else {
+              console.warn(`[DEBUG-RECONNECTION] ⚠️ Data indexing had issues: ${syncResult.error}`);
+            }
+          }
+          
+        } catch (error) {
+          console.error('[DEBUG-RECONNECTION] ❌ Namespace reinitialization failed:', error);
+          result = {
+            action: 'reinitialize-namespaces', 
+            message: 'Namespace reinitialization failed',
+            storeId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            triggeredAt: new Date().toISOString()
+          };
         }
-        
-        result = {
-          action: 'reinitialize-namespaces',
-          message: 'Namespaces reinitialized successfully',
-          storeId,
-          namespacesCreated: initResult.success ? 6 : 0,
-          triggeredAt: new Date().toISOString()
-        };
         break;
 
       case 'full-reconnection':
