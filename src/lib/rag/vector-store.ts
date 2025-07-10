@@ -599,20 +599,50 @@ export class PineconeVectorStore implements VectorStore {
       throw new Error(`Invalid store ID for namespace generation: ${storeId}`);
     }
     
-    // 🔥 FIX: Verificar que la tienda esté activa antes de crear namespaces
+    // 🔥 FIX: GLOBAL LOCK PROTECTION - Wait for any deletion locks to clear
+    const { waitForStoreUnlock } = await import('@/lib/rag/global-locks');
+    await waitForStoreUnlock(storeId, 3000); // Wait up to 3 seconds for deletion to complete
+    
+    // 🔥 FIX: RACE CONDITION PROTECTION - Triple validation with cache busting
     try {
       const { createClient } = await import('@/lib/supabase/server');
       const supabase = createClient();
       
+      // First check: Direct DB query (bypasses any cache)
       const { data: store, error } = await supabase
         .from('stores')
-        .select('is_active')
+        .select('is_active, updated_at')
         .eq('id', storeId)
         .single();
         
       if (error || !store || !store.is_active) {
+        console.error(`[RAG:SECURITY] BLOCKED namespace creation - Store ${storeId} is inactive. DB check: is_active=${store?.is_active}, error=${error?.message}`);
         throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive/deleted store: ${storeId}`);
       }
+      
+      // Second check: Recent deletion protection (if updated in last 10 seconds, double-check)
+      const updatedAt = new Date(store.updated_at);
+      const now = new Date();
+      const timeDiff = now.getTime() - updatedAt.getTime();
+      
+      if (timeDiff < 10000) { // Less than 10 seconds
+        console.warn(`[RAG:SECURITY] Recent store update detected (${timeDiff}ms ago), double-checking...`);
+        
+        // Wait a moment and re-check to avoid race conditions
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const { data: doubleCheck, error: doubleError } = await supabase
+          .from('stores')
+          .select('is_active')
+          .eq('id', storeId)
+          .single();
+          
+        if (doubleError || !doubleCheck || !doubleCheck.is_active) {
+          console.error(`[RAG:SECURITY] DOUBLE-CHECK FAILED - Store ${storeId} became inactive during namespace creation`);
+          throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive/deleted store: ${storeId}`);
+        }
+      }
+      
     } catch (validationError) {
       console.error(`[RAG:SECURITY] Store validation failed for ${storeId}:`, validationError);
       throw new Error(`Store validation failed: ${storeId}`);
@@ -653,20 +683,45 @@ export class PineconeVectorStore implements VectorStore {
       throw new Error(`[SECURITY] Invalid store ID format: ${storeId}`);
     }
     
-    // 🔥 FIX: Verificar que la tienda esté activa antes de buscar
+    // 🔥 FIX: GLOBAL LOCK PROTECTION - Wait for any deletion locks to clear
+    const { waitForStoreUnlock } = await import('@/lib/rag/global-locks');
+    await waitForStoreUnlock(storeId, 2000); // Wait up to 2 seconds for deletion to complete
+    
+    // 🔥 FIX: RACE CONDITION PROTECTION - Apply same logic for searches
     try {
       const { createClient } = await import('@/lib/supabase/server');
       const supabase = createClient();
       
       const { data: store, error } = await supabase
         .from('stores')
-        .select('is_active')
+        .select('is_active, updated_at')
         .eq('id', storeId)
         .single();
         
       if (error || !store || !store.is_active) {
+        console.error(`[RAG:SECURITY] BLOCKED search - Store ${storeId} is inactive. DB check: is_active=${store?.is_active}, error=${error?.message}`);
         throw new Error(`[RAG:SECURITY] Cannot search namespaces for inactive/deleted store: ${storeId}`);
       }
+      
+      // Race condition protection for searches too
+      const updatedAt = new Date(store.updated_at);
+      const timeDiff = new Date().getTime() - updatedAt.getTime();
+      
+      if (timeDiff < 10000) { // Less than 10 seconds
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        const { data: doubleCheck, error: doubleError } = await supabase
+          .from('stores')
+          .select('is_active')
+          .eq('id', storeId)
+          .single();
+          
+        if (doubleError || !doubleCheck || !doubleCheck.is_active) {
+          console.error(`[RAG:SECURITY] SEARCH DOUBLE-CHECK FAILED - Store ${storeId} became inactive`);
+          throw new Error(`[RAG:SECURITY] Cannot search namespaces for inactive/deleted store: ${storeId}`);
+        }
+      }
+      
     } catch (validationError) {
       console.error(`[RAG:SECURITY] Store validation failed for search ${storeId}:`, validationError);
       throw new Error(`Store validation failed: ${storeId}`);

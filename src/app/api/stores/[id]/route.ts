@@ -82,6 +82,10 @@ export async function DELETE(
     const storeId = params.id;
     console.log('[INFO] Deleting store:', storeId);
 
+    // 🔒 IMMEDIATELY LOCK STORE - Prevent any RAG operations during deletion
+    const { lockStoreForDeletion } = await import('@/lib/rag/global-locks');
+    await lockStoreForDeletion(storeId, `Store deletion in progress (DELETE /${storeId})`);
+
     const supabase = createClient();
     
     // Obtener el usuario actual
@@ -173,6 +177,10 @@ export async function DELETE(
 
     console.log(`[INFO] Store ${store.name} deleted successfully (database + Pinecone cleanup + scheduler removal)`);
 
+    // 🔓 UNLOCK STORE - Allow RAG operations for this store ID to proceed
+    const { unlockStoreAfterDeletion } = await import('@/lib/rag/global-locks');
+    await unlockStoreAfterDeletion(storeId);
+
     return NextResponse.json({
       success: true,
       message: `Store ${store.name} deleted successfully`
@@ -180,6 +188,15 @@ export async function DELETE(
 
   } catch (error) {
     console.error('[ERROR] Failed to delete store:', error);
+    
+    // 🔓 UNLOCK STORE on error - Prevent permanent locks
+    try {
+      const { unlockStoreAfterDeletion } = await import('@/lib/rag/global-locks');
+      await unlockStoreAfterDeletion(params.id);
+    } catch (unlockError) {
+      console.warn('[WARN] Failed to unlock store after deletion error:', unlockError);
+    }
+    
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
