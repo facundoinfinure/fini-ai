@@ -468,31 +468,65 @@ export class StoreService {
   }
 
   /**
-   * Initialize RAG namespaces for a store asynchronously
+   * 🔒 ENHANCED: Lock-aware async namespace initialization
    * 🛡️ FAIL-SAFE: Never breaks store creation/update process
    */
   static initializeStoreNamespacesAsync(storeId: string): void {
-    // Fire-and-forget async operation
+    // Fire-and-forget async operation with lock awareness
     (async () => {
+      let lockProcessId: string | null = null;
+      
       try {
-        console.log(`[DEBUG] Starting async namespace initialization for store: ${storeId}`);
+        console.log(`[STORE-SERVICE] 🔒 Starting lock-aware namespace initialization for store: ${storeId}`);
         
-        // Dynamic import to avoid circular dependencies and reduce bundle size
+        // 🔒 STEP 1: Check for lock conflicts before starting
+        const { checkRAGLockConflicts, RAGLockType, BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+        
+        const conflictCheck = await checkRAGLockConflicts(storeId, RAGLockType.BACKGROUND_SYNC);
+        
+        if (!conflictCheck.canProceed) {
+          console.warn(`[STORE-SERVICE] ⏳ Skipping namespace init for store ${storeId} - ${conflictCheck.reason}`);
+          return; // Exit early - another operation is handling this store
+        }
+
+        // 🔒 STEP 2: Acquire background sync lock
+        const lockResult = await BackgroundSyncLocks.acquire(storeId, 'StoreService namespace initialization');
+        
+        if (!lockResult.success) {
+          console.warn(`[STORE-SERVICE] ⏳ Cannot acquire lock for namespace init ${storeId}: ${lockResult.error}`);
+          return; // Exit early - lock not available
+        }
+        
+        lockProcessId = lockResult.processId!;
+        console.log(`[STORE-SERVICE] 🔒 Lock acquired for namespace init: ${lockProcessId}`);
+        
+        // STEP 3: Dynamic import to avoid circular dependencies and reduce bundle size
         const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
         
         const ragEngine = getUnifiedRAGEngine();
         const result = await ragEngine.initializeStoreNamespaces(storeId);
         
         if (result.success) {
-          console.log(`[SUCCESS] RAG namespaces initialized for store: ${storeId}`);
+          console.log(`[STORE-SERVICE] ✅ Lock-aware RAG namespaces initialized for store: ${storeId}`);
         } else {
-          console.warn(`[WARNING] RAG namespace initialization failed for store ${storeId}:`, result.error);
+          console.warn(`[STORE-SERVICE] ⚠️ RAG namespace initialization failed for store ${storeId}:`, result.error);
           // Note: This is expected if RAG isn't configured yet - not a critical error
         }
       } catch (error) {
-        console.warn(`[WARNING] Async namespace initialization failed for store ${storeId}:`, error);
+        console.warn(`[STORE-SERVICE] ⚠️ Lock-aware async namespace initialization failed for store ${storeId}:`, error);
         // 🛡️ CRITICAL: Never throw errors that could break store operations
         // RAG initialization is a nice-to-have optimization, not a requirement
+      } finally {
+        // 🔒 ALWAYS release the lock, even if initialization failed
+        if (lockProcessId) {
+          try {
+            const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+            await BackgroundSyncLocks.release(storeId, lockProcessId);
+            console.log(`[STORE-SERVICE] 🔓 Lock released for namespace init: ${lockProcessId}`);
+          } catch (unlockError) {
+            console.warn(`[STORE-SERVICE] ⚠️ Failed to release namespace init lock ${lockProcessId}:`, unlockError);
+          }
+        }
       }
     })();
   }
@@ -577,57 +611,94 @@ export class StoreService {
     }
   }
 
+  /**
+   * 🔒 ENHANCED: Lock-aware async RAG sync for fire-and-forget operations
+   * Respects global lock system to prevent race conditions during sync
+   */
   static syncStoreDataToRAGAsync(storeId: string): void {
-    // Fire-and-forget async operation
+    // Fire-and-forget async operation with lock awareness
     (async () => {
+      let lockProcessId: string | null = null;
+      
       try {
-        console.log(`[DEBUG] Starting async RAG data sync for store: ${storeId}`);
+        console.log(`[STORE-SERVICE] 🔒 Starting lock-aware async RAG sync for store: ${storeId}`);
         
-        // Get store with access token for API calls
+        // 🔒 STEP 1: Check for lock conflicts before starting
+        const { checkRAGLockConflicts, RAGLockType, BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+        
+        const conflictCheck = await checkRAGLockConflicts(storeId, RAGLockType.BACKGROUND_SYNC);
+        
+        if (!conflictCheck.canProceed) {
+          console.warn(`[STORE-SERVICE] ⏳ Skipping async sync for store ${storeId} - ${conflictCheck.reason}`);
+          return; // Exit early - another operation is handling this store
+        }
+
+        // 🔒 STEP 2: Acquire background sync lock
+        const lockResult = await BackgroundSyncLocks.acquire(storeId, 'StoreService async RAG sync');
+        
+        if (!lockResult.success) {
+          console.warn(`[STORE-SERVICE] ⏳ Cannot acquire lock for async sync ${storeId}: ${lockResult.error}`);
+          return; // Exit early - lock not available
+        }
+        
+        lockProcessId = lockResult.processId!;
+        console.log(`[STORE-SERVICE] 🔒 Lock acquired for async sync: ${lockProcessId}`);
+        
+        // STEP 3: Get store with access token for API calls
         const store = await this.getStore(storeId);
         if (!store.success || !store.store) {
-          console.warn(`[WARNING] Cannot sync RAG data - store not found: ${storeId}`);
+          console.warn(`[STORE-SERVICE] ⚠️ Cannot sync RAG data - store not found: ${storeId}`);
           return;
         }
 
         const storeData = store.store;
         if (!storeData.access_token) {
-          console.warn(`[WARNING] Cannot sync RAG data - no access token for store: ${storeId}`);
+          console.warn(`[STORE-SERVICE] ⚠️ Cannot sync RAG data - no access token for store: ${storeId}`);
           return;
         }
 
-        // Initialize namespaces first
+        // STEP 4: Initialize namespaces first
         const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
         const ragEngine = getUnifiedRAGEngine();
         
-        // 1. Initialize namespaces
-        console.log(`[DEBUG] Initializing RAG namespaces for store: ${storeId}`);
+        console.log(`[STORE-SERVICE] 🏗️ Initializing RAG namespaces for store: ${storeId}`);
         const namespaceResult = await ragEngine.initializeStoreNamespaces(storeId);
         
         if (!namespaceResult.success) {
-          console.warn(`[WARNING] RAG namespaces failed for store ${storeId}:`, namespaceResult.error);
+          console.warn(`[STORE-SERVICE] ⚠️ RAG namespaces failed for store ${storeId}:`, namespaceResult.error);
           return; // Skip data sync if namespaces failed
         }
 
-        // 2. Sync complete store data
-        console.log(`[DEBUG] Starting full data indexing for store: ${storeId}`);
+        // STEP 5: Sync complete store data
+        console.log(`[STORE-SERVICE] 📊 Starting full data indexing for store: ${storeId}`);
         const indexResult = await ragEngine.indexStoreData(storeId, storeData.access_token);
         
         if (!indexResult.success) {
-          console.warn(`[WARNING] Partial indexing failure for store ${storeId}:`, indexResult.error);
+          console.warn(`[STORE-SERVICE] ⚠️ Partial indexing failure for store ${storeId}:`, indexResult.error);
         }
         
-        console.log(`[SUCCESS] Complete RAG data sync finished for store: ${storeId}`);
+        console.log(`[STORE-SERVICE] ✅ Lock-aware RAG data sync completed for store: ${storeId}`);
         
-        // 3. Update last sync timestamp
+        // STEP 6: Update last sync timestamp
         await this.updateStore(storeId, { 
           last_sync_at: new Date().toISOString() 
         });
         
       } catch (error) {
-        console.warn(`[WARNING] Async RAG data sync failed for store ${storeId}:`, error);
+        console.warn(`[STORE-SERVICE] ⚠️ Lock-aware async RAG sync failed for store ${storeId}:`, error);
         // 🛡️ CRITICAL: Never throw errors that could break store operations
         // RAG sync is enhancement, not a requirement for basic functionality
+      } finally {
+        // 🔒 ALWAYS release the lock, even if sync failed
+        if (lockProcessId) {
+          try {
+            const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+            await BackgroundSyncLocks.release(storeId, lockProcessId);
+            console.log(`[STORE-SERVICE] 🔓 Lock released for async sync: ${lockProcessId}`);
+          } catch (unlockError) {
+            console.warn(`[STORE-SERVICE] ⚠️ Failed to release async sync lock ${lockProcessId}:`, unlockError);
+          }
+        }
       }
     })();
   }

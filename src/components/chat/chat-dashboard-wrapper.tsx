@@ -92,6 +92,10 @@ export function ChatDashboardWrapper() {
     }
   };
 
+  /**
+   * 🔒 ENHANCED: Intelligent sync with lock-aware approach
+   * Respects the new global locks system to prevent race conditions
+   */
   const syncStoresIntelligentlyForChat = async (storesList: Store[]) => {
     try {
       const now = new Date();
@@ -104,7 +108,7 @@ export function ChatDashboardWrapper() {
       }
       
       setLastSyncCheck(now);
-      logger.info('Starting intelligent chat sync check', { storeCount: storesList.length });
+      logger.info('Starting intelligent chat sync check with lock awareness', { storeCount: storesList.length });
       
       let syncTriggered = false;
       const fourHoursAgo = new Date(now.getTime() - (4 * 60 * 60 * 1000)); // 4 horas para chat
@@ -119,23 +123,79 @@ export function ChatDashboardWrapper() {
         const needsSync = !lastSync || lastSync < fourHoursAgo;
         
         if (needsSync) {
-          logger.info('Triggering chat RAG sync', { 
+          logger.info('Checking if chat sync is possible', { 
             storeId: store.id, 
             storeName: store.name,
             lastSync: lastSync?.toISOString() || 'never'
           });
           
-          if (!syncTriggered) {
-            setIsSyncing(true);
-            syncTriggered = true;
+          try {
+            // 🔒 NEW: Check if sync is possible using lock system
+            const { checkRAGLockConflicts, RAGLockType } = await import('@/lib/rag/global-locks');
+            
+            const conflictCheck = await checkRAGLockConflicts(store.id, RAGLockType.MANUAL_SYNC);
+            
+            if (!conflictCheck.canProceed) {
+              logger.info('Skipping chat sync - lock conflict', { 
+                storeId: store.id,
+                reason: conflictCheck.reason,
+                conflictingLocks: conflictCheck.conflictingLocks?.length || 0
+              });
+              continue;
+            }
+
+            // 🔒 NEW: Use auto-sync scheduler for lock-aware sync
+            const { getAutoSyncScheduler } = await import('@/lib/services/auto-sync-scheduler');
+            const scheduler = await getAutoSyncScheduler();
+            
+            logger.info('Triggering lock-aware chat sync', { 
+              storeId: store.id, 
+              storeName: store.name
+            });
+            
+            if (!syncTriggered) {
+              setIsSyncing(true);
+              syncTriggered = true;
+            }
+            
+            // Use the scheduler's immediate sync which respects locks
+            scheduler.triggerImmediateSync(store.id).then(result => {
+              if (result.success) {
+                logger.info('Chat sync completed successfully', { 
+                  storeId: store.id,
+                  syncTime: result.syncedData.totalTime 
+                });
+              } else {
+                logger.warn('Chat sync failed', { 
+                  storeId: store.id,
+                  error: result.error 
+                });
+              }
+            }).catch(error => {
+              logger.error('Chat sync error', { storeId: store.id, error });
+            });
+            
+          } catch (error) {
+            logger.error('Chat sync conflict check failed', { 
+              storeId: store.id, 
+              error: error instanceof Error ? error.message : error 
+            });
+            
+            // Fallback to old method only if lock system is unavailable
+            logger.warn('Falling back to direct sync endpoint', { storeId: store.id });
+            
+            fetch(`/api/stores/${store.id}/sync-rag`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' }
+            }).catch(fallbackError => {
+              logger.error('Fallback chat sync failed', { storeId: store.id, error: fallbackError });
+            });
+            
+            if (!syncTriggered) {
+              setIsSyncing(true);
+              syncTriggered = true;
+            }
           }
-          
-          fetch(`/api/stores/${store.id}/sync-rag`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          }).catch(error => {
-            logger.error('Chat RAG sync failed', { storeId: store.id, error });
-          });
         }
       }
       
@@ -143,7 +203,7 @@ export function ChatDashboardWrapper() {
         setTimeout(() => {
           setIsSyncing(false);
           logger.info('Chat sync process completed');
-        }, 10000); // 10 segundos
+        }, 15000); // Extended to 15 seconds for lock-aware operations
       }
       
     } catch (error) {
@@ -197,7 +257,7 @@ export function ChatDashboardWrapper() {
       <Alert className="m-4">
         <Bot className="h-4 w-4" />
         <AlertDescription>
-                     No tienes tiendas conectadas. Ve a la pestaña &ldquo;Gestión de Tiendas&rdquo; para conectar tu primera tienda.
+          No tienes tiendas conectadas. Ve a la pestaña &ldquo;Gestión de Tiendas&rdquo; para conectar tu primera tienda.
         </AlertDescription>
       </Alert>
     );

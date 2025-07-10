@@ -106,13 +106,37 @@ export class FiniNamespaceManager implements NamespaceManager {
   }
 
   /**
-   * Trigger manual sync (login, manual trigger)
+   * 🔒 ENHANCED: Lock-aware manual sync (login, manual trigger)
+   * Respects global lock system to prevent race conditions during sync
    */
   async triggerManualSync(storeId: string): Promise<{ success: boolean; error?: string }> {
+    let lockProcessId: string | null = null;
+    
     try {
-      console.log(`[NAMESPACE] Manual sync triggered for store: ${storeId}`);
+      console.log(`[NAMESPACE] 🔒 Lock-aware manual sync triggered for store: ${storeId}`);
       
-      // Get store with access token
+      // 🔒 STEP 1: Check for lock conflicts before starting
+      const { checkRAGLockConflicts, RAGLockType, ManualSyncLocks } = await import('@/lib/rag/global-locks');
+      
+      const conflictCheck = await checkRAGLockConflicts(storeId, RAGLockType.MANUAL_SYNC);
+      
+      if (!conflictCheck.canProceed) {
+        console.warn(`[NAMESPACE] ⏳ Skipping manual sync for store ${storeId} - ${conflictCheck.reason}`);
+        return { success: false, error: conflictCheck.reason };
+      }
+
+      // 🔒 STEP 2: Acquire manual sync lock
+      const lockResult = await ManualSyncLocks.acquire(storeId, 'Namespace manager manual sync');
+      
+      if (!lockResult.success) {
+        console.warn(`[NAMESPACE] ⏳ Cannot acquire lock for manual sync ${storeId}: ${lockResult.error}`);
+        return { success: false, error: `Lock unavailable: ${lockResult.error}` };
+      }
+      
+      lockProcessId = lockResult.processId!;
+      console.log(`[NAMESPACE] 🔒 Lock acquired for manual sync: ${lockProcessId}`);
+      
+      // STEP 3: Get store with access token
       const supabase = createClient();
       const { data: store, error } = await supabase
         .from('stores')
@@ -124,21 +148,37 @@ export class FiniNamespaceManager implements NamespaceManager {
         throw new Error(`Store not found or missing access token: ${storeId}`);
       }
 
-      // Dynamic import to avoid build issues
+      // STEP 4: Dynamic import to avoid build issues
       const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
       const ragEngine = getUnifiedRAGEngine();
       
-      // Sync store data (non-blocking, fire-and-forget)
-      ragEngine.indexStoreData(storeId, store.access_token).catch(error => {
-        console.warn(`[NAMESPACE] Background sync failed for store ${storeId}:`, error);
-      });
+      // STEP 5: Sync store data with lock protection
+      console.log(`[NAMESPACE] 📊 Starting lock-protected data sync for store: ${storeId}`);
+      const syncResult = await ragEngine.indexStoreData(storeId, store.access_token);
       
-      console.log(`[NAMESPACE] ✅ Manual sync initiated for store: ${storeId}`);
+      if (!syncResult.success) {
+        console.warn(`[NAMESPACE] ⚠️ Lock-protected sync failed for store ${storeId}:`, syncResult.error);
+        return { success: false, error: syncResult.error };
+      }
+      
+      console.log(`[NAMESPACE] ✅ Lock-aware manual sync completed for store: ${storeId}`);
       return { success: true };
+      
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`[NAMESPACE] ❌ Manual sync failed for store ${storeId}:`, errorMessage);
+      console.error(`[NAMESPACE] ❌ Lock-aware manual sync failed for store ${storeId}:`, errorMessage);
       return { success: false, error: errorMessage };
+    } finally {
+      // 🔒 ALWAYS release the lock, even if sync failed
+      if (lockProcessId) {
+        try {
+          const { ManualSyncLocks } = await import('@/lib/rag/global-locks');
+          await ManualSyncLocks.release(storeId, lockProcessId);
+          console.log(`[NAMESPACE] 🔓 Lock released for manual sync: ${lockProcessId}`);
+        } catch (unlockError) {
+          console.warn(`[NAMESPACE] ⚠️ Failed to release manual sync lock ${lockProcessId}:`, unlockError);
+        }
+      }
     }
   }
 

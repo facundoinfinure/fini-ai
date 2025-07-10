@@ -18,6 +18,7 @@
  * - Circuit breaker para resilience
  * - Logging detallado para debugging
  * - Queue management para evitar saturación
+ * - 🔒 GLOBAL LOCK INTEGRATION para prevenir race conditions
  */
 
 import { createClient } from '@/lib/supabase/server';
@@ -77,6 +78,8 @@ export interface JobResult {
   error?: string;
   operations: string[];
   retryCount: number;
+  lockAcquired?: boolean;
+  lockProcessId?: string;
 }
 
 export interface JobQueueStats {
@@ -105,7 +108,7 @@ export class BackgroundJobManager {
 
   private constructor() {
     this.ragEngine = getUnifiedRAGEngine();
-    console.log('[BACKGROUND-JOBS] 🚀 Initialized Background Job Manager');
+    console.log('[BACKGROUND-JOBS] 🚀 Initialized Background Job Manager with lock integration');
   }
 
   /**
@@ -122,6 +125,7 @@ export class BackgroundJobManager {
 
   /**
    * 🆕 Handle new store sync job
+   * 🔒 ENHANCED with lock management
    */
   async handleNewStoreSync(jobData: NewStoreSyncJob): Promise<JobResult> {
     const result = await this.executeWithTimeout(
@@ -134,6 +138,7 @@ export class BackgroundJobManager {
 
   /**
    * 🔄 Handle cleanup + re-sync job
+   * 🔒 ENHANCED with lock management
    */
   async handleCleanupSync(jobData: CleanupSyncJob): Promise<JobResult> {
     const result = await this.executeWithTimeout(
@@ -146,6 +151,7 @@ export class BackgroundJobManager {
 
   /**
    * 📈 Handle incremental sync job
+   * 🔒 ENHANCED with lock management
    */
   async handleIncrementalSync(jobData: IncrementalSyncJob): Promise<JobResult> {
     const result = await this.executeWithTimeout(
@@ -158,6 +164,7 @@ export class BackgroundJobManager {
 
   /**
    * 🗑️ Handle vector cleanup job
+   * 🔒 ENHANCED with lock management
    */
   async handleVectorCleanup(jobData: VectorCleanupJob): Promise<JobResult> {
     const result = await this.executeWithTimeout(
@@ -170,6 +177,7 @@ export class BackgroundJobManager {
 
   /**
    * 🏥 Handle health check job
+   * 🔒 ENHANCED with lock management
    */
   async handleHealthCheck(jobData: HealthCheckJob): Promise<JobResult> {
     const result = await this.executeWithTimeout(
@@ -184,15 +192,36 @@ export class BackgroundJobManager {
 
   /**
    * Execute new store sync
+   * 🔒 ENHANCED with lock-aware execution
    */
   private async _executeNewStoreSync(jobData: NewStoreSyncJob): Promise<JobResult> {
     const operations: string[] = [];
     const startTime = Date.now();
+    let lockProcessId: string | null = null;
     
     try {
-      console.log(`[BACKGROUND-JOBS] 🆕 Starting new store sync: ${jobData.storeId}`);
+      console.log(`[BACKGROUND-JOBS] 🆕 Starting lock-aware new store sync: ${jobData.storeId}`);
       
-      // STEP 1: Initialize namespaces
+      // 🔒 STEP 1: Acquire appropriate lock based on job type
+      try {
+        const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+        
+        const lockResult = await BackgroundSyncLocks.acquire(jobData.storeId, `New store sync job: ${jobData.jobId}`);
+        
+        if (!lockResult.success) {
+          throw new Error(`Cannot acquire background sync lock: ${lockResult.error}`);
+        }
+        
+        lockProcessId = lockResult.processId!;
+        operations.push('🔒 background_sync_lock_acquired');
+        console.log(`[BACKGROUND-JOBS] 🔒 Lock acquired for new store sync: ${lockProcessId}`);
+        
+      } catch (lockError) {
+        console.warn(`[BACKGROUND-JOBS] ⚠️ Lock system unavailable, proceeding without lock:`, lockError);
+        operations.push('⚠️ lock_system_unavailable');
+      }
+      
+      // STEP 2: Initialize namespaces
       if (jobData.includeVectors) {
         console.log(`[BACKGROUND-JOBS] 🏗️ Initializing namespaces`);
         const namespaceResult = await this.ragEngine.initializeStoreNamespaces(jobData.storeId);
@@ -204,7 +233,7 @@ export class BackgroundJobManager {
         operations.push('namespaces_initialized');
       }
 
-      // STEP 2: Index complete store data
+      // STEP 3: Index complete store data
       if (jobData.includeVectors) {
         console.log(`[BACKGROUND-JOBS] 📊 Indexing store data`);
         const syncResult = await this.ragEngine.indexStoreData(jobData.storeId, jobData.accessToken);
@@ -217,7 +246,7 @@ export class BackgroundJobManager {
         operations.push(`processed_${syncResult.namespacesProcessed.length}_namespaces`);
       }
 
-      // STEP 3: Update sync timestamp
+      // STEP 4: Update sync timestamp
       if (jobData.includeDatabase) {
         console.log(`[BACKGROUND-JOBS] 📅 Updating sync timestamp`);
         await StoreService.updateStore(jobData.storeId, {
@@ -227,7 +256,7 @@ export class BackgroundJobManager {
       }
 
       const executionTime = Date.now() - startTime;
-      console.log(`[BACKGROUND-JOBS] ✅ New store sync completed: ${jobData.storeId} in ${executionTime}ms`);
+      console.log(`[BACKGROUND-JOBS] ✅ Lock-aware new store sync completed: ${jobData.storeId} in ${executionTime}ms`);
 
       return {
         success: true,
@@ -235,35 +264,77 @@ export class BackgroundJobManager {
         storeId: jobData.storeId,
         executionTime,
         operations,
-        retryCount: jobData.retryCount || 0
+        retryCount: jobData.retryCount || 0,
+        lockAcquired: !!lockProcessId,
+        lockProcessId: lockProcessId || undefined
       };
 
     } catch (error) {
-      console.error(`[BACKGROUND-JOBS] ❌ New store sync failed: ${jobData.storeId}`, error);
+      const executionTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
+      console.error(`[BACKGROUND-JOBS] ❌ Lock-aware new store sync failed: ${jobData.storeId}`, error);
+      operations.push(`❌ error: ${errorMessage}`);
+
       return {
         success: false,
         jobId: jobData.jobId,
         storeId: jobData.storeId,
-        executionTime: Date.now() - startTime,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        executionTime,
+        error: errorMessage,
         operations,
-        retryCount: jobData.retryCount || 0
+        retryCount: jobData.retryCount || 0,
+        lockAcquired: !!lockProcessId,
+        lockProcessId: lockProcessId || undefined
       };
+    } finally {
+      // 🔒 ALWAYS release the lock
+      if (lockProcessId) {
+        try {
+          const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+          await BackgroundSyncLocks.release(jobData.storeId, lockProcessId);
+          operations.push('🔓 background_sync_lock_released');
+          console.log(`[BACKGROUND-JOBS] 🔓 Lock released for new store sync: ${lockProcessId}`);
+        } catch (unlockError) {
+          console.warn(`[BACKGROUND-JOBS] ⚠️ Failed to release lock ${lockProcessId}:`, unlockError);
+          operations.push('⚠️ lock_release_failed');
+        }
+      }
     }
   }
 
   /**
    * Execute cleanup + re-sync
+   * 🔒 ENHANCED with lock management
    */
   private async _executeCleanupSync(jobData: CleanupSyncJob): Promise<JobResult> {
     const operations: string[] = [];
     const startTime = Date.now();
+    let lockProcessId: string | null = null;
     
     try {
-      console.log(`[BACKGROUND-JOBS] 🔄 Starting cleanup sync: ${jobData.storeId}`);
+      console.log(`[BACKGROUND-JOBS] 🔄 Starting lock-aware cleanup sync: ${jobData.storeId}`);
       
-      // STEP 1: Cleanup existing vectors if requested
+      // 🔒 STEP 1: Acquire appropriate lock based on job type
+      try {
+        const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+        
+        const lockResult = await BackgroundSyncLocks.acquire(jobData.storeId, `Cleanup sync job: ${jobData.jobId}`);
+        
+        if (!lockResult.success) {
+          throw new Error(`Cannot acquire background sync lock: ${lockResult.error}`);
+        }
+        
+        lockProcessId = lockResult.processId!;
+        operations.push('🔒 background_sync_lock_acquired');
+        console.log(`[BACKGROUND-JOBS] 🔒 Lock acquired for cleanup sync: ${lockProcessId}`);
+        
+      } catch (lockError) {
+        console.warn(`[BACKGROUND-JOBS] ⚠️ Lock system unavailable, proceeding without lock:`, lockError);
+        operations.push('⚠️ lock_system_unavailable');
+      }
+
+      // STEP 2: Cleanup existing vectors if requested
       if (jobData.cleanupFirst) {
         console.log(`[BACKGROUND-JOBS] 🧹 Cleaning up existing vectors`);
         const cleanupResult = await this.ragEngine.deleteStoreNamespaces(jobData.storeId);
@@ -275,7 +346,7 @@ export class BackgroundJobManager {
         operations.push('vectors_cleaned');
       }
 
-      // STEP 2: Re-initialize namespaces
+      // STEP 3: Re-initialize namespaces
       console.log(`[BACKGROUND-JOBS] 🏗️ Re-initializing namespaces`);
       const namespaceResult = await this.ragEngine.initializeStoreNamespaces(jobData.storeId);
       
@@ -285,7 +356,7 @@ export class BackgroundJobManager {
       
       operations.push('namespaces_reinitialized');
 
-      // STEP 3: Re-index complete store data
+      // STEP 4: Re-index complete store data
       console.log(`[BACKGROUND-JOBS] 📊 Re-indexing store data`);
       const syncResult = await this.ragEngine.indexStoreData(jobData.storeId, jobData.accessToken);
       
@@ -295,7 +366,7 @@ export class BackgroundJobManager {
       
       operations.push(`reindexed_${syncResult.documentsIndexed}_documents`);
 
-      // STEP 4: Update sync timestamp
+      // STEP 5: Update sync timestamp
       console.log(`[BACKGROUND-JOBS] 📅 Updating sync timestamp`);
       await StoreService.updateStore(jobData.storeId, {
         last_sync_at: new Date().toISOString()
@@ -303,7 +374,7 @@ export class BackgroundJobManager {
       operations.push('sync_timestamp_updated');
 
       const executionTime = Date.now() - startTime;
-      console.log(`[BACKGROUND-JOBS] ✅ Cleanup sync completed: ${jobData.storeId} in ${executionTime}ms`);
+      console.log(`[BACKGROUND-JOBS] ✅ Lock-aware cleanup sync completed: ${jobData.storeId} in ${executionTime}ms`);
 
       return {
         success: true,
@@ -311,41 +382,83 @@ export class BackgroundJobManager {
         storeId: jobData.storeId,
         executionTime,
         operations,
-        retryCount: jobData.retryCount || 0
+        retryCount: jobData.retryCount || 0,
+        lockAcquired: !!lockProcessId,
+        lockProcessId: lockProcessId || undefined
       };
 
     } catch (error) {
-      console.error(`[BACKGROUND-JOBS] ❌ Cleanup sync failed: ${jobData.storeId}`, error);
+      const executionTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
+      console.error(`[BACKGROUND-JOBS] ❌ Lock-aware cleanup sync failed: ${jobData.storeId}`, error);
+      operations.push(`❌ error: ${errorMessage}`);
+
       return {
         success: false,
         jobId: jobData.jobId,
         storeId: jobData.storeId,
-        executionTime: Date.now() - startTime,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        executionTime,
+        error: errorMessage,
         operations,
-        retryCount: jobData.retryCount || 0
+        retryCount: jobData.retryCount || 0,
+        lockAcquired: !!lockProcessId,
+        lockProcessId: lockProcessId || undefined
       };
+    } finally {
+      // 🔒 ALWAYS release the lock
+      if (lockProcessId) {
+        try {
+          const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+          await BackgroundSyncLocks.release(jobData.storeId, lockProcessId);
+          operations.push('🔓 background_sync_lock_released');
+          console.log(`[BACKGROUND-JOBS] 🔓 Lock released for cleanup sync: ${lockProcessId}`);
+        } catch (unlockError) {
+          console.warn(`[BACKGROUND-JOBS] ⚠️ Failed to release lock ${lockProcessId}:`, unlockError);
+          operations.push('⚠️ lock_release_failed');
+        }
+      }
     }
   }
 
   /**
    * Execute incremental sync
+   * 🔒 ENHANCED with lock management
    */
   private async _executeIncrementalSync(jobData: IncrementalSyncJob): Promise<JobResult> {
     const operations: string[] = [];
     const startTime = Date.now();
+    let lockProcessId: string | null = null;
     
     try {
-      console.log(`[BACKGROUND-JOBS] 📈 Starting incremental sync: ${jobData.storeId}`);
+      console.log(`[BACKGROUND-JOBS] 📈 Starting lock-aware incremental sync: ${jobData.storeId}`);
       
-      // STEP 1: Check what data changed since last sync
+      // 🔒 STEP 1: Acquire appropriate lock based on job type
+      try {
+        const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+        
+        const lockResult = await BackgroundSyncLocks.acquire(jobData.storeId, `Incremental sync job: ${jobData.jobId}`);
+        
+        if (!lockResult.success) {
+          throw new Error(`Cannot acquire background sync lock: ${lockResult.error}`);
+        }
+        
+        lockProcessId = lockResult.processId!;
+        operations.push('🔒 background_sync_lock_acquired');
+        console.log(`[BACKGROUND-JOBS] 🔒 Lock acquired for incremental sync: ${lockProcessId}`);
+        
+      } catch (lockError) {
+        console.warn(`[BACKGROUND-JOBS] ⚠️ Lock system unavailable, proceeding without lock:`, lockError);
+        operations.push('⚠️ lock_system_unavailable');
+      }
+
+      // STEP 2: Check what data changed since last sync
       const lastSyncAt = jobData.lastSyncAt || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       console.log(`[BACKGROUND-JOBS] 📅 Checking changes since: ${lastSyncAt}`);
       
       operations.push('changes_detected');
 
-      // STEP 2: Perform selective sync (simplified for now)
+      // STEP 3: Perform selective sync (simplified for now)
       // TODO: Implement actual incremental logic based on changed data
       console.log(`[BACKGROUND-JOBS] 🔄 Performing selective sync`);
       
@@ -356,14 +469,14 @@ export class BackgroundJobManager {
         operations.push(`synced_${syncResult.documentsIndexed}_documents`);
       }
 
-      // STEP 3: Update sync timestamp
+      // STEP 4: Update sync timestamp
       await StoreService.updateStore(jobData.storeId, {
         last_sync_at: new Date().toISOString()
       });
       operations.push('sync_timestamp_updated');
 
       const executionTime = Date.now() - startTime;
-      console.log(`[BACKGROUND-JOBS] ✅ Incremental sync completed: ${jobData.storeId} in ${executionTime}ms`);
+      console.log(`[BACKGROUND-JOBS] ✅ Lock-aware incremental sync completed: ${jobData.storeId} in ${executionTime}ms`);
 
       return {
         success: true,
@@ -371,34 +484,76 @@ export class BackgroundJobManager {
         storeId: jobData.storeId,
         executionTime,
         operations,
-        retryCount: jobData.retryCount || 0
+        retryCount: jobData.retryCount || 0,
+        lockAcquired: !!lockProcessId,
+        lockProcessId: lockProcessId || undefined
       };
 
     } catch (error) {
-      console.error(`[BACKGROUND-JOBS] ❌ Incremental sync failed: ${jobData.storeId}`, error);
+      const executionTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
+      console.error(`[BACKGROUND-JOBS] ❌ Lock-aware incremental sync failed: ${jobData.storeId}`, error);
+      operations.push(`❌ error: ${errorMessage}`);
+
       return {
         success: false,
         jobId: jobData.jobId,
         storeId: jobData.storeId,
-        executionTime: Date.now() - startTime,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        executionTime,
+        error: errorMessage,
         operations,
-        retryCount: jobData.retryCount || 0
+        retryCount: jobData.retryCount || 0,
+        lockAcquired: !!lockProcessId,
+        lockProcessId: lockProcessId || undefined
       };
+    } finally {
+      // 🔒 ALWAYS release the lock
+      if (lockProcessId) {
+        try {
+          const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+          await BackgroundSyncLocks.release(jobData.storeId, lockProcessId);
+          operations.push('🔓 background_sync_lock_released');
+          console.log(`[BACKGROUND-JOBS] 🔓 Lock released for incremental sync: ${lockProcessId}`);
+        } catch (unlockError) {
+          console.warn(`[BACKGROUND-JOBS] ⚠️ Failed to release lock ${lockProcessId}:`, unlockError);
+          operations.push('⚠️ lock_release_failed');
+        }
+      }
     }
   }
 
   /**
    * Execute vector cleanup
+   * 🔒 ENHANCED with lock management
    */
   private async _executeVectorCleanup(jobData: VectorCleanupJob): Promise<JobResult> {
     const operations: string[] = [];
     const startTime = Date.now();
+    let lockProcessId: string | null = null;
     
     try {
-      console.log(`[BACKGROUND-JOBS] 🗑️ Starting vector cleanup: ${jobData.storeId} (${jobData.operation})`);
+      console.log(`[BACKGROUND-JOBS] 🗑️ Starting lock-aware vector cleanup: ${jobData.storeId} (${jobData.operation})`);
       
+      // 🔒 STEP 1: Acquire appropriate lock based on job type
+      try {
+        const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+        
+        const lockResult = await BackgroundSyncLocks.acquire(jobData.storeId, `Vector cleanup job: ${jobData.jobId}`);
+        
+        if (!lockResult.success) {
+          throw new Error(`Cannot acquire background sync lock: ${lockResult.error}`);
+        }
+        
+        lockProcessId = lockResult.processId!;
+        operations.push('🔒 background_sync_lock_acquired');
+        console.log(`[BACKGROUND-JOBS] 🔒 Lock acquired for vector cleanup: ${lockProcessId}`);
+        
+      } catch (lockError) {
+        console.warn(`[BACKGROUND-JOBS] ⚠️ Lock system unavailable, proceeding without lock:`, lockError);
+        operations.push('⚠️ lock_system_unavailable');
+      }
+
       // Execute cleanup based on operation type
       if (jobData.operation === 'delete') {
         // Complete deletion of all vectors
@@ -415,7 +570,7 @@ export class BackgroundJobManager {
       }
 
       const executionTime = Date.now() - startTime;
-      console.log(`[BACKGROUND-JOBS] ✅ Vector cleanup completed: ${jobData.storeId} in ${executionTime}ms`);
+      console.log(`[BACKGROUND-JOBS] ✅ Lock-aware vector cleanup completed: ${jobData.storeId} in ${executionTime}ms`);
 
       return {
         success: true,
@@ -423,34 +578,76 @@ export class BackgroundJobManager {
         storeId: jobData.storeId,
         executionTime,
         operations,
-        retryCount: jobData.retryCount || 0
+        retryCount: jobData.retryCount || 0,
+        lockAcquired: !!lockProcessId,
+        lockProcessId: lockProcessId || undefined
       };
 
     } catch (error) {
-      console.error(`[BACKGROUND-JOBS] ❌ Vector cleanup failed: ${jobData.storeId}`, error);
+      const executionTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
+      console.error(`[BACKGROUND-JOBS] ❌ Lock-aware vector cleanup failed: ${jobData.storeId}`, error);
+      operations.push(`❌ error: ${errorMessage}`);
+
       return {
         success: false,
         jobId: jobData.jobId,
         storeId: jobData.storeId,
-        executionTime: Date.now() - startTime,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        executionTime,
+        error: errorMessage,
         operations,
-        retryCount: jobData.retryCount || 0
+        retryCount: jobData.retryCount || 0,
+        lockAcquired: !!lockProcessId,
+        lockProcessId: lockProcessId || undefined
       };
+    } finally {
+      // 🔒 ALWAYS release the lock
+      if (lockProcessId) {
+        try {
+          const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+          await BackgroundSyncLocks.release(jobData.storeId, lockProcessId);
+          operations.push('🔓 background_sync_lock_released');
+          console.log(`[BACKGROUND-JOBS] 🔓 Lock released for vector cleanup: ${lockProcessId}`);
+        } catch (unlockError) {
+          console.warn(`[BACKGROUND-JOBS] ⚠️ Failed to release lock ${lockProcessId}:`, unlockError);
+          operations.push('⚠️ lock_release_failed');
+        }
+      }
     }
   }
 
   /**
    * Execute health check
+   * 🔒 ENHANCED with lock management
    */
   private async _executeHealthCheck(jobData: HealthCheckJob): Promise<JobResult> {
     const operations: string[] = [];
     const startTime = Date.now();
+    let lockProcessId: string | null = null;
     
     try {
-      console.log(`[BACKGROUND-JOBS] 🏥 Starting health check: ${jobData.storeId}`);
+      console.log(`[BACKGROUND-JOBS] 🏥 Starting lock-aware health check: ${jobData.storeId}`);
       
+      // 🔒 STEP 1: Acquire appropriate lock based on job type
+      try {
+        const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+        
+        const lockResult = await BackgroundSyncLocks.acquire(jobData.storeId, `Health check job: ${jobData.jobId}`);
+        
+        if (!lockResult.success) {
+          throw new Error(`Cannot acquire background sync lock: ${lockResult.error}`);
+        }
+        
+        lockProcessId = lockResult.processId!;
+        operations.push('🔒 background_sync_lock_acquired');
+        console.log(`[BACKGROUND-JOBS] 🔒 Lock acquired for health check: ${lockProcessId}`);
+        
+      } catch (lockError) {
+        console.warn(`[BACKGROUND-JOBS] ⚠️ Lock system unavailable, proceeding without lock:`, lockError);
+        operations.push('⚠️ lock_system_unavailable');
+      }
+
       const healthResults: any = {};
 
       // Check 1: Verify store exists and is active
@@ -502,7 +699,7 @@ export class BackgroundJobManager {
       }
 
       const executionTime = Date.now() - startTime;
-      console.log(`[BACKGROUND-JOBS] ✅ Health check completed: ${jobData.storeId} in ${executionTime}ms`);
+      console.log(`[BACKGROUND-JOBS] ✅ Lock-aware health check completed: ${jobData.storeId} in ${executionTime}ms`);
 
       return {
         success: true,
@@ -511,21 +708,42 @@ export class BackgroundJobManager {
         executionTime,
         result: healthResults,
         operations,
-        retryCount: jobData.retryCount || 0
+        retryCount: jobData.retryCount || 0,
+        lockAcquired: !!lockProcessId,
+        lockProcessId: lockProcessId || undefined
       };
 
     } catch (error) {
-      console.error(`[BACKGROUND-JOBS] ❌ Health check failed: ${jobData.storeId}`, error);
+      const executionTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
+      console.error(`[BACKGROUND-JOBS] ❌ Lock-aware health check failed: ${jobData.storeId}`, error);
+      operations.push(`❌ error: ${errorMessage}`);
+
       return {
         success: false,
         jobId: jobData.jobId,
         storeId: jobData.storeId,
-        executionTime: Date.now() - startTime,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        executionTime,
+        error: errorMessage,
         operations,
-        retryCount: jobData.retryCount || 0
+        retryCount: jobData.retryCount || 0,
+        lockAcquired: !!lockProcessId,
+        lockProcessId: lockProcessId || undefined
       };
+    } finally {
+      // 🔒 ALWAYS release the lock
+      if (lockProcessId) {
+        try {
+          const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+          await BackgroundSyncLocks.release(jobData.storeId, lockProcessId);
+          operations.push('🔓 background_sync_lock_released');
+          console.log(`[BACKGROUND-JOBS] 🔓 Lock released for health check: ${lockProcessId}`);
+        } catch (unlockError) {
+          console.warn(`[BACKGROUND-JOBS] ⚠️ Failed to release lock ${lockProcessId}:`, unlockError);
+          operations.push('⚠️ lock_release_failed');
+        }
+      }
     }
   }
 

@@ -199,27 +199,65 @@ export abstract class BaseAgent implements Agent {
   }
 
   /**
-   * 🚀 NEW: Trigger RAG sync when no data is found (non-blocking)
+   * 🔒 ENHANCED: Lock-aware RAG sync trigger when no data is found (non-blocking)
+   * Respects global lock system to prevent race conditions during sync
    */
   protected triggerRAGSyncIfNeeded(storeId: string): void {
-    // Fire-and-forget sync trigger
+    // Fire-and-forget sync trigger with lock awareness
     setTimeout(async () => {
       try {
-        console.warn(`[AGENT:${this.type}] 🔄 Triggering RAG sync for store: ${storeId}`);
+        console.warn(`[AGENT:${this.type}] 🔒 Checking if lock-aware RAG sync needed for store: ${storeId}`);
         
-        // Try to trigger sync endpoint (non-blocking)
-        const syncUrl = process.env.VERCEL_URL ? 
-          `https://${process.env.VERCEL_URL}/api/stores/${storeId}/sync-rag` :
-          `https://fini-tn.vercel.app/api/stores/${storeId}/sync-rag`;
+        // 🔒 STEP 1: Check for lock conflicts before triggering sync
+        try {
+          const { checkRAGLockConflicts, RAGLockType } = await import('@/lib/rag/global-locks');
           
-        fetch(syncUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        }).catch(syncError => {
-          console.warn(`[AGENT:${this.type}] Auto-sync trigger failed:`, syncError);
-        });
+          const conflictCheck = await checkRAGLockConflicts(storeId, RAGLockType.MANUAL_SYNC);
+          
+          if (!conflictCheck.canProceed) {
+            console.warn(`[AGENT:${this.type}] ⏳ Skipping agent-triggered sync for store ${storeId} - ${conflictCheck.reason}`);
+            return; // Exit early - another operation is handling this store
+          }
+        } catch (lockError) {
+          console.warn(`[AGENT:${this.type}] ⚠️ Lock check failed, proceeding with direct sync:`, lockError);
+          // Continue with direct sync trigger if lock system unavailable
+        }
+        
+        // STEP 2: Try to use auto-sync scheduler first (lock-aware)
+        try {
+          const { getAutoSyncScheduler } = await import('@/lib/services/auto-sync-scheduler');
+          const scheduler = await getAutoSyncScheduler();
+          
+          console.warn(`[AGENT:${this.type}] 🔄 Triggering lock-aware scheduler sync for store: ${storeId}`);
+          
+          scheduler.triggerImmediateSync(storeId).then(result => {
+            if (result.success) {
+              console.warn(`[AGENT:${this.type}] ✅ Lock-aware sync completed for store: ${storeId}`);
+            } else {
+              console.warn(`[AGENT:${this.type}] ⚠️ Lock-aware sync failed for store ${storeId}: ${result.error}`);
+            }
+          }).catch(schedulerError => {
+            console.warn(`[AGENT:${this.type}] Lock-aware scheduler sync failed:`, schedulerError);
+          });
+          
+        } catch (schedulerError) {
+          console.warn(`[AGENT:${this.type}] ⚠️ Scheduler unavailable, using direct endpoint:`, schedulerError);
+          
+          // STEP 3: Fallback to direct sync endpoint
+          const syncUrl = process.env.VERCEL_URL ? 
+            `https://${process.env.VERCEL_URL}/api/stores/${storeId}/sync-rag` :
+            `https://fini-tn.vercel.app/api/stores/${storeId}/sync-rag`;
+            
+          fetch(syncUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          }).catch(syncError => {
+            console.warn(`[AGENT:${this.type}] Direct sync trigger failed:`, syncError);
+          });
+        }
+        
       } catch (error) {
-        console.warn(`[AGENT:${this.type}] Sync trigger error:`, error);
+        console.warn(`[AGENT:${this.type}] Lock-aware sync trigger error:`, error);
       }
     }, 100); // Small delay to not block current response
   }

@@ -255,6 +255,7 @@ export class AutoSyncScheduler {
 
   /**
    * 🔄 Perform actual store synchronization
+   * 🔒 ENHANCED with comprehensive lock management
    */
   private async performStoreSync(storeId: string): Promise<SyncResult> {
     const startTime = Date.now();
@@ -271,24 +272,58 @@ export class AutoSyncScheduler {
       actions: []
     };
 
+    let lockProcessId: string | null = null;
+
     try {
-      // 0. 🔥 FIX: Verificar que la tienda siga activa antes de sincronizar
+      // 🔒 STEP 1: Check for conflicting operations before starting
+      const { checkRAGLockConflicts, RAGLockType, BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+      
+      const conflictCheck = await checkRAGLockConflicts(storeId, RAGLockType.BACKGROUND_SYNC);
+      
+      if (!conflictCheck.canProceed) {
+        console.warn(`[AUTO-SYNC] ⏳ Skipping auto-sync for store ${storeId} - ${conflictCheck.reason}`);
+        result.actions.push(`⏳ Skipped: ${conflictCheck.reason}`);
+        return result; // Return early without error - this is expected behavior
+      }
+
+      // 🔒 STEP 2: Acquire background sync lock
+      const lockResult = await BackgroundSyncLocks.acquire(storeId, 'Auto-sync scheduler background sync');
+      
+      if (!lockResult.success) {
+        console.warn(`[AUTO-SYNC] ❌ Cannot acquire lock for store ${storeId}: ${lockResult.error}`);
+        result.actions.push(`❌ Lock failed: ${lockResult.error}`);
+        return result; // Return early without error - another process is handling this store
+      }
+      
+      lockProcessId = lockResult.processId!;
+      result.actions.push('🔒 Background sync lock acquired');
+
+      // 🔍 STEP 3: Verify store is still active and accessible
       const supabase = createClient();
       const { data: store, error } = await supabase
         .from('stores')
-        .select('id, is_active, name')
+        .select('id, is_active, name, user_id')
         .eq('id', storeId)
         .single();
 
-      if (error || !store || !store.is_active) {
-        // Tienda no existe o está inactiva - remover del scheduler
+      if (error || !store) {
+        // Store doesn't exist - remove from scheduler
         this.removeStore(storeId);
-        throw new Error('Store is inactive or deleted - removed from scheduler');
+        throw new Error('Store not found in database - removed from scheduler');
+      }
+
+      if (!store.is_active) {
+        // Store is inactive - remove from scheduler
+        this.removeStore(storeId);
+        console.log(`[AUTO-SYNC] ℹ️ Removing inactive store ${storeId} from scheduler`);
+        result.actions.push('ℹ️ Store inactive - removed from scheduler');
+        return result; // Return without error - this is cleanup
       }
 
       result.storeName = store.name || 'Unnamed Store';
+      result.actions.push('✅ Store verification passed');
 
-      // 1. Get valid token and store data
+      // 🔑 STEP 4: Validate token and get store data
       const tokenData = await TiendaNubeTokenManager.getValidTokenWithStoreData(storeId);
       
       if (!tokenData) {
@@ -298,46 +333,80 @@ export class AutoSyncScheduler {
       result.storeName = tokenData.storeName;
       result.actions.push('✅ Token validated');
 
-      // 2. Initialize TiendaNube API
+      // 🔌 STEP 5: Initialize TiendaNube API
       const api = new TiendaNubeAPI(tokenData.token, tokenData.platformStoreId);
       result.actions.push('✅ API initialized');
 
-      // 3. Sync data in parallel
+      // 📊 STEP 6: Sync data in parallel with timeouts
+      console.log(`[AUTO-SYNC] 🔄 Starting data sync for store: ${result.storeName} (${storeId})`);
+      
       const syncTasks = [
-        this.syncProducts(api, storeId),
-        this.syncOrders(api, storeId),
-        this.syncCustomers(api, storeId)
+        Promise.race([
+          this.syncProducts(api, storeId),
+          new Promise<number>((_, reject) => setTimeout(() => reject(new Error('Products sync timeout')), 60000))
+        ]),
+        Promise.race([
+          this.syncOrders(api, storeId),
+          new Promise<number>((_, reject) => setTimeout(() => reject(new Error('Orders sync timeout')), 60000))
+        ]),
+        Promise.race([
+          this.syncCustomers(api, storeId),
+          new Promise<number>((_, reject) => setTimeout(() => reject(new Error('Customers sync timeout')), 60000))
+        ])
       ];
 
       const syncResults = await Promise.allSettled(syncTasks);
       
-      // 4. Process results
+      // 📊 STEP 7: Process sync results
       const taskNames = ['products', 'orders', 'customers'] as const;
+      let totalSyncedItems = 0;
+      
       syncResults.forEach((taskResult, index) => {
         const taskName = taskNames[index];
         
         if (taskResult.status === 'fulfilled') {
           result.syncedData[taskName] = taskResult.value;
+          totalSyncedItems += taskResult.value;
           result.actions.push(`✅ Synced ${taskResult.value} ${taskName}`);
         } else {
-          result.actions.push(`❌ Failed to sync ${taskName}: ${taskResult.reason}`);
+          result.actions.push(`⚠️ Failed to sync ${taskName}: ${taskResult.reason}`);
+          // Don't fail the entire sync if one data type fails
         }
       });
 
-      // 5. Trigger RAG engine sync
-      try {
-        const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
-        const ragEngine = getUnifiedRAGEngine();
-        
-        // Update RAG index with fresh data
-        const syncResult = await ragEngine.indexStoreData(storeId, tokenData.token);
-        result.actions.push(syncResult.success ? '✅ RAG index updated' : `⚠️ RAG sync partial: ${syncResult.error || 'Unknown error'}`);
-        
-      } catch (ragError) {
-        result.actions.push(`⚠️ RAG sync failed: ${ragError instanceof Error ? ragError.message : 'Unknown error'}`);
+      // 🤖 STEP 8: Update RAG engine if we have meaningful data
+      if (totalSyncedItems > 0) {
+        try {
+          console.log(`[AUTO-SYNC] 🤖 Updating RAG index for ${totalSyncedItems} items`);
+          
+          const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+          const ragEngine = getUnifiedRAGEngine();
+          
+          // Update RAG index with fresh data (with timeout)
+          const ragSyncPromise = ragEngine.indexStoreData(storeId, tokenData.token);
+          const ragTimeout = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('RAG sync timeout')), 120000) // 2 minutes
+          );
+          
+          const ragResult = await Promise.race([ragSyncPromise, ragTimeout]) as any;
+          
+          if (ragResult.success) {
+            result.actions.push(`✅ RAG updated: ${ragResult.documentsIndexed} docs indexed`);
+          } else {
+            result.actions.push(`⚠️ RAG partial update: ${ragResult.error || 'Unknown error'}`);
+          }
+          
+        } catch (ragError) {
+          const errorMsg = ragError instanceof Error ? ragError.message : 'Unknown error';
+          result.actions.push(`⚠️ RAG update failed: ${errorMsg}`);
+          console.warn(`[AUTO-SYNC] RAG update failed for ${storeId}:`, ragError);
+          // Don't fail the entire sync if RAG update fails
+        }
+      } else {
+        result.actions.push('ℹ️ No new data to index in RAG');
       }
 
-      // 6. Update store timestamp
+      // 📅 STEP 9: Update store timestamp
       await StoreService.updateStore(storeId, {
         last_sync_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -345,11 +414,11 @@ export class AutoSyncScheduler {
       
       result.actions.push('✅ Store timestamp updated');
 
-      // 7. Calculate total time
+      // ✅ STEP 10: Mark as successful
       result.syncedData.totalTime = Date.now() - startTime;
       result.success = true;
 
-      console.log(`[AUTO-SYNC] ✅ Store sync completed in ${result.syncedData.totalTime}ms`);
+      console.log(`[AUTO-SYNC] ✅ Store sync completed for ${result.storeName} in ${result.syncedData.totalTime}ms (${totalSyncedItems} items)`);
       
     } catch (error) {
       result.error = error instanceof Error ? error.message : 'Unknown error';
@@ -357,6 +426,18 @@ export class AutoSyncScheduler {
       result.actions.push(`❌ Sync failed: ${result.error}`);
       
       console.error(`[AUTO-SYNC] ❌ Store sync failed for ${storeId}:`, error);
+    } finally {
+      // 🔓 ALWAYS release the lock, even if sync failed
+      if (lockProcessId) {
+        try {
+          const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+          await BackgroundSyncLocks.release(storeId, lockProcessId);
+          result.actions.push('🔓 Background sync lock released');
+        } catch (unlockError) {
+          console.warn(`[AUTO-SYNC] ⚠️ Failed to release lock for ${storeId}:`, unlockError);
+          result.actions.push('⚠️ Lock release failed');
+        }
+      }
     }
 
     return result;
@@ -496,35 +577,88 @@ export class AutoSyncScheduler {
 
   /**
    * 🚀 Trigger immediate sync for a store
+   * 🔒 ENHANCED with lock management for manual sync operations
    */
   async triggerImmediateSync(storeId: string): Promise<SyncResult> {
-    const job = this.syncJobs.get(storeId);
+    let lockProcessId: string | null = null;
     
-    if (!job) {
-      throw new Error(`Store ${storeId} not found in scheduler`);
-    }
+    try {
+      // 🔒 STEP 1: Check if store exists in scheduler
+      const job = this.syncJobs.get(storeId);
+      
+      if (!job) {
+        throw new Error(`Store ${storeId} not found in scheduler`);
+      }
 
-    if (this.activeSyncs.has(storeId)) {
-      throw new Error(`Store ${storeId} is already being synced`);
-    }
+      // 🔒 STEP 2: Check for conflicting operations
+      const { checkRAGLockConflicts, RAGLockType, ManualSyncLocks } = await import('@/lib/rag/global-locks');
+      
+      const conflictCheck = await checkRAGLockConflicts(storeId, RAGLockType.MANUAL_SYNC);
+      
+      if (!conflictCheck.canProceed) {
+        throw new Error(`Cannot start immediate sync: ${conflictCheck.reason}`);
+      }
 
-    console.log(`[AUTO-SYNC] 🚀 Triggering immediate sync for store: ${job.storeName}`);
-    
-    // Perform sync immediately
-    const result = await this.performStoreSync(storeId);
-    
-    // Update job status
-    if (result.success) {
-      job.status = 'completed';
-      job.lastSync = new Date();
-      job.retryCount = 0;
-      job.error = undefined;
-      job.nextSync = new Date(Date.now() + this.SYNC_INTERVALS[job.priority]);
-    } else {
-      await this.handleSyncFailure(job, result.error || 'Unknown error');
-    }
+      // 🔒 STEP 3: Acquire manual sync lock (higher priority than background sync)
+      const lockResult = await ManualSyncLocks.acquire(storeId, 'User-triggered immediate sync');
+      
+      if (!lockResult.success) {
+        throw new Error(`Cannot acquire sync lock: ${lockResult.error}`);
+      }
+      
+      lockProcessId = lockResult.processId!;
 
-    return result;
+      console.log(`[AUTO-SYNC] 🚀 Starting immediate sync for store: ${job.storeName} (manual trigger)`);
+      
+      // 🔄 STEP 4: Perform the sync with enhanced monitoring
+      const result = await this.performStoreSync(storeId);
+      
+      // 📊 STEP 5: Update job status based on result
+      if (result.success) {
+        job.status = 'completed';
+        job.lastSync = new Date();
+        job.retryCount = 0;
+        job.error = undefined;
+        job.nextSync = new Date(Date.now() + this.SYNC_INTERVALS[job.priority]);
+        
+        console.log(`[AUTO-SYNC] ✅ Immediate sync completed for ${job.storeName}`);
+      } else {
+        // Handle failure but don't increment retryCount for manual sync
+        job.error = result.error;
+        console.warn(`[AUTO-SYNC] ⚠️ Immediate sync failed for ${job.storeName}: ${result.error}`);
+      }
+
+      return result;
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[AUTO-SYNC] ❌ Immediate sync failed for ${storeId}:`, error);
+      
+      return {
+        storeId,
+        storeName: this.syncJobs.get(storeId)?.storeName || 'Unknown Store',
+        success: false,
+        error: errorMessage,
+        syncedData: {
+          products: 0,
+          orders: 0,
+          customers: 0,
+          totalTime: 0
+        },
+        actions: [`❌ Immediate sync failed: ${errorMessage}`]
+      };
+    } finally {
+      // 🔓 ALWAYS release manual sync lock
+      if (lockProcessId) {
+        try {
+          const { ManualSyncLocks } = await import('@/lib/rag/global-locks');
+          await ManualSyncLocks.release(storeId, lockProcessId);
+          console.log(`[AUTO-SYNC] 🔓 Manual sync lock released for ${storeId}`);
+        } catch (unlockError) {
+          console.warn(`[AUTO-SYNC] ⚠️ Failed to release manual sync lock for ${storeId}:`, unlockError);
+        }
+      }
+    }
   }
 
   /**

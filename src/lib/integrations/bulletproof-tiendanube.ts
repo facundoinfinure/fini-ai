@@ -64,7 +64,33 @@ export class BulletproofTiendaNube {
 
       const storeInfo = storeInfoResult.data!;
 
-      // 3. 🚀 ULTRA-FAST: Preparar y guardar datos básicos SOLO
+      // 3. 🔒 ENHANCED: Check if this is a reconnection scenario
+      console.log('🔄 [BULLETPROOF] Checking for existing store (reconnection detection)...');
+      let isReconnection = false;
+      
+      try {
+        const existingStoreResult = await StoreService.getStoresByUserId(data.userId);
+        
+        if (existingStoreResult.success && existingStoreResult.stores) {
+          // Check if store with same platform_store_id exists
+          const existingStore = existingStoreResult.stores.find(store => 
+            store.platform_store_id === storeInfo.id?.toString() && 
+            store.platform === 'tiendanube'
+          );
+          
+          if (existingStore) {
+            isReconnection = true;
+            console.log(`🔒 [BULLETPROOF] Detected RECONNECTION for existing store: ${existingStore.id}`);
+          } else {
+            console.log(`🔒 [BULLETPROOF] Detected NEW CONNECTION for store: ${storeInfo.id}`);
+          }
+        }
+      } catch (error) {
+        console.warn('🔒 [BULLETPROOF] Failed to check existing stores, assuming new connection:', error);
+        // Continue as new connection if check fails
+      }
+
+      // 4. 🚀 ULTRA-FAST: Preparar y guardar datos básicos SOLO
       console.log('🔄 [BULLETPROOF] Saving basic store data...');
       const storeData = this.prepareStoreData(data, storeInfo, access_token);
       
@@ -76,10 +102,10 @@ export class BulletproofTiendaNube {
       }
 
       const totalTime = Date.now() - startTime;
-      console.log(`✅ [BULLETPROOF] ULTRA-FAST connection completed in ${totalTime}ms`);
+      console.log(`✅ [BULLETPROOF] ULTRA-FAST connection completed in ${totalTime}ms (reconnection: ${isReconnection})`);
 
-      // 4. 🚀 FIRE-AND-FORGET: Disparar todas las operaciones pesadas en background
-      this.triggerBackgroundOperations(saveResult.store!.id, access_token, data.userId);
+      // 5. 🔒 ENHANCED: Lock-aware background operations with reconnection detection
+      this.triggerBackgroundOperations(saveResult.store!.id, access_token, data.userId, isReconnection);
 
       return {
         success: true,
@@ -199,52 +225,118 @@ export class BulletproofTiendaNube {
   }
 
   /**
-   * 🚀 TRIGGER OPERACIONES BACKGROUND (FIRE-AND-FORGET)
-   * ===================================================
-   * Dispara todas las operaciones pesadas de forma asíncrona
+   * 🔒 ENHANCED: Lock-aware background operations trigger (FIRE-AND-FORGET)
+   * ======================================================================
+   * Dispara todas las operaciones pesadas de forma asíncrona con locks
    */
-  private static triggerBackgroundOperations(storeId: string, accessToken: string, userId: string): void {
+  private static triggerBackgroundOperations(storeId: string, accessToken: string, userId: string, isReconnection = false): void {
     // NO usar await - fire and forget
-    this.executeAsyncBackgroundOperations(storeId, accessToken, userId).catch(error => {
-      console.warn('🚀 [BULLETPROOF] Background operations failed (non-blocking):', error);
+    this.executeAsyncBackgroundOperations(storeId, accessToken, userId, isReconnection).catch(error => {
+      console.warn('🚀 [BULLETPROOF] Lock-aware background operations failed (non-blocking):', error);
     });
   }
 
   /**
-   * 🔄 EJECUTAR OPERACIONES BACKGROUND ASÍNCRONAS
-   * =============================================
-   * Todas las operaciones pesadas se ejecutan aquí
+   * 🔒 ENHANCED: Lock-aware async background operations
+   * ==================================================
+   * Todas las operaciones pesadas se ejecutan aquí con protección de locks
    */
-  private static async executeAsyncBackgroundOperations(storeId: string, accessToken: string, userId: string): Promise<void> {
+  private static async executeAsyncBackgroundOperations(storeId: string, accessToken: string, userId: string, isReconnection = false): Promise<void> {
+    let lockProcessId: string | null = null;
+    
     try {
-      console.log('🔄 [BULLETPROOF] Starting background operations for store:', storeId);
+      console.log(`🔄 [BULLETPROOF] Starting lock-aware background operations for store: ${storeId} (reconnection: ${isReconnection})`);
 
-      // 1. Inicializar namespaces RAG (si es necesario)
+      // 🔒 STEP 1: Determine lock type based on operation
+      const lockType = isReconnection ? 'RECONNECTION' : 'BACKGROUND_SYNC';
+      console.log(`🔒 [BULLETPROOF] Using lock type: ${lockType}`);
+
+      // STEP 2: Delay and then trigger lock-aware background sync
       setTimeout(async () => {
         try {
+          // 🔒 Check for lock conflicts before triggering sync
+          const { checkRAGLockConflicts, RAGLockType, StoreReconnectionLocks, BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
+          
+          const targetLockType = isReconnection ? RAGLockType.RECONNECTION : RAGLockType.BACKGROUND_SYNC;
+          const conflictCheck = await checkRAGLockConflicts(storeId, targetLockType);
+          
+          if (!conflictCheck.canProceed) {
+            console.warn(`🔒 [BULLETPROOF] ⏳ Skipping background ops for store ${storeId} - ${conflictCheck.reason}`);
+            return; // Exit early - another operation is handling this store
+          }
+
+          // 🔒 Acquire appropriate lock
+          const LockManager = isReconnection ? StoreReconnectionLocks : BackgroundSyncLocks;
+          const lockResult = await LockManager.acquire(storeId, `TiendaNube OAuth ${isReconnection ? 'reconnection' : 'connection'} background ops`);
+          
+          if (!lockResult.success) {
+            console.warn(`🔒 [BULLETPROOF] ⏳ Cannot acquire ${lockType} lock for ${storeId}: ${lockResult.error}`);
+            
+            // Fallback to direct HTTP call if lock unavailable
+            console.log(`🔒 [BULLETPROOF] 🔄 Falling back to direct background sync call`);
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            
+            fetch(`${baseUrl}/api/stores/background-sync`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                storeId,
+                accessToken,
+                userId,
+                operation: isReconnection ? 'reconnection_full_sync' : 'full_initialization',
+                priority: isReconnection ? 'high' : 'normal',
+                jobId: `oauth-${isReconnection ? 'reconnect' : 'connect'}-${storeId}-${Date.now()}`
+              })
+            }).catch(e => console.warn('Fallback background sync HTTP call failed:', e));
+            
+            return;
+          }
+          
+          lockProcessId = lockResult.processId!;
+          console.log(`🔒 [BULLETPROOF] Lock acquired for background ops: ${lockProcessId}`);
+          
+          // Trigger lock-aware background sync
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
           
-          fetch(`${baseUrl}/api/stores/background-sync`, {
+          const syncResponse = await fetch(`${baseUrl}/api/stores/background-sync`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               storeId,
               accessToken,
               userId,
-              operation: 'full_initialization',
-              jobId: `init-${storeId}-${Date.now()}`
+              operation: isReconnection ? 'reconnection_full_sync' : 'full_initialization',
+              priority: isReconnection ? 'high' : 'normal',
+              lockProcessId, // Include the lock process ID
+              jobId: `oauth-${isReconnection ? 'reconnect' : 'connect'}-${storeId}-${Date.now()}`
             })
-          }).catch(e => console.warn('Background sync HTTP call failed:', e));
+          });
+          
+          if (!syncResponse.ok) {
+            throw new Error(`Background sync HTTP failed: ${syncResponse.status}`);
+          }
+          
+          console.log('✅ [BULLETPROOF] Lock-aware background sync triggered successfully');
           
         } catch (error) {
-          console.warn('🔄 Failed to trigger background operations:', error);
+          console.warn('🔄 [BULLETPROOF] Lock-aware background operations failed:', error);
+        } finally {
+          // 🔒 Release lock if we acquired it (fire-and-forget)
+          if (lockProcessId) {
+            import('@/lib/rag/global-locks').then(({ StoreReconnectionLocks, BackgroundSyncLocks }) => {
+              const LockManager = isReconnection ? StoreReconnectionLocks : BackgroundSyncLocks;
+              LockManager.release(storeId, lockProcessId!).catch(unlockError => {
+                console.warn(`🔒 [BULLETPROOF] ⚠️ Failed to release ${lockType} lock ${lockProcessId}:`, unlockError);
+              });
+            });
+          }
         }
       }, 2000); // 2 segundos de delay
 
-      console.log('✅ [BULLETPROOF] Background operations triggered successfully');
+      console.log('✅ [BULLETPROOF] Lock-aware background operations setup completed');
       
     } catch (error) {
-      console.error('🔄 [BULLETPROOF] Background operations setup failed:', error);
+      console.error('🔄 [BULLETPROOF] Lock-aware background operations setup failed:', error);
     }
   }
 
