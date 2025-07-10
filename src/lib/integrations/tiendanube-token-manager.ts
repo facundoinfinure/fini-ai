@@ -17,7 +17,7 @@
  * - Re-autorización OAuth cuando token es inválido
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/client';
 import { TiendaNubeAPI } from './tiendanube';
 import { StoreService } from '@/lib/database/client';
 

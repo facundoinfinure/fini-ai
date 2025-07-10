@@ -3,7 +3,7 @@
  * Validates store ownership and access permissions using Supabase
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/types/database';
 
 type StoreRow = Database['public']['Tables']['stores']['Row'];

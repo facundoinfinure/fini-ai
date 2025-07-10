@@ -626,7 +626,7 @@ export class UnifiedFiniRAGEngine {
     // Fallback to provided token
     if (accessToken) {
       try {
-        const { createClient } = await import('@/lib/supabase/server');
+        const { createClient } = await import('@/lib/supabase/client');
         const supabase = createClient();
         
         const { data: store } = await supabase
@@ -650,7 +650,7 @@ export class UnifiedFiniRAGEngine {
 
     // Final fallback: direct database
     try {
-      const { createClient } = await import('@/lib/supabase/server');
+      const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
       
       const { data: store } = await supabase

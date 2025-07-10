@@ -605,7 +605,7 @@ export class PineconeVectorStore implements VectorStore {
     
     // 🔥 FIX: RACE CONDITION PROTECTION - Triple validation with cache busting
     try {
-      const { createClient } = await import('@/lib/supabase/server');
+      const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
       
       // First check: Direct DB query (bypasses any cache)
@@ -689,7 +689,7 @@ export class PineconeVectorStore implements VectorStore {
     
     // 🔥 FIX: RACE CONDITION PROTECTION - Apply same logic for searches
     try {
-      const { createClient } = await import('@/lib/supabase/server');
+      const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
       
       const { data: store, error } = await supabase

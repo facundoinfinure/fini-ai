@@ -18,7 +18,7 @@
  * - Comprehensive error handling
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/client';
 import { TiendaNubeAPI } from '@/lib/integrations/tiendanube';
 import { TiendaNubeTokenManager } from '@/lib/integrations/tiendanube-token-manager';
 import { StoreService } from '@/lib/database/client';
