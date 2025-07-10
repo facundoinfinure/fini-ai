@@ -157,7 +157,6 @@ export async function GET(request: NextRequest) {
     // TEST 4: Priority Conflict Testing
     console.log('[LOCK-TEST] 🥊 Testing priority conflicts...');
     let backgroundLockId: string | null = null;
-    let manualLockId: string | null = null;
     
     try {
       // Acquire background sync lock (lower priority)
@@ -200,13 +199,7 @@ export async function GET(request: NextRequest) {
           console.warn('[LOCK-TEST] ⚠️ Failed to cleanup background test lock:', cleanupError);
         }
       }
-      if (manualLockId) {
-        try {
-          await ManualSyncLocks.release(testStore.id, manualLockId);
-        } catch (cleanupError) {
-          console.warn('[LOCK-TEST] ⚠️ Failed to cleanup manual test lock:', cleanupError);
-        }
-      }
+      // manualLockId was never assigned, so no cleanup needed
     }
 
     // TEST 5: Integration with Auto-Sync Scheduler
