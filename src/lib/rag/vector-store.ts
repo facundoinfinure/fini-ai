@@ -234,7 +234,7 @@ export class PineconeVectorStore implements VectorStore {
         const batch = vectors.slice(i, i + batchSize);
         
         // Get namespace for this batch (use first chunk's metadata)
-        const namespace = this.getNamespace(chunks[i]);
+        const namespace = await this.getNamespace(chunks[i]);
         
         // 🔥 NEW: Wrap each batch operation in retry logic
         await retryPineconeOperation(async () => {
@@ -374,7 +374,7 @@ export class PineconeVectorStore implements VectorStore {
       const pineconeFilter = this.buildPineconeFilter(filters);
       
       // Determine namespace(s) to search
-      const namespaces = this.getSearchNamespaces(context, filters);
+      const namespaces = await this.getSearchNamespaces(context, filters);
       
       const allResults: VectorSearchResult[] = [];
       
@@ -589,13 +589,33 @@ export class PineconeVectorStore implements VectorStore {
 
   /**
    * Get namespace for a chunk based on its metadata
+   * 🔥 FIX: Added store validation to prevent namespace creation for inactive stores
    */
-  private getNamespace(chunk: DocumentChunk): string {
+  private async getNamespace(chunk: DocumentChunk): Promise<string> {
     const { storeId, type } = chunk.metadata;
     
     // SECURITY: Validate store ID format
     if (!storeId || typeof storeId !== 'string' || !storeId.match(/^[a-zA-Z0-9_-]+$/)) {
       throw new Error(`Invalid store ID for namespace generation: ${storeId}`);
+    }
+    
+    // 🔥 FIX: Verificar que la tienda esté activa antes de crear namespaces
+    try {
+      const { createClient } = await import('@/lib/supabase/server');
+      const supabase = createClient();
+      
+      const { data: store, error } = await supabase
+        .from('stores')
+        .select('is_active')
+        .eq('id', storeId)
+        .single();
+        
+      if (error || !store || !store.is_active) {
+        throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive/deleted store: ${storeId}`);
+      }
+    } catch (validationError) {
+      console.error(`[RAG:SECURITY] Store validation failed for ${storeId}:`, validationError);
+      throw new Error(`Store validation failed: ${storeId}`);
     }
     
     console.warn(`[RAG:SECURITY] Creating namespace for store ${storeId}, type: ${type}`);
@@ -619,8 +639,9 @@ export class PineconeVectorStore implements VectorStore {
 
   /**
    * Get namespaces to search based on context and filters
+   * 🔥 FIX: Added async store validation to prevent searches on inactive stores
    */
-  private getSearchNamespaces(context?: RAGQuery['context'], filters?: RAGQuery['filters']): string[] {
+  private async getSearchNamespaces(context?: RAGQuery['context'], filters?: RAGQuery['filters']): Promise<string[]> {
     if (!context?.storeId) {
       throw new Error('[SECURITY] Store ID is required for search - data segregation enforced');
     }
@@ -630,6 +651,25 @@ export class PineconeVectorStore implements VectorStore {
     // SECURITY: Validate store ID format
     if (!storeId.match(/^[a-zA-Z0-9_-]+$/)) {
       throw new Error(`[SECURITY] Invalid store ID format: ${storeId}`);
+    }
+    
+    // 🔥 FIX: Verificar que la tienda esté activa antes de buscar
+    try {
+      const { createClient } = await import('@/lib/supabase/server');
+      const supabase = createClient();
+      
+      const { data: store, error } = await supabase
+        .from('stores')
+        .select('is_active')
+        .eq('id', storeId)
+        .single();
+        
+      if (error || !store || !store.is_active) {
+        throw new Error(`[RAG:SECURITY] Cannot search namespaces for inactive/deleted store: ${storeId}`);
+      }
+    } catch (validationError) {
+      console.error(`[RAG:SECURITY] Store validation failed for search ${storeId}:`, validationError);
+      throw new Error(`Store validation failed: ${storeId}`);
     }
     
     // SECURITY: Log access attempt

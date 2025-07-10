@@ -296,6 +296,7 @@ async function getUserStores(userId: string) {
     .select('id, name, platform, is_active, last_sync_at')
     .eq('user_id', userId)
     .eq('platform', 'tiendanube')
+    .eq('is_active', true)  // 🔥 FIX: Solo obtener tiendas activas
     .order('created_at', { ascending: false });
 
   if (error) {

@@ -226,8 +226,14 @@ function DashboardContent() {
       
       for (const store of storesList) {
         // Solo sincronizar si:
-        // 1. La tienda tiene access token (está conectada)
-        // 2. No se ha sincronizado nunca O han pasado más de 6 horas
+        // 1. La tienda está activa
+        // 2. La tienda tiene access token (está conectada)
+        // 3. No se ha sincronizado nunca O han pasado más de 6 horas
+        if (!store.is_active) {
+          logger.info('Skipping sync - store inactive', { storeId: store.id, storeName: store.name });
+          continue;
+        }
+        
         if (!store.access_token) {
           logger.info('Skipping sync - no access token', { storeId: store.id, storeName: store.name });
           continue;

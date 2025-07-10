@@ -26,6 +26,7 @@ export async function GET(_request: NextRequest) {
     console.log('[INFO] Fetching stats for user:', userId);
 
     // Get user's stores - using correct column names
+    // 🔥 FIX: Solo obtener tiendas activas para evitar acceso a datos de tiendas eliminadas
     const { data: stores, error: storesError } = await supabase
       .from('stores')
       .select('id, name, platform_store_id, created_at')

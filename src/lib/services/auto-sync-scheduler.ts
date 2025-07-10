@@ -99,6 +99,7 @@ export class AutoSyncScheduler {
       .from('stores')
       .select('id, name, user_id, platform, is_active, last_sync_at, created_at')
       .eq('platform', 'tiendanube')
+      .eq('is_active', true)  // 🔥 FIX: Solo cargar tiendas activas
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -271,6 +272,22 @@ export class AutoSyncScheduler {
     };
 
     try {
+      // 0. 🔥 FIX: Verificar que la tienda siga activa antes de sincronizar
+      const supabase = createClient();
+      const { data: store, error } = await supabase
+        .from('stores')
+        .select('id, is_active, name')
+        .eq('id', storeId)
+        .single();
+
+      if (error || !store || !store.is_active) {
+        // Tienda no existe o está inactiva - remover del scheduler
+        this.removeStore(storeId);
+        throw new Error('Store is inactive or deleted - removed from scheduler');
+      }
+
+      result.storeName = store.name || 'Unnamed Store';
+
       // 1. Get valid token and store data
       const tokenData = await TiendaNubeTokenManager.getValidTokenWithStoreData(storeId);
       
@@ -452,6 +469,7 @@ export class AutoSyncScheduler {
       .select('id, name, user_id, platform, is_active, last_sync_at, created_at')
       .eq('id', storeId)
       .eq('platform', 'tiendanube')
+      .eq('is_active', true)  // 🔥 FIX: Solo agregar tiendas activas
       .single();
 
     if (error || !store) {

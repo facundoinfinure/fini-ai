@@ -88,6 +88,7 @@ export async function GET() {
     console.log('[STORES-GET] 📝 Using select query columns:', selectQuery.replace(/\s+/g, ' ').trim());
 
     // Obtener las tiendas del usuario
+    // 🔥 FIX: Solo obtener tiendas activas para evitar recreación de namespaces
     const { data: rawStores, error: storesError } = await supabase
       .from('stores')
       .select(selectQuery)

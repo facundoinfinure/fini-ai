@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       .from('stores')
       .select('*')
       .eq('platform', 'tiendanube')
-      .eq('is_active', true);
+      .eq('is_active', true)  // 🔥 CONFIRMADO: Ya filtra por tiendas activas
 
     if (storesError) {
       console.error('❌ [AUTO-SYNC] Failed to fetch stores:', storesError);
