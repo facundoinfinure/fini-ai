@@ -18,14 +18,8 @@
  */
 
 import { TiendaNubeAPI } from '../integrations/tiendanube';
-import { ChatOpenAI } from '@langchain/openai';
-import { OpenAIEmbeddings } from '@langchain/openai';
-import { PineconeStore } from '@langchain/community/vectorstores/pinecone';
-import { Pinecone } from '@pinecone-database/pinecone';
 import { Document } from '@langchain/core/documents';
-import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
-import { PromptTemplate } from '@langchain/core/prompts';
-import { StringOutputParser } from '@langchain/core/output_parsers';
+import { BaseMessage } from '@langchain/core/messages';
 
 import { RAG_CONSTANTS } from './config';
 import { RAGDocumentProcessor } from './document-processor';
@@ -101,14 +95,16 @@ export interface SyncResult {
 
 export class UnifiedFiniRAGEngine {
   private embeddings: EmbeddingsService;
-  private langchainEmbeddings: OpenAIEmbeddings;
   private vectorStore: PineconeVectorStore;
   private processor: RAGDocumentProcessor;
-  private llm: ChatOpenAI;
-  private pinecone: Pinecone;
+  
+  // Dynamic imports for server-only dependencies
+  private langchainEmbeddings: any = null;
+  private llm: any = null;
+  private pinecone: any = null;
   
   // Cache and memory management
-  private vectorStores: Map<string, PineconeStore> = new Map();
+  private vectorStores: Map<string, any> = new Map();
   private conversationMemories: Map<string, ConversationMemory> = new Map();
   private syncLocks: Map<string, Promise<any>> = new Map();
   
@@ -121,24 +117,44 @@ export class UnifiedFiniRAGEngine {
     this.vectorStore = new PineconeVectorStore();
     this.processor = new RAGDocumentProcessor();
 
-    // Initialize LangChain components for advanced features
-    this.langchainEmbeddings = new OpenAIEmbeddings({
-      modelName: 'text-embedding-3-large',
-      dimensions: 1536,
-    });
+    console.log('[UNIFIED-RAG] 🚀 Initialized unified RAG engine with lazy loading');
+  }
 
-    this.llm = new ChatOpenAI({
-      modelName: 'gpt-4-turbo-preview',
-      temperature: 0.1,
-      maxTokens: 2000,
-      streaming: true,
-    });
+  /**
+   * Initialize server-only dependencies dynamically
+   */
+  private async initializeServerDependencies() {
+    if (this.langchainEmbeddings && this.llm && this.pinecone) {
+      return; // Already initialized
+    }
 
-    this.pinecone = new Pinecone({
-      apiKey: process.env.PINECONE_API_KEY!,
-    });
+    try {
+      // Dynamic imports only when needed
+      const { OpenAIEmbeddings } = await import('@langchain/openai');
+      const { ChatOpenAI } = await import('@langchain/openai');
+      const { Pinecone } = await import('@pinecone-database/pinecone');
 
-    console.log('[UNIFIED-RAG] 🚀 Initialized unified RAG engine with full feature set');
+      this.langchainEmbeddings = new OpenAIEmbeddings({
+        modelName: 'text-embedding-3-large',
+        dimensions: 1536,
+      });
+
+      this.llm = new ChatOpenAI({
+        modelName: 'gpt-4-turbo-preview',
+        temperature: 0.1,
+        maxTokens: 2000,
+        streaming: true,
+      });
+
+      this.pinecone = new Pinecone({
+        apiKey: process.env.PINECONE_API_KEY!,
+      });
+
+      console.log('[UNIFIED-RAG] ✅ Server dependencies initialized');
+    } catch (error) {
+      console.error('[UNIFIED-RAG] ❌ Failed to initialize server dependencies:', error);
+      throw error;
+    }
   }
 
   // ===== NAMESPACE MANAGEMENT (UNIFIED STRATEGY) =====
@@ -217,20 +233,9 @@ export class UnifiedFiniRAGEngine {
       await this.vectorStore.upsert([documentChunk]);
       
       console.log(`[UNIFIED-RAG] ✅ Initialized namespace: ${namespace} with placeholder ${placeholderId}`);
-      
-      // Cleanup placeholder after 3 seconds (longer delay for safety)
-      setTimeout(async () => {
-        try {
-          await this.vectorStore.delete([placeholderId], namespace);
-          console.log(`[UNIFIED-RAG] 🧹 Cleaned up placeholder for ${namespace}`);
-        } catch (cleanupError) {
-          // Silent cleanup - not critical
-          console.log(`[UNIFIED-RAG] 📝 Placeholder cleanup completed for ${namespace}`);
-        }
-      }, 3000);
-      
+
     } catch (error) {
-      console.error(`[UNIFIED-RAG] ❌ Failed to initialize namespace ${type}:`, error);
+      console.error(`[UNIFIED-RAG] ❌ Failed to initialize namespace ${type} for store ${storeId}:`, error);
       throw error;
     }
   }
@@ -801,12 +806,18 @@ export class UnifiedFiniRAGEngine {
   /**
    * Get vector store instance for specific namespace
    */
-  private async getVectorStore(storeId: string, namespace: string): Promise<PineconeStore> {
+  private async getVectorStore(storeId: string, namespace: string): Promise<any> {
     const key = `${storeId}-${namespace}`;
     
     if (this.vectorStores.has(key)) {
       return this.vectorStores.get(key)!;
     }
+
+    // Ensure server dependencies are initialized
+    await this.initializeServerDependencies();
+
+    // Dynamic import of PineconeStore
+    const { PineconeStore } = await import('@langchain/community/vectorstores/pinecone');
 
     const pineconeIndex = this.pinecone.Index(process.env.PINECONE_INDEX_NAME!);
     
@@ -828,6 +839,9 @@ export class UnifiedFiniRAGEngine {
     confidence: number;
   }> {
     try {
+      // Ensure server dependencies are initialized
+      await this.initializeServerDependencies();
+
       // Format context from documents
       const context = docs.map(doc => 
         `[${doc.metadata?.namespace}] ${doc.pageContent}`
@@ -947,6 +961,9 @@ Respuesta detallada:`;
   async deleteDocuments(vectorIds: string[]): Promise<{ success: boolean; deletedCount: number; error?: string }> {
     try {
       console.log(`[UNIFIED-RAG] 🗑️ Deleting ${vectorIds.length} documents...`);
+
+      // Ensure server dependencies are initialized
+      await this.initializeServerDependencies();
 
       if (!this.pinecone) {
         return { success: false, deletedCount: 0, error: 'Pinecone not initialized' };

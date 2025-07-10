@@ -3,8 +3,6 @@
  * 🔥 ENHANCED: Handles vector storage and retrieval using Pinecone with robust network error handling
  */
 
-import { Pinecone } from '@pinecone-database/pinecone';
-
 import { RAG_CONFIG, RAG_CONSTANTS } from './config';
 import type { DocumentChunk, VectorSearchResult, VectorStore, RAGQuery } from './types';
 
@@ -144,7 +142,7 @@ async function retryPineconeOperation<T>(
 }
 
 export class PineconeVectorStore implements VectorStore {
-  private pinecone: Pinecone | null = null;
+  private pinecone: any = null;
   private indexName: string;
 
   constructor() {
@@ -156,13 +154,16 @@ export class PineconeVectorStore implements VectorStore {
 
   /**
    * Get or create Pinecone client instance
-   * 🔥 ENHANCED: Better error handling and connection validation
+   * 🔥 ENHANCED: Better error handling and connection validation with dynamic import
    */
-  private getPineconeClient(): Pinecone {
+  private async getPineconeClient(): Promise<any> {
     if (!this.pinecone) {
       if (!RAG_CONFIG.pinecone.apiKey) {
         throw new Error('Pinecone API key not configured. Set PINECONE_API_KEY environment variable.');
       }
+      
+      // Dynamic import to prevent build errors
+      const { Pinecone } = await import('@pinecone-database/pinecone');
       
       this.pinecone = new Pinecone({
         apiKey: RAG_CONFIG.pinecone.apiKey,
@@ -179,7 +180,7 @@ export class PineconeVectorStore implements VectorStore {
   private async getIndex() {
     return retryPineconeOperation(async () => {
       try {
-        const pinecone = this.getPineconeClient();
+        const pinecone = await this.getPineconeClient();
         const index = pinecone.index(this.indexName);
         return index;
       } catch (error) {

@@ -93,8 +93,8 @@ export function ChatDashboardWrapper() {
   };
 
   /**
-   * 🔒 ENHANCED: Intelligent sync with lock-aware approach
-   * Respects the new global locks system to prevent race conditions
+   * 🔒 ENHANCED: Intelligent sync with lock-aware approach via API
+   * Uses server-side endpoint to prevent build issues with Pinecone imports
    */
   const syncStoresIntelligentlyForChat = async (storesList: Store[]) => {
     try {
@@ -108,102 +108,81 @@ export function ChatDashboardWrapper() {
       }
       
       setLastSyncCheck(now);
-      logger.info('Starting intelligent chat sync check with lock awareness', { storeCount: storesList.length });
+      logger.info('Starting intelligent chat sync via API', { storeCount: storesList.length });
       
-      let syncTriggered = false;
-      const fourHoursAgo = new Date(now.getTime() - (4 * 60 * 60 * 1000)); // 4 horas para chat
-      
-      for (const store of storesList) {
-        if (!store.access_token) {
-          logger.info('Skipping sync - no access token', { storeId: store.id });
-          continue;
-        }
-        
-        const lastSync = store.last_sync_at ? new Date(store.last_sync_at) : null;
-        const needsSync = !lastSync || lastSync < fourHoursAgo;
-        
-        if (needsSync) {
-          logger.info('Checking if chat sync is possible', { 
-            storeId: store.id, 
-            storeName: store.name,
-            lastSync: lastSync?.toISOString() || 'never'
+      const storeIds = storesList
+        .filter(store => store.access_token) // Only stores with tokens
+        .map(store => store.id);
+
+      if (storeIds.length === 0) {
+        logger.info('No stores with access tokens to sync');
+        return;
+      }
+
+      setIsSyncing(true);
+
+      try {
+        const response = await fetch('/api/stores/trigger-intelligent-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ storeIds })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          logger.info('Intelligent sync completed', { 
+            totalStores: result.data.totalStores,
+            syncedStores: result.data.syncedStores,
+            skippedStores: result.data.skippedStores
           });
+
+          // Log individual results
+          result.data.results.forEach((storeResult: any) => {
+            if (storeResult.synced) {
+              logger.info('Store sync completed', {
+                storeId: storeResult.storeId,
+                storeName: storeResult.storeName,
+                success: storeResult.success,
+                syncTime: storeResult.syncTime
+              });
+            } else if (storeResult.skipped) {
+              logger.info('Store sync skipped', {
+                storeId: storeResult.storeId,
+                storeName: storeResult.storeName,
+                reason: storeResult.reason
+              });
+            }
+          });
+        } else {
+          logger.error('Intelligent sync API failed', { error: result.error });
+        }
+      } catch (apiError) {
+        logger.error('Intelligent sync API error', { error: apiError });
+        
+        // Fallback to individual sync calls
+        logger.warn('Falling back to individual sync calls');
+        
+        for (const store of storesList) {
+          if (!store.access_token) continue;
           
           try {
-            // 🔒 NEW: Check if sync is possible using lock system
-            const { checkRAGLockConflicts, RAGLockType } = await import('@/lib/rag/global-locks');
-            
-            const conflictCheck = await checkRAGLockConflicts(store.id, RAGLockType.MANUAL_SYNC);
-            
-            if (!conflictCheck.canProceed) {
-              logger.info('Skipping chat sync - lock conflict', { 
-                storeId: store.id,
-                reason: conflictCheck.reason,
-                conflictingLocks: conflictCheck.conflictingLocks?.length || 0
-              });
-              continue;
-            }
-
-            // 🔒 NEW: Use auto-sync scheduler for lock-aware sync
-            const { getAutoSyncScheduler } = await import('@/lib/services/auto-sync-scheduler');
-            const scheduler = await getAutoSyncScheduler();
-            
-            logger.info('Triggering lock-aware chat sync', { 
-              storeId: store.id, 
-              storeName: store.name
-            });
-            
-            if (!syncTriggered) {
-              setIsSyncing(true);
-              syncTriggered = true;
-            }
-            
-            // Use the scheduler's immediate sync which respects locks
-            scheduler.triggerImmediateSync(store.id).then(result => {
-              if (result.success) {
-                logger.info('Chat sync completed successfully', { 
-                  storeId: store.id,
-                  syncTime: result.syncedData.totalTime 
-                });
-              } else {
-                logger.warn('Chat sync failed', { 
-                  storeId: store.id,
-                  error: result.error 
-                });
-              }
-            }).catch(error => {
-              logger.error('Chat sync error', { storeId: store.id, error });
-            });
-            
-          } catch (error) {
-            logger.error('Chat sync conflict check failed', { 
-              storeId: store.id, 
-              error: error instanceof Error ? error.message : error 
-            });
-            
-            // Fallback to old method only if lock system is unavailable
-            logger.warn('Falling back to direct sync endpoint', { storeId: store.id });
-            
-            fetch(`/api/stores/${store.id}/sync-rag`, {
+            await fetch(`/api/stores/${store.id}/sync-rag`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' }
-            }).catch(fallbackError => {
-              logger.error('Fallback chat sync failed', { storeId: store.id, error: fallbackError });
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include'
             });
-            
-            if (!syncTriggered) {
-              setIsSyncing(true);
-              syncTriggered = true;
-            }
+          } catch (fallbackError) {
+            logger.error('Fallback sync failed', { storeId: store.id, error: fallbackError });
           }
         }
-      }
-      
-      if (syncTriggered) {
+      } finally {
+        // Clear syncing state after a delay
         setTimeout(() => {
           setIsSyncing(false);
           logger.info('Chat sync process completed');
-        }, 15000); // Extended to 15 seconds for lock-aware operations
+        }, 15000); // Extended to 15 seconds for server operations
       }
       
     } catch (error) {
