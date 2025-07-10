@@ -248,7 +248,9 @@ export class StoreDataManager {
         timezone: 'America/Argentina/Buenos_Aires', // Default timezone
         language: storeInfo.language || 'es',
         is_active: true,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        // 🔥 FIX: Update last_sync_at immediately so user sees fresh timestamp
+        last_sync_at: new Date().toISOString()
       };
 
       const updateResult: { success: boolean; store?: Store; error?: string } = await this.storeService.updateStore(storeId, updateData);
@@ -270,8 +272,19 @@ export class StoreDataManager {
         priority: 'high',
         includeVectors: true,
         includeDatabase: false
-      });
+      }, accessToken);
       operations.push('background_cleanup_triggered');
+      
+      // 🔥 FIX: Also trigger immediate sync to ensure data is updated right away
+      try {
+        console.log(`[STORE-MANAGER] Triggering immediate sync for reconnected store: ${storeId}`);
+        const { StoreService } = await import('@/lib/database/client');
+        await StoreService.syncStoreDataToRAGAsync(storeId);
+        operations.push('immediate_sync_triggered');
+      } catch (syncError) {
+        console.warn(`[STORE-MANAGER] Immediate sync failed for ${storeId}:`, syncError);
+        // Don't fail the whole operation if immediate sync fails
+      }
       
       console.log(`[STORE-MANAGER] ✅ Store reconnected successfully: ${storeId}`);
 
@@ -543,7 +556,7 @@ export class StoreDataManager {
   /**
    * Trigger background cleanup + re-sync para reconexión
    */
-  private async triggerBackgroundCleanupAndSync(storeId: string, options: SyncOptions): Promise<string> {
+  private async triggerBackgroundCleanupAndSync(storeId: string, options: SyncOptions, accessToken: string): Promise<string> {
     try {
       const jobId = `cleanup-${storeId}-${Date.now()}`;
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -554,6 +567,7 @@ export class StoreDataManager {
         syncType: 'cleanup',
         priority: options.priority,
         includeVectors: options.includeVectors,
+        accessToken, // Pass accessToken to the background job
         timestamp: new Date().toISOString()
       };
 
