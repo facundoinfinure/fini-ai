@@ -4,7 +4,6 @@
  */
 
 import { logger } from '../logger';
-import { segment } from '../analytics/segment-integration';
 import { predictiveAnalytics } from './predictive-analytics';
 
 // Tipos para el sistema de recomendaciones
@@ -507,8 +506,8 @@ export class RecommendationEngine {
     // Cachear resultado
     this.cache.set(cacheKey, recommendationSet);
 
-    // Track analytics
-    await segment.track({
+    // Log analytics
+    logger.info('[RECOMMENDATIONS] Recommendations generated', {
       event: 'Recommendations Generated',
       userId,
       properties: {
@@ -876,8 +875,8 @@ export class RecommendationEngine {
     // Invalidar cache
     this.invalidateUserCache(userId);
 
-    // Track analytics
-    await segment.track({
+    // Log analytics
+    logger.info('[RECOMMENDATIONS] Product interaction recorded', {
       event: 'Product Interaction',
       userId,
       properties: {

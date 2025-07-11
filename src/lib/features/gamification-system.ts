@@ -3,7 +3,7 @@
  * Aumenta el engagement con achievements, badges, streaks y challenges
  */
 
-import { segment, SegmentEvents } from '@/lib/analytics/segment-integration';
+import { logger } from '@/lib/logger';
 
 export interface Achievement {
   id: string;
@@ -430,8 +430,8 @@ export class GamificationSystem {
       await this.updateStreak(userId, metric);
     }
 
-    // Trackear progreso
-    await segment.track({
+    // Log progress
+    logger.info('[GAMIFICATION] Progress updated', {
       event: 'Gamification Progress Updated',
       userId,
       properties: {
@@ -518,8 +518,8 @@ export class GamificationSystem {
       }
     }
 
-    // Trackear achievement desbloqueado
-    await segment.track({
+    // Log achievement unlock
+    logger.info('[GAMIFICATION] Achievement unlocked', {
       event: 'Achievement Unlocked',
       userId,
       properties: {
@@ -560,8 +560,8 @@ export class GamificationSystem {
    * Maneja subida de nivel
    */
   private async levelUp(userId: string, newLevel: LevelInfo): Promise<void> {
-    // Trackear subida de nivel
-    await segment.track({
+    // Log level up
+    logger.info('[GAMIFICATION] Level up', {
       event: 'Level Up',
       userId,
       properties: {
@@ -636,7 +636,7 @@ export class GamificationSystem {
         
         await this.applyReward(userId, reward);
         
-        await segment.track({
+        logger.info('[GAMIFICATION] Streak milestone reached', {
           event: 'Streak Milestone Reached',
           userId,
           properties: {

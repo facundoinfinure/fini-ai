@@ -3,7 +3,7 @@
  * Incentiva el crecimiento orgánico con recompensas y gamificación
  */
 
-import { segment, SegmentEvents } from '@/lib/analytics/segment-integration';
+import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/server';
 
 export interface ReferralCode {
@@ -233,8 +233,8 @@ export class ReferralSystem {
     // Guardar en base de datos
     await this.saveReferralCode(referralCode);
 
-    // Trackear evento
-    await segment.track({
+    // Log event
+    logger.info('[REFERRAL-SYSTEM] Referral code generated', {
       event: 'Referral Code Generated',
       userId,
       properties: {
@@ -305,8 +305,8 @@ export class ReferralSystem {
       await this.applyReward(code.userId, signupReward, activity.id);
     }
 
-    // Trackear evento
-    await segment.track({
+    // Log event
+    logger.info('[REFERRAL-SYSTEM] Referral processed', {
       event: 'Referral Processed',
       userId: code.userId,
       properties: {
@@ -357,8 +357,8 @@ export class ReferralSystem {
     // Verificar si el usuario subió de nivel
     await this.checkLevelUp(activity.referralCodeId);
 
-    // Trackear evento
-    await segment.track({
+    // Log event
+    logger.info('[REFERRAL-SYSTEM] Referral completed', {
       event: 'Referral Completed',
       properties: {
         activityId,
@@ -451,8 +451,8 @@ export class ReferralSystem {
       await this.applyReward(userId, reward, `levelup_${newLevel.id}`);
     }
 
-    // Trackear evento
-    await segment.track({
+    // Log event
+    logger.info('[REFERRAL-SYSTEM] Referral level up', {
       event: 'Referral Level Up',
       userId,
       properties: {

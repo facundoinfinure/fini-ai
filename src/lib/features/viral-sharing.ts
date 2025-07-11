@@ -3,7 +3,7 @@
  * Sistema para compartir insights, métricas y logros de manera viral
  */
 
-import { segment, SegmentEvents } from '@/lib/analytics/segment-integration';
+import { logger } from '@/lib/logger';
 
 export interface ShareableInsight {
   id: string;
@@ -216,8 +216,8 @@ export class ViralSharingSystem {
       userHistory.push(result);
       this.shareHistory.set(insight.userId, userHistory);
 
-      // Trackear evento en Segment
-      await segment.track({
+      // Log event
+      logger.info('[VIRAL-SHARING] Content shared', {
         event: 'Content Shared',
         userId: insight.userId,
         properties: {
@@ -246,8 +246,8 @@ export class ViralSharingSystem {
         }
       };
 
-      // Trackear error
-      await segment.track({
+      // Log error
+      logger.error('[VIRAL-SHARING] Content share failed', {
         event: 'Content Share Failed',
         userId: insight.userId,
         properties: {
