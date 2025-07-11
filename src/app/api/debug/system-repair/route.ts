@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ConnectionHealthChecker } from '@/lib/diagnostics/connection-health-checker';
 import { CircuitBreakerManager } from '@/lib/resilience/circuit-breaker';
 import { RetryManager } from '@/lib/resilience/retry-manager';
-import { segment, SegmentEvents } from '@/lib/analytics/segment-integration';
 import { getConnectionPoolMetrics } from '@/lib/supabase/server';
 
 /**
@@ -86,22 +85,15 @@ export async function POST(request: NextRequest) {
       results.postRepairDiagnostics = postRepairHealth;
     }
 
-    // 6. Trackear evento en Segment
-    try {
-      await segment.track({
-        event: SegmentEvents.SYSTEM_REPAIR_COMPLETED,
-        properties: {
-          action,
-          totalIssues: results.summary.totalIssues,
-          repairedIssues: results.summary.repairedIssues,
-          remainingIssues: results.summary.remainingIssues,
-          services: services || ['all'],
-          overallHealth: healthReport.overall
-        }
-      });
-    } catch (error) {
-      console.warn('[SYSTEM-REPAIR] Failed to track completion event:', error);
-    }
+    // 6. Log completion event
+    console.log('[SYSTEM-REPAIR] Repair completed:', {
+      action,
+      totalIssues: results.summary.totalIssues,
+      repairedIssues: results.summary.repairedIssues,
+      remainingIssues: results.summary.remainingIssues,
+      services: services || ['all'],
+      overallHealth: healthReport.overall
+    });
 
     console.log('[SYSTEM-REPAIR] System repair completed:', results.summary);
     
@@ -110,18 +102,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[SYSTEM-REPAIR] Error:', error);
     
-    // Trackear error en Segment
-    try {
-      await segment.track({
-        event: 'System Repair Failed',
-        properties: {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          action: request.url
-        }
-      });
-    } catch (segmentError) {
-      console.warn('[SYSTEM-REPAIR] Failed to track error event:', segmentError);
-    }
+    // Log error details
+    console.error('[SYSTEM-REPAIR] System repair failed:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      action: request.url
+    });
 
     return NextResponse.json(
       { 
