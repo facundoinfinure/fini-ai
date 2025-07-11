@@ -5,6 +5,8 @@
 
 import { RAG_CONFIG, RAG_CONSTANTS } from './config';
 import type { DocumentChunk, VectorSearchResult, VectorStore, RAGQuery } from './types';
+import { CircuitBreakerManager } from '@/lib/resilience/circuit-breaker';
+import { RetryManager, RetryConfigs } from '@/lib/resilience/retry-manager';
 
 /**
  * 🔥 NEW: Network configuration for Pinecone operations
@@ -144,9 +146,18 @@ async function retryPineconeOperation<T>(
 export class PineconeVectorStore implements VectorStore {
   private pinecone: any = null;
   private indexName: string;
+  private circuitBreaker: any;
+  private retryManager: RetryManager;
 
   constructor() {
     this.indexName = RAG_CONFIG.pinecone.indexName;
+    this.retryManager = RetryManager.getInstance();
+    this.circuitBreaker = CircuitBreakerManager.getInstance().getBreaker('pinecone-vector-store', {
+      failureThreshold: 5,
+      resetTimeout: 60000,
+      monitoringPeriod: 30000,
+      expectedErrors: ['timeout', 'network', 'connection', 'ECONNRESET', 'ETIMEDOUT', '404']
+    });
     
     // Lazy initialization - only create Pinecone client when needed
     // This prevents build errors when API keys are not available
@@ -174,20 +185,36 @@ export class PineconeVectorStore implements VectorStore {
   }
 
   /**
-   * Initialize and get Pinecone index
-   * 🔥 ENHANCED: Includes retry logic for connection issues
+   * Initialize and get Pinecone index with circuit breaker and retry
    */
   private async getIndex() {
-    return retryPineconeOperation(async () => {
-      try {
-        const pinecone = await this.getPineconeClient();
-        const index = pinecone.index(this.indexName);
-        return index;
-      } catch (error) {
-        console.warn(`[ERROR] Failed to get Pinecone index: ${this.indexName}`, error);
-        throw new Error(`Failed to connect to Pinecone index: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    try {
+      const result = await this.circuitBreaker.execute(async () => {
+        return await this.retryManager.executeWithRetry(
+          async () => {
+            const pinecone = await this.getPineconeClient();
+            const index = pinecone.index(this.indexName);
+            
+            // Test connection
+            await index.describeIndexStats();
+            
+            return index;
+          },
+          RetryConfigs.EXTERNAL_API,
+          'pinecone-get-index'
+        );
+      });
+
+      if (result.success) {
+        return result.data;
+      } else {
+        throw new Error(`Failed to get Pinecone index: ${result.error?.message}`);
       }
-    }, 2, 1000, 'getIndex'); // Shorter retry for index access
+
+    } catch (error) {
+      console.warn(`[ERROR] Failed to get Pinecone index: ${this.indexName}`, error);
+      throw new Error(`Failed to connect to Pinecone index: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**

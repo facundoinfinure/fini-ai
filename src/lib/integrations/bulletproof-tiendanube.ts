@@ -16,6 +16,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { TiendaNubeAPI, exchangeCodeForToken } from './tiendanube';
 import { StoreService } from '@/lib/database/client';
+import { CircuitBreakerManager } from '@/lib/resilience/circuit-breaker';
+import { RetryManager, RetryConfigs } from '@/lib/resilience/retry-manager';
 
 interface ConnectionResult {
   success: boolean;
@@ -123,77 +125,125 @@ export class BulletproofTiendaNube {
   }
 
   /**
-   * 🔄 Intercambiar código por token con reintentos mínimos
+   * 🔄 Intercambiar código por token con sistema de resilience
    */
-  private static async exchangeCodeWithRetry(code: string, maxAttempts = 2): Promise<{ success: boolean; data?: any; error?: string }> {
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        const authResponse = await exchangeCodeForToken(code);
-        
-        if (!authResponse.access_token || !authResponse.user_id) {
-          throw new Error('Invalid response from TiendaNube');
-        }
+  private static async exchangeCodeWithRetry(code: string, maxAttempts = 3): Promise<{ success: boolean; data?: any; error?: string }> {
+    const circuitBreaker = CircuitBreakerManager.getInstance().getBreaker('tiendanube-oauth', {
+      failureThreshold: 3,
+      resetTimeout: 30000,
+      monitoringPeriod: 10000,
+      expectedErrors: ['timeout', 'network', 'connection']
+    });
 
-        return { success: true, data: authResponse };
+    const retryManager = RetryManager.getInstance();
 
-      } catch (error) {
-        console.error(`❌ [BULLETPROOF] Token exchange attempt ${attempt} failed:`, error);
-        
-        if (attempt === maxAttempts) {
-          return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Token exchange failed'
-          };
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 500 * attempt)); // Reduced delay
-      }
-    }
-
-    return { success: false, error: 'Maximum retry attempts reached' };
-  }
-
-  /**
-   * 🏪 Obtener información básica de la tienda (ULTRA-FAST)
-   */
-  private static async getBasicStoreInfo(accessToken: string, storeId: string): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
-      // Timeout de 10 segundos para evitar que se cuelgue
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const result = await circuitBreaker.execute(async () => {
+        return await retryManager.executeWithRetry(
+          async () => {
+            const authResponse = await exchangeCodeForToken(code);
+            
+            if (!authResponse.access_token || !authResponse.user_id) {
+              throw new Error('Invalid response from TiendaNube: missing access_token or user_id');
+            }
 
-      try {
-        const api = new TiendaNubeAPI(accessToken, storeId);
-        const storeInfo = await api.getStore();
-        clearTimeout(timeoutId);
-        return { success: true, data: storeInfo };
-      } catch (error) {
-        clearTimeout(timeoutId);
-        
-        // Método alternativo más rápido
-        const storesResponse = await fetch('https://api.tiendanube.com/v1/stores', {
-          headers: {
-            'Authentication': `bearer ${accessToken}`,
-            'User-Agent': 'FiniAI/1.0 (UltraFast)',
-            'Content-Type': 'application/json',
+            return authResponse;
           },
-          signal: controller.signal
-        });
+          RetryConfigs.EXTERNAL_API,
+          'tiendanube-token-exchange'
+        );
+      });
 
-        if (!storesResponse.ok) {
-          throw new Error(`Stores API failed: ${storesResponse.status}`);
-        }
-
-        const storesData = await storesResponse.json();
-        
-        if (!storesData || storesData.length === 0) {
-          throw new Error('No stores found');
-        }
-
-        return { success: true, data: storesData[0] };
+      if (result.success) {
+        return { success: true, data: result.data };
+      } else {
+        return { success: false, error: result.error?.message || 'Token exchange failed' };
       }
 
     } catch (error) {
+      console.error(`❌ [BULLETPROOF] Token exchange failed with circuit breaker:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Token exchange failed'
+      };
+    }
+  }
+
+  /**
+   * 🏪 Obtener información básica de la tienda con sistema de resilience
+   */
+  private static async getBasicStoreInfo(accessToken: string, storeId: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    const circuitBreaker = CircuitBreakerManager.getInstance().getBreaker('tiendanube-store-info', {
+      failureThreshold: 3,
+      resetTimeout: 30000,
+      monitoringPeriod: 10000,
+      expectedErrors: ['timeout', 'network', 'connection', 'rate limit']
+    });
+
+    const retryManager = RetryManager.getInstance();
+
+    try {
+      const result = await circuitBreaker.execute(async () => {
+        return await retryManager.executeWithRetry(
+          async () => {
+            // Timeout de 15 segundos para evitar que se cuelgue
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+            try {
+              const api = new TiendaNubeAPI(accessToken, storeId);
+              const storeInfo = await api.getStore();
+              clearTimeout(timeoutId);
+              return storeInfo;
+            } catch (error) {
+              clearTimeout(timeoutId);
+              
+              // Método alternativo más rápido con timeout
+              const fallbackController = new AbortController();
+              const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), 10000);
+              
+              try {
+                const storesResponse = await fetch('https://api.tiendanube.com/v1/stores', {
+                  headers: {
+                    'Authentication': `bearer ${accessToken}`,
+                    'User-Agent': 'FiniAI/1.0 (Resilient)',
+                    'Content-Type': 'application/json',
+                  },
+                  signal: fallbackController.signal
+                });
+
+                clearTimeout(fallbackTimeoutId);
+
+                if (!storesResponse.ok) {
+                  throw new Error(`Stores API failed: ${storesResponse.status} ${storesResponse.statusText}`);
+                }
+
+                const storesData = await storesResponse.json();
+                
+                if (!storesData || storesData.length === 0) {
+                  throw new Error('No stores found for this token');
+                }
+
+                return storesData[0];
+              } catch (fallbackError) {
+                clearTimeout(fallbackTimeoutId);
+                throw fallbackError;
+              }
+            }
+          },
+          RetryConfigs.EXTERNAL_API,
+          'tiendanube-store-info'
+        );
+      });
+
+      if (result.success) {
+        return { success: true, data: result.data };
+      } else {
+        return { success: false, error: result.error?.message || 'Store info failed' };
+      }
+
+    } catch (error) {
+      console.error(`❌ [BULLETPROOF] Store info failed with circuit breaker:`, error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Store info failed'
