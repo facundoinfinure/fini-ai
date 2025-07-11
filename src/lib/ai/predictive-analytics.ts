@@ -4,14 +4,7 @@
  */
 
 import { logger } from '../logger';
-// Import made conditional to avoid build issues
-let segment: any = null;
-try {
-  const segmentModule = require('../analytics/segment-integration');
-  segment = segmentModule.segment;
-} catch (error) {
-  console.warn('[PREDICTIVE-ANALYTICS] Segment integration not available:', error);
-}
+import { segment } from '../analytics/segment-integration';
 
 // Tipos para el sistema de análisis predictivo
 export interface TimeSeriesData {
@@ -562,21 +555,19 @@ export class PredictiveAnalytics {
       ]
     };
 
-    // Track analytics (if available)
-    if (segment) {
-      try {
-        await segment.track({
-          event: 'Sales Forecasting Generated',
-          userId: storeId,
-          properties: {
-            days,
-            avgPrediction: daily.reduce((sum, d) => sum + d.prediction, 0) / daily.length,
-            confidence: daily.reduce((sum, d) => sum + d.confidence, 0) / daily.length
-          }
-        });
-      } catch (error) {
-        console.warn('[PREDICTIVE-ANALYTICS] Failed to track analytics:', error);
-      }
+    // Track analytics
+    try {
+      await segment.track({
+        event: 'Sales Forecasting Generated',
+        userId: storeId,
+        properties: {
+          days,
+          avgPrediction: daily.reduce((sum, d) => sum + d.prediction, 0) / daily.length,
+          confidence: daily.reduce((sum, d) => sum + d.confidence, 0) / daily.length
+        }
+      });
+    } catch (error) {
+      console.warn('[PREDICTIVE-ANALYTICS] Failed to track analytics:', error);
     }
 
     return {

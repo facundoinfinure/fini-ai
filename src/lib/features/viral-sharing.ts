@@ -3,17 +3,7 @@
  * Sistema para compartir insights, métricas y logros de manera viral
  */
 
-// Import made conditional to avoid build issues
-let segment: any = null;
-let SegmentEvents: any = null;
-
-try {
-  const segmentModule = require('@/lib/analytics/segment-integration');
-  segment = segmentModule.segment;
-  SegmentEvents = segmentModule.SegmentEvents;
-} catch (error) {
-  console.warn('[VIRAL-SHARING] Segment integration not available:', error);
-}
+import { segment, SegmentEvents } from '@/lib/analytics/segment-integration';
 
 export interface ShareableInsight {
   id: string;

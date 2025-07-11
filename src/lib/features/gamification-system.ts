@@ -3,17 +3,7 @@
  * Aumenta el engagement con achievements, badges, streaks y challenges
  */
 
-// Import made conditional to avoid build issues
-let segment: any = null;
-let SegmentEvents: any = null;
-
-try {
-  const segmentModule = require('@/lib/analytics/segment-integration');
-  segment = segmentModule.segment;
-  SegmentEvents = segmentModule.SegmentEvents;
-} catch (error) {
-  console.warn('[GAMIFICATION-SYSTEM] Segment integration not available:', error);
-}
+import { segment, SegmentEvents } from '@/lib/analytics/segment-integration';
 
 export interface Achievement {
   id: string;

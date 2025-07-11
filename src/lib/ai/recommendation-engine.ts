@@ -4,14 +4,7 @@
  */
 
 import { logger } from '../logger';
-// Import made conditional to avoid build issues
-let segment: any = null;
-try {
-  const segmentModule = require('../analytics/segment-integration');
-  segment = segmentModule.segment;
-} catch (error) {
-  console.warn('[RECOMMENDATION-ENGINE] Segment integration not available:', error);
-}
+import { segment } from '../analytics/segment-integration';
 import { predictiveAnalytics } from './predictive-analytics';
 
 // Tipos para el sistema de recomendaciones
