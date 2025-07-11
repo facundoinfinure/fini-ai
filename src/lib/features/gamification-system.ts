@@ -540,7 +540,7 @@ export class GamificationSystem {
    * Otorga experiencia al usuario
    */
   private async awardExperience(userId: string, points: number): Promise<void> {
-    let stats = await this.getUserStats(userId);
+    const stats = await this.getUserStats(userId);
     
     const oldLevel = this.getLevelForExperience(stats.experience);
     stats.experience += points;
