@@ -3,7 +3,17 @@
  * Incentiva el crecimiento orgánico con recompensas y gamificación
  */
 
-import { segment, SegmentEvents } from '@/lib/analytics/segment-integration';
+// Import made conditional to avoid build issues
+let segment: any = null;
+let SegmentEvents: any = null;
+
+try {
+  const segmentModule = require('@/lib/analytics/segment-integration');
+  segment = segmentModule.segment;
+  SegmentEvents = segmentModule.SegmentEvents;
+} catch (error) {
+  console.warn('[REFERRAL-SYSTEM] Segment integration not available:', error);
+}
 import { createServiceClient } from '@/lib/supabase/server';
 
 export interface ReferralCode {
