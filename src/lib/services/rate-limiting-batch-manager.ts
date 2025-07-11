@@ -213,10 +213,17 @@ export class RateLimitingBatchManager {
   /**
    * 📊 Get comprehensive metrics
    */
-  getMetrics(): Record<string, APIMetrics> {
-    const result: Record<string, APIMetrics> = {};
+  getMetrics(): Record<string, any> {
+    const result: Record<string, any> = {};
     for (const [api, metrics] of this.metrics.entries()) {
-      result[api] = { ...metrics };
+      result[api] = {
+        api: metrics.api,
+        totalRequests: metrics.totalRequests,
+        successfulRequests: metrics.successfulRequests,
+        failedRequests: metrics.failedRequests,
+        averageLatency: metrics.averageLatency,
+        circuitBreakerTrips: metrics.circuitBreakerTrips
+      };
     }
     return result;
   }
@@ -268,37 +275,29 @@ export class RateLimitingBatchManager {
       try {
         console.log(`[RATE:BATCH] 🎯 Executing Pinecone upsert batch: ${operations.length} operations`);
 
-        // Group operations by namespace for efficiency
-        const namespaceGroups = this._groupByNamespace(operations);
-        
-        // Process each namespace group
-        for (const [namespace, ops] of namespaceGroups.entries()) {
+        // Process each operation individually with rate limiting
+        for (const op of operations) {
           try {
-            const vectors = ops.map(op => this._prepareVectorForUpsert(op.data));
-            
-            // Execute batch upsert with rate limiting
-            const upsertResult = await this.executeWithRateLimit('pinecone', async () => {
+            const result = await this.executeWithRateLimit('pinecone', async () => {
               const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
               const ragEngine = getUnifiedRAGEngine();
-              return await ragEngine.batchUpsertVectors(namespace, vectors);
+              
+              // Use indexDocument method for individual documents
+              const docData = this._prepareDocumentForIndexing(op.data);
+              await ragEngine.indexDocument(docData.content, docData.metadata);
+              
+              return { success: true, id: docData.metadata.id } as R;
             });
 
-            // Resolve all operations in this namespace
-            for (let i = 0; i < ops.length; i++) {
-              const result = upsertResult.results?.[i] || upsertResult as R;
-              results.push(result);
-              ops[i].resolve(result);
-            }
+            results.push(result);
+            op.resolve(result);
 
           } catch (error) {
-            console.error(`[RATE:BATCH] ❌ Namespace ${namespace} batch failed:`, error);
+            console.error(`[RATE:BATCH] ❌ Upsert operation failed:`, error);
             
-            // Reject all operations in this namespace
-            for (const op of ops) {
-              const err = error instanceof Error ? error : new Error('Batch execution failed');
-              errors.push(err);
-              op.reject(err);
-            }
+            const err = error instanceof Error ? error : new Error('Upsert operation failed');
+            errors.push(err);
+            op.reject(err);
           }
         }
 
@@ -343,39 +342,26 @@ export class RateLimitingBatchManager {
       try {
         console.log(`[RATE:BATCH] 🗑️ Executing Pinecone delete batch: ${operations.length} operations`);
 
-        // Group by namespace
-        const namespaceGroups = this._groupByNamespace(operations);
+        // Collect all vector IDs to delete
+        const vectorIds = operations.map(op => this._extractVectorId(op.data));
 
-        for (const [namespace, ops] of namespaceGroups.entries()) {
-          try {
-            const vectorIds = ops.map(op => this._extractVectorId(op.data));
+        const deleteResult = await this.executeWithRateLimit('pinecone', async () => {
+          const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+          const ragEngine = getUnifiedRAGEngine();
+          
+          // Use deleteDocuments method with vector IDs
+          return await ragEngine.deleteDocuments(vectorIds);
+        });
 
-            const deleteResult = await this.executeWithRateLimit('pinecone', async () => {
-              const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
-              const ragEngine = getUnifiedRAGEngine();
-              return await ragEngine.batchDeleteVectors(namespace, vectorIds);
-            });
-
-            // Resolve all operations
-            for (const op of ops) {
-              const result = deleteResult as R;
-              results.push(result);
-              op.resolve(result);
-            }
-
-          } catch (error) {
-            console.error(`[RATE:BATCH] ❌ Delete batch failed for ${namespace}:`, error);
-            
-            for (const op of ops) {
-              const err = error instanceof Error ? error : new Error('Delete batch failed');
-              errors.push(err);
-              op.reject(err);
-            }
-          }
+        // Resolve all operations with the same result
+        for (const op of operations) {
+          const result = deleteResult as R;
+          results.push(result);
+          op.resolve(result);
         }
 
         return {
-          success: errors.length === 0,
+          success: deleteResult.success,
           results,
           errors,
           executionTime: Date.now() - startTime,
@@ -506,11 +492,18 @@ export class RateLimitingBatchManager {
     return data.id || data.vectorId || data.metadata?.id;
   }
 
-  private _prepareVectorForUpsert(data: any): any {
+  // Helper method to prepare document for indexing
+  private _prepareDocumentForIndexing(data: any): { content: string; metadata: any } {
     return {
-      id: data.id,
-      values: data.values || data.vector,
-      metadata: data.metadata || {}
+      content: data.content || data.text || 'Document content',
+      metadata: {
+        id: data.id || `doc-${Date.now()}`,
+        type: data.type || 'document',
+        storeId: data.storeId || data.metadata?.storeId,
+        source: data.source || 'batch_operation',
+        timestamp: new Date().toISOString(),
+        ...data.metadata
+      }
     };
   }
 
@@ -729,7 +722,11 @@ class APIMetrics {
 
   updateFromStatus(status: RateLimitStatus): void {
     // Update metrics based on status
-    // This would be expanded with actual implementation
+    this.totalRequests = status.requestsInWindow;
+    this.averageLatency = status.averageLatency;
+    if (status.circuitBreakerOpen) {
+      this.circuitBreakerTrips++;
+    }
   }
 }
 

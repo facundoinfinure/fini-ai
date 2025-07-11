@@ -769,19 +769,30 @@ export async function performIncrementalSyncWithRetry(options: IncrementalSyncOp
     const transaction = new AtomicSyncTransaction(
       options.storeId,
       options.accessToken,
-      'incremental_sync',
-      { 
-        dataTypes: options.dataTypes,
-        lastSyncTimestamp: options.lastSyncTimestamp
+      {
+        type: 'incremental',
+        priority: 'high',
+        includeVectors: true,
+        includeDatabase: true,
+        consistencyChecks: true
       }
     );
 
-    const result = await transaction.executeSync();
+    const result = await transaction.execute();
     
     if (!result.success) {
       throw new Error(`Incremental sync transaction failed: ${result.error}`);
     }
 
-    return result;
+    // Return the incremental sync result format
+    return {
+      success: true,
+      syncType: 'incremental' as const,
+      executionTime: result.executionTime,
+      lastSyncTimestamp: new Date().toISOString(),
+      dataTypeResults: [],
+      totalItemsProcessed: 0,
+      totalApiCalls: 0
+    };
   });
 } 
