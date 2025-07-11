@@ -610,164 +610,106 @@ export class PineconeVectorStore implements VectorStore {
                                        chunk.metadata.source === 'initialization' ||
                                        chunk.content?.includes('Namespace initialized for');
     
-    // 🔥 FIX: RACE CONDITION PROTECTION - Enhanced validation with reconnection support
+    // 🔥 SIMPLIFIED: More robust store validation with better error handling
     try {
-      const { createClient } = await import('@/lib/supabase/client');
-      const supabase = createClient();
+      const { createServiceClient } = await import('@/lib/supabase/server');
+      const supabase = createServiceClient(); // Use service client to bypass RLS
       
-      // 🔥 CRITICAL FIX: Use more robust query with better error handling
-      let storeQueryResult;
-      let queryAttempts = 0;
-      const maxQueryAttempts = 3;
+      // Simple, robust query with timeout
+      const storeQueryPromise = supabase
+        .from('stores')
+        .select('is_active, updated_at, created_at, id')
+        .eq('id', storeId)
+        .maybeSingle();
+        
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database query timeout')), 5000)
+      );
       
-      while (queryAttempts < maxQueryAttempts) {
-        try {
-          // More explicit query with timeout and better error handling
-          const queryResult = await Promise.race([
-            supabase
-              .from('stores')
-              .select('is_active, updated_at, created_at, id')
-              .eq('id', storeId)
-              .maybeSingle(), // Use maybeSingle() to handle the case where no record is found
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Database query timeout')), 5000)
-            )
-          ]);
-          
-          storeQueryResult = queryResult as any;
-          break; // Success, exit retry loop
-          
-        } catch (queryError) {
-          queryAttempts++;
-          console.warn(`[RAG:SECURITY] Database query attempt ${queryAttempts}/${maxQueryAttempts} failed for store ${storeId}:`, queryError);
-          
-          if (queryAttempts < maxQueryAttempts) {
-            // Wait longer between retries with exponential backoff
-            await new Promise(resolve => setTimeout(resolve, 500 * queryAttempts));
-          } else {
-            throw queryError;
-          }
-        }
-      }
+      const { data: store, error } = await Promise.race([storeQueryPromise, timeoutPromise]) as any;
       
-      const { data: store, error } = storeQueryResult;
-      
-      // 🚀 ENHANCED: Better error handling for different scenarios
+      // Handle database errors
       if (error) {
-        // Handle specific Supabase/PostgreSQL errors
-        if (error.message?.includes('JSON object requested, multiple') || 
-            error.message?.includes('more than one row returned')) {
-          console.error(`[RAG:SECURITY] ⚠️ Multiple stores found with ID ${storeId} - database integrity issue`);
-          throw new Error(`[RAG:SECURITY] Database integrity error: Multiple stores with same ID: ${storeId}`);
-        } else if (error.message?.includes('no rows returned') || 
-                   error.message?.includes('not found')) {
-          console.error(`[RAG:SECURITY] Store ${storeId} not found in database`);
-          // Continue to the "store not found" handling below
+        console.error(`[RAG:SECURITY] Database error for store ${storeId}:`, error);
+        
+        // For initialization placeholders, be more lenient with database errors
+        if (isInitializationPlaceholder) {
+          console.warn(`[RAG:SECURITY] 🟡 ALLOWING namespace initialization despite DB error for placeholder: ${error.message}`);
         } else {
-          console.error(`[RAG:SECURITY] Database error checking store ${storeId}:`, error);
           throw new Error(`Database error: ${error.message}`);
         }
       }
       
-      // 🚀 ENHANCED: If store doesn't exist or is inactive, check if it's a recent creation/reconnection
-      if (!store || !store.is_active) {
+      // Handle missing store
+      if (!store) {
+        console.error(`[RAG:SECURITY] Store ${storeId} not found`);
         
-        // Special case: Allow initialization placeholders for recently created stores
+        // For initialization placeholders, try a retry after a brief delay
         if (isInitializationPlaceholder) {
-          // Check if store exists but might be in transition
-          if (store && !store.is_active) {
-            const createdAt = new Date(store.created_at);
-            const updatedAt = new Date(store.updated_at);
-            const now = new Date();
-            const createdRecently = (now.getTime() - createdAt.getTime()) < 30000; // 30 seconds
-            const updatedRecently = (now.getTime() - updatedAt.getTime()) < 30000; // 30 seconds
-            
-            if (createdRecently || updatedRecently) {
-              console.warn(`[RAG:SECURITY] 🟡 ALLOWING namespace initialization for recently created/updated store ${storeId} (created: ${createdRecently}, updated: ${updatedRecently})`);
-              // Continue to namespace creation without throwing error
-            } else {
-              console.error(`[RAG:SECURITY] BLOCKED namespace creation - Store ${storeId} is inactive and not recently created. DB check: is_active=${store?.is_active}, error=${error?.message}`);
-              throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive/deleted store: ${storeId}`);
-            }
-          } else if (!store) {
-            // Store doesn't exist at all - check if this might be a timing issue
-            console.warn(`[RAG:SECURITY] ⚠️ Store ${storeId} not found during namespace initialization. Checking if this is a timing issue...`);
-            
-            // For placeholders, give a little more leeway
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Try one more time with a fresh query
-            const { data: retryStore, error: retryError } = await supabase
-              .from('stores')
-              .select('is_active, created_at')
-              .eq('id', storeId)
-              .maybeSingle();
-              
-            if (retryError || !retryStore) {
-              console.error(`[RAG:SECURITY] BLOCKED namespace creation - Store ${storeId} not found after retry. Error: ${retryError?.message || 'Not found'}`);
-              throw new Error(`[RAG:SECURITY] Cannot create namespace for non-existent store: ${storeId}`);
-            } else if (!retryStore.is_active) {
-              console.error(`[RAG:SECURITY] BLOCKED namespace creation - Store ${storeId} found but inactive after retry`);
-              throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive store: ${storeId}`);
-            } else {
-              console.warn(`[RAG:SECURITY] 🟡 ALLOWING namespace initialization - Store ${storeId} found and active on retry`);
-              // Continue to namespace creation
-            }
-          }
-        } else {
-          // Non-placeholder documents must have active stores
-          console.error(`[RAG:SECURITY] BLOCKED namespace creation - Store ${storeId} is inactive. DB check: is_active=${store?.is_active}, error=${error?.message}`);
-          throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive/deleted store: ${storeId}`);
-        }
-      } else {
-        // Store is active - check for recent updates that might indicate reconnection
-        const updatedAt = new Date(store.updated_at);
-        const now = new Date();
-        const timeDiff = now.getTime() - updatedAt.getTime();
-        
-        if (timeDiff < 10000) { // Less than 10 seconds
-          console.warn(`[RAG:SECURITY] Recent store update detected (${timeDiff}ms ago), double-checking...`);
+          console.warn(`[RAG:SECURITY] Store ${storeId} not found, retrying for initialization placeholder...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
           
-          // Wait a moment and re-check to avoid race conditions
-          await new Promise(resolve => setTimeout(resolve, 100));
-          
-          const { data: doubleCheck, error: doubleError } = await supabase
+          const { data: retryStore, error: retryError } = await supabase
             .from('stores')
             .select('is_active')
             .eq('id', storeId)
             .maybeSingle();
             
-          if (doubleError || !doubleCheck || !doubleCheck.is_active) {
-            // 🚀 ENHANCED: For placeholders, allow this to proceed if it's a recent update
-            if (isInitializationPlaceholder && timeDiff < 30000) {
-              console.warn(`[RAG:SECURITY] 🟡 ALLOWING namespace initialization despite double-check failure for recently updated store ${storeId}`);
-              // Continue to namespace creation
-            } else {
-              console.error(`[RAG:SECURITY] DOUBLE-CHECK FAILED - Store ${storeId} became inactive during namespace creation`);
-              throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive/deleted store: ${storeId}`);
-            }
+          if (retryError || !retryStore) {
+            console.error(`[RAG:SECURITY] Store ${storeId} still not found after retry`);
+            throw new Error(`[RAG:SECURITY] Cannot create namespace for non-existent store: ${storeId}`);
+          } else if (!retryStore.is_active) {
+            console.error(`[RAG:SECURITY] Store ${storeId} found but inactive`);
+            throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive store: ${storeId}`);
+          } else {
+            console.log(`[RAG:SECURITY] ✅ Store ${storeId} found and active on retry`);
           }
+        } else {
+          throw new Error(`[RAG:SECURITY] Cannot create namespace for non-existent store: ${storeId}`);
         }
       }
       
+      // Handle inactive store  
+      else if (!store.is_active) {
+        console.error(`[RAG:SECURITY] Store ${storeId} is inactive`);
+        
+        // For initialization placeholders with recent activity, allow it
+        if (isInitializationPlaceholder) {
+          const updatedAt = new Date(store.updated_at);
+          const now = new Date();
+          const timeDiff = now.getTime() - updatedAt.getTime();
+          
+          if (timeDiff < 60000) { // Less than 1 minute
+            console.warn(`[RAG:SECURITY] 🟡 ALLOWING namespace initialization for recently updated inactive store ${storeId} (${timeDiff}ms ago)`);
+          } else {
+            throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive store: ${storeId}`);
+          }
+        } else {
+          throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive store: ${storeId}`);
+        }
+      }
+      
+      // Store exists and is active
+      else {
+        console.log(`[RAG:SECURITY] ✅ Store ${storeId} validated successfully - is_active: ${store.is_active}`);
+      }
+      
     } catch (validationError) {
-      // 🚀 ENHANCED: Check if this is a network/database error that we should be more lenient about for placeholders
+      // 🚀 ENHANCED: Better error handling for network/timeout issues
       if (isInitializationPlaceholder && validationError instanceof Error && 
-          (validationError.message.includes('network') || 
-           validationError.message.includes('timeout') ||
-           validationError.message.includes('connection') ||
-           validationError.message.includes('Database query timeout'))) {
+          (validationError.message.includes('timeout') ||
+           validationError.message.includes('network') ||
+           validationError.message.includes('connection'))) {
         console.warn(`[RAG:SECURITY] 🟡 ALLOWING namespace initialization despite validation error for placeholder: ${validationError.message}`);
-        // Continue to namespace creation
       } else {
         console.error(`[RAG:SECURITY] Store validation failed for ${storeId}:`, validationError);
-        throw new Error(`Store validation failed: ${storeId}`);
+        throw validationError; // Re-throw the original error with full details
       }
     }
     
-    // 🚀 ENHANCED: Log the type of operation being performed
+    // Generate namespace name
     const operationType = isInitializationPlaceholder ? 'INITIALIZATION' : 'DATA_INDEXING';
-    console.warn(`[RAG:SECURITY] Creating namespace for store ${storeId}, type: ${type}, operation: ${operationType}`);
+    console.log(`[RAG:SECURITY] ✅ Creating namespace for store ${storeId}, type: ${type}, operation: ${operationType}`);
     
     switch (type) {
       case 'product':
