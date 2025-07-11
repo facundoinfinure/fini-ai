@@ -22,6 +22,7 @@ import { ProfileManagement } from '@/components/dashboard/profile-management';
 import { OperationNotifications } from '@/components/dashboard/operation-notifications';
 import { Store as StoreType } from "@/types/db";
 import { SidebarLayout } from '@/components/ui/sidebar-layout';
+import { StoreConnectionHandler } from '@/components/dashboard/store-connection-handler';
 
 const logger = createLogger('Dashboard');
 
@@ -831,15 +832,21 @@ function DashboardContent() {
 
 export default function Dashboard() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Bot className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Cargando dashboard...</p>
+    <StoreConnectionHandler onStoreConnected={(storeId, storeName) => {
+      console.log(`[DASHBOARD] Store connected via new system: ${storeName} (${storeId})`);
+      // Refresh data after successful connection
+      window.location.reload();
+    }}>
+      <Suspense fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <Bot className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+            <p className="text-gray-600">Cargando dashboard...</p>
+          </div>
         </div>
-      </div>
-    }>
-      <DashboardContent />
-    </Suspense>
+      }>
+        <DashboardContent />
+      </Suspense>
+    </StoreConnectionHandler>
   );
 } 
