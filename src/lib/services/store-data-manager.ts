@@ -236,8 +236,8 @@ export class StoreDataManager {
         operations.push('new_token_fallback');
       }
 
-      // PASO 3: Actualizar registro en DB
-      console.log(`[SYNC:INFO] 💾 Updating database record`);
+      // PASO 3: Actualizar registro en DB CON TRANSACTION HANDLING
+      console.log(`[SYNC:INFO] 💾 Updating database record with transaction handling`);
       
       const updateData = {
         name: oauthData.storeName || storeInfo.name,
@@ -262,6 +262,66 @@ export class StoreDataManager {
       const store = updateResult.store!;
       operations.push('database_record_updated');
 
+      // 🔥 CRITICAL FIX: Ensure database transaction is committed before RAG operations
+      console.log(`[SYNC:INFO] 🔄 Verifying store is properly saved before RAG operations`);
+      
+      // Wait a moment for any potential database replication lag
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Verify the store was actually saved and is active
+      let verificationAttempts = 0;
+      const maxVerificationAttempts = 5;
+      let storeVerified = false;
+      
+      while (!storeVerified && verificationAttempts < maxVerificationAttempts) {
+        try {
+          const { createClient } = await import('@/lib/supabase/server');
+          const supabase = createClient();
+          
+          const { data: verifyStore, error: verifyError } = await supabase
+            .from('stores')
+            .select('id, is_active, name, updated_at')
+            .eq('id', storeId)
+            .single();
+            
+          if (verifyError) {
+            throw new Error(`Verification query failed: ${verifyError.message}`);
+          }
+          
+          if (!verifyStore) {
+            throw new Error(`Store ${storeId} not found during verification`);
+          }
+          
+          if (!verifyStore.is_active) {
+            throw new Error(`Store ${storeId} is not active after update`);
+          }
+          
+          // Check if the update timestamp matches what we expect (within 10 seconds)
+          const updateTime = new Date(verifyStore.updated_at);
+          const expectedTime = new Date(updateData.updated_at);
+          const timeDiff = Math.abs(updateTime.getTime() - expectedTime.getTime());
+          
+          if (timeDiff > 10000) {
+            console.warn(`[SYNC:WARN] Store update timestamp mismatch. Expected: ${expectedTime.toISOString()}, Got: ${updateTime.toISOString()}, Diff: ${timeDiff}ms`);
+          }
+          
+          storeVerified = true;
+          console.log(`[SYNC:INFO] ✅ Store verification successful: ${storeId} is active and properly saved`);
+          operations.push('store_verification_passed');
+          
+        } catch (verifyError) {
+          verificationAttempts++;
+          console.warn(`[SYNC:WARN] Store verification attempt ${verificationAttempts}/${maxVerificationAttempts} failed:`, verifyError);
+          
+          if (verificationAttempts < maxVerificationAttempts) {
+            // Wait longer between retries
+            await new Promise(resolve => setTimeout(resolve, 1000 * verificationAttempts));
+          } else {
+            throw new Error(`Store verification failed after ${maxVerificationAttempts} attempts: ${verifyError instanceof Error ? verifyError.message : 'Unknown error'}`);
+          }
+        }
+      }
+
       // PASO 4: Token is already updated in access_token field
       // No need to call storeToken method as it doesn't exist
       operations.push('token_updated');
@@ -276,8 +336,9 @@ export class StoreDataManager {
       operations.push('background_cleanup_triggered');
       
       // 🔥 PRODUCTION FIX: Immediate namespace initialization + validation
+      // ONLY AFTER store is verified to be properly saved
       try {
-        console.log(`[SYNC:INFO] 🎯 PRODUCTION FIX: Ensuring all 6 namespaces are created for ${storeId}`);
+        console.log(`[SYNC:INFO] 🎯 PRODUCTION FIX: Ensuring all 6 namespaces are created for ${storeId} (after verification)`);
         
         // Import RAG engine dynamically
         const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
@@ -299,7 +360,7 @@ export class StoreDataManager {
               operations.push(`immediate_sync_indexed_${syncResult.documentsIndexed}_docs`);
               console.log(`[SYNC:INFO] ✅ Immediate sync indexed ${syncResult.documentsIndexed} documents in ${syncResult.namespacesProcessed.length} namespaces`);
             } else {
-                              console.warn(`[SYNC:WARN] ⚠️ Immediate sync had issues: ${syncResult.error}, but namespaces should be created`);
+              console.warn(`[SYNC:WARN] ⚠️ Immediate sync had issues: ${syncResult.error}, but namespaces should be created`);
               operations.push('immediate_sync_partial');
             }
           } catch (syncError) {

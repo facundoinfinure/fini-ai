@@ -615,15 +615,62 @@ export class PineconeVectorStore implements VectorStore {
       const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
       
-      // First check: Direct DB query (bypasses any cache)
-      const { data: store, error } = await supabase
-        .from('stores')
-        .select('is_active, updated_at, created_at')
-        .eq('id', storeId)
-        .single();
+      // 🔥 CRITICAL FIX: Use more robust query with better error handling
+      let storeQueryResult;
+      let queryAttempts = 0;
+      const maxQueryAttempts = 3;
+      
+      while (queryAttempts < maxQueryAttempts) {
+        try {
+          // More explicit query with timeout and better error handling
+          const queryResult = await Promise.race([
+            supabase
+              .from('stores')
+              .select('is_active, updated_at, created_at, id')
+              .eq('id', storeId)
+              .maybeSingle(), // Use maybeSingle() to handle the case where no record is found
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Database query timeout')), 5000)
+            )
+          ]);
+          
+          storeQueryResult = queryResult as any;
+          break; // Success, exit retry loop
+          
+        } catch (queryError) {
+          queryAttempts++;
+          console.warn(`[RAG:SECURITY] Database query attempt ${queryAttempts}/${maxQueryAttempts} failed for store ${storeId}:`, queryError);
+          
+          if (queryAttempts < maxQueryAttempts) {
+            // Wait longer between retries with exponential backoff
+            await new Promise(resolve => setTimeout(resolve, 500 * queryAttempts));
+          } else {
+            throw queryError;
+          }
+        }
+      }
+      
+      const { data: store, error } = storeQueryResult;
+      
+      // 🚀 ENHANCED: Better error handling for different scenarios
+      if (error) {
+        // Handle specific Supabase/PostgreSQL errors
+        if (error.message?.includes('JSON object requested, multiple') || 
+            error.message?.includes('more than one row returned')) {
+          console.error(`[RAG:SECURITY] ⚠️ Multiple stores found with ID ${storeId} - database integrity issue`);
+          throw new Error(`[RAG:SECURITY] Database integrity error: Multiple stores with same ID: ${storeId}`);
+        } else if (error.message?.includes('no rows returned') || 
+                   error.message?.includes('not found')) {
+          console.error(`[RAG:SECURITY] Store ${storeId} not found in database`);
+          // Continue to the "store not found" handling below
+        } else {
+          console.error(`[RAG:SECURITY] Database error checking store ${storeId}:`, error);
+          throw new Error(`Database error: ${error.message}`);
+        }
+      }
       
       // 🚀 ENHANCED: If store doesn't exist or is inactive, check if it's a recent creation/reconnection
-      if (error || !store || !store.is_active) {
+      if (!store || !store.is_active) {
         
         // Special case: Allow initialization placeholders for recently created stores
         if (isInitializationPlaceholder) {
@@ -643,9 +690,29 @@ export class PineconeVectorStore implements VectorStore {
               throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive/deleted store: ${storeId}`);
             }
           } else if (!store) {
-            // Store doesn't exist at all - this is an error
-            console.error(`[RAG:SECURITY] BLOCKED namespace creation - Store ${storeId} not found. Error: ${error?.message}`);
-            throw new Error(`[RAG:SECURITY] Cannot create namespace for non-existent store: ${storeId}`);
+            // Store doesn't exist at all - check if this might be a timing issue
+            console.warn(`[RAG:SECURITY] ⚠️ Store ${storeId} not found during namespace initialization. Checking if this is a timing issue...`);
+            
+            // For placeholders, give a little more leeway
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Try one more time with a fresh query
+            const { data: retryStore, error: retryError } = await supabase
+              .from('stores')
+              .select('is_active, created_at')
+              .eq('id', storeId)
+              .maybeSingle();
+              
+            if (retryError || !retryStore) {
+              console.error(`[RAG:SECURITY] BLOCKED namespace creation - Store ${storeId} not found after retry. Error: ${retryError?.message || 'Not found'}`);
+              throw new Error(`[RAG:SECURITY] Cannot create namespace for non-existent store: ${storeId}`);
+            } else if (!retryStore.is_active) {
+              console.error(`[RAG:SECURITY] BLOCKED namespace creation - Store ${storeId} found but inactive after retry`);
+              throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive store: ${storeId}`);
+            } else {
+              console.warn(`[RAG:SECURITY] 🟡 ALLOWING namespace initialization - Store ${storeId} found and active on retry`);
+              // Continue to namespace creation
+            }
           }
         } else {
           // Non-placeholder documents must have active stores
@@ -668,7 +735,7 @@ export class PineconeVectorStore implements VectorStore {
             .from('stores')
             .select('is_active')
             .eq('id', storeId)
-            .single();
+            .maybeSingle();
             
           if (doubleError || !doubleCheck || !doubleCheck.is_active) {
             // 🚀 ENHANCED: For placeholders, allow this to proceed if it's a recent update
@@ -688,7 +755,8 @@ export class PineconeVectorStore implements VectorStore {
       if (isInitializationPlaceholder && validationError instanceof Error && 
           (validationError.message.includes('network') || 
            validationError.message.includes('timeout') ||
-           validationError.message.includes('connection'))) {
+           validationError.message.includes('connection') ||
+           validationError.message.includes('Database query timeout'))) {
         console.warn(`[RAG:SECURITY] 🟡 ALLOWING namespace initialization despite validation error for placeholder: ${validationError.message}`);
         // Continue to namespace creation
       } else {
