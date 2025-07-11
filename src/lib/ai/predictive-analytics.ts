@@ -4,7 +4,14 @@
  */
 
 import { logger } from '../logger';
-import { segment } from '../analytics/segment-integration';
+// Import made conditional to avoid build issues
+let segment: any = null;
+try {
+  const segmentModule = require('../analytics/segment-integration');
+  segment = segmentModule.segment;
+} catch (error) {
+  console.warn('[PREDICTIVE-ANALYTICS] Segment integration not available:', error);
+}
 
 // Tipos para el sistema de análisis predictivo
 export interface TimeSeriesData {
@@ -555,16 +562,22 @@ export class PredictiveAnalytics {
       ]
     };
 
-    // Track analytics
-    await segment.track({
-      event: 'Sales Forecasting Generated',
-      userId: storeId,
-      properties: {
-        days,
-        avgPrediction: daily.reduce((sum, d) => sum + d.prediction, 0) / daily.length,
-        confidence: daily.reduce((sum, d) => sum + d.confidence, 0) / daily.length
+    // Track analytics (if available)
+    if (segment) {
+      try {
+        await segment.track({
+          event: 'Sales Forecasting Generated',
+          userId: storeId,
+          properties: {
+            days,
+            avgPrediction: daily.reduce((sum, d) => sum + d.prediction, 0) / daily.length,
+            confidence: daily.reduce((sum, d) => sum + d.confidence, 0) / daily.length
+          }
+        });
+      } catch (error) {
+        console.warn('[PREDICTIVE-ANALYTICS] Failed to track analytics:', error);
       }
-    });
+    }
 
     return {
       daily,
@@ -684,13 +697,13 @@ export class PredictiveAnalytics {
 
     return {
       trending: {
-        products: trending.map((p: any) => p.id),
-        categories: [...new Set(trending.map((p: any) => p.category))],
+        products: trending.map((p: any) => p.id) as string[],
+        categories: [...new Set(trending.map((p: any) => p.category))] as string[],
         keywords: ['trending', 'popular', 'bestseller']
       },
       declining: {
-        products: declining.map((p: any) => p.id),
-        categories: [...new Set(declining.map((p: any) => p.category))],
+        products: declining.map((p: any) => p.id) as string[],
+        categories: [...new Set(declining.map((p: any) => p.category))] as string[],
         keywords: ['clearance', 'discount', 'last-chance']
       },
       seasonal: {
