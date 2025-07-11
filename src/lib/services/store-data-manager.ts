@@ -87,12 +87,12 @@ export class StoreDataManager {
     const operations: string[] = [];
     
     try {
-      console.log(`[STORE-MANAGER] Creating new store for user: ${oauthData.userId}`);
+      console.log(`[SYNC:INFO] 🆕 Creating new store for user: ${oauthData.userId}`);
       
       // PASO 1: Obtener access token
       let accessToken = oauthData.accessToken;
       if (!accessToken) {
-        console.log(`[STORE-MANAGER] Exchanging authorization code for token`);
+        console.log(`[SYNC:INFO] 🔑 Exchanging authorization code for token`);
         
         const { exchangeCodeForToken } = await import('@/lib/integrations/tiendanube');
         const tokenResult = await exchangeCodeForToken(oauthData.authorizationCode);
@@ -102,7 +102,7 @@ export class StoreDataManager {
       }
 
       // PASO 2: Validar token y obtener información de la tienda
-      console.log(`[STORE-MANAGER] Validating token and fetching store info`);
+      console.log(`[SYNC:INFO] ✅ Validating token and fetching store info`);
       
       let storeInfo: any = {
         name: oauthData.storeName || 'Tienda sin nombre',
@@ -119,12 +119,12 @@ export class StoreDataManager {
         ]) as any;
         operations.push('store_info_validated');
       } catch (error) {
-        console.warn(`[STORE-MANAGER] Store info fetch failed, using fallback values:`, error);
+        console.warn(`[SYNC:WARN] ⚠️ Store info fetch failed, using fallback values:`, error);
         operations.push('store_info_fallback');
       }
 
       // PASO 3: Crear registro en base de datos (RÁPIDO)
-      console.log(`[STORE-MANAGER] Creating database record`);
+      console.log(`[SYNC:INFO] 💾 Creating database record`);
       
       const storeData = {
         user_id: oauthData.userId,
@@ -152,7 +152,7 @@ export class StoreDataManager {
       const store = createResult.store!;
       operations.push('database_record_created');
       
-      console.log(`[STORE-MANAGER] ✅ Store created in DB: ${store.id}`);
+      console.log(`[SYNC:INFO] ✅ Store created in DB: ${store.id}`);
 
       // PASO 4: Token is already stored in access_token field of store
       // No need to call storeToken method as it doesn't exist
@@ -167,7 +167,7 @@ export class StoreDataManager {
       });
       operations.push('background_sync_triggered');
       
-      console.log(`[STORE-MANAGER] ✅ New store created successfully: ${store.id} with job: ${backgroundJobId}`);
+      console.log(`[SYNC:INFO] ✅ New store created successfully: ${store.id} with job: ${backgroundJobId}`);
 
       return {
         success: true,
@@ -178,7 +178,7 @@ export class StoreDataManager {
       };
 
     } catch (error) {
-      console.error('[STORE-MANAGER] ❌ New store creation failed:', error);
+      console.error('[SYNC:ERROR] ❌ New store creation failed:', error);
       
       return {
         success: false,
@@ -202,7 +202,7 @@ export class StoreDataManager {
     const operations: string[] = [];
     
     try {
-      console.log(`[STORE-MANAGER] Reconnecting existing store: ${storeId}`);
+      console.log(`[SYNC:INFO] 🔄 Reconnecting existing store: ${storeId}`);
       
       // PASO 1: Obtener access token
       let accessToken = oauthData.accessToken;
@@ -215,7 +215,7 @@ export class StoreDataManager {
       }
 
       // PASO 2: Validar nuevo token
-      console.log(`[STORE-MANAGER] Validating new token`);
+      console.log(`[SYNC:INFO] ✅ Validating new token`);
       
       let storeInfo: any = {
         name: oauthData.storeName,
@@ -232,12 +232,12 @@ export class StoreDataManager {
         ]) as any;
         operations.push('new_token_validated');
       } catch (error) {
-        console.warn(`[STORE-MANAGER] Store info fetch failed during reconnection, using fallback values:`, error);
+        console.warn(`[SYNC:WARN] ⚠️ Store info fetch failed during reconnection, using fallback values:`, error);
         operations.push('new_token_fallback');
       }
 
       // PASO 3: Actualizar registro en DB
-      console.log(`[STORE-MANAGER] Updating database record`);
+      console.log(`[SYNC:INFO] 💾 Updating database record`);
       
       const updateData = {
         name: oauthData.storeName || storeInfo.name,
@@ -277,7 +277,7 @@ export class StoreDataManager {
       
       // 🔥 PRODUCTION FIX: Immediate namespace initialization + validation
       try {
-        console.log(`[STORE-MANAGER] 🎯 PRODUCTION FIX: Ensuring all 6 namespaces are created for ${storeId}`);
+        console.log(`[SYNC:INFO] 🎯 PRODUCTION FIX: Ensuring all 6 namespaces are created for ${storeId}`);
         
         // Import RAG engine dynamically
         const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
@@ -288,49 +288,49 @@ export class StoreDataManager {
         
         if (namespaceResult.success) {
           operations.push('immediate_namespaces_initialized');
-          console.log(`[STORE-MANAGER] ✅ Immediate namespace initialization successful for ${storeId}`);
+          console.log(`[SYNC:INFO] ✅ Immediate namespace initialization successful for ${storeId}`);
           
           // STEP 2: Trigger immediate data sync to populate namespaces
           try {
-            console.log(`[STORE-MANAGER] 🚀 Triggering immediate data sync for ${storeId}`);
+            console.log(`[SYNC:INFO] 🚀 Triggering immediate data sync for ${storeId}`);
             const syncResult = await ragEngine.indexStoreData(storeId, accessToken);
             
             if (syncResult.success) {
               operations.push(`immediate_sync_indexed_${syncResult.documentsIndexed}_docs`);
-              console.log(`[STORE-MANAGER] ✅ Immediate sync indexed ${syncResult.documentsIndexed} documents in ${syncResult.namespacesProcessed.length} namespaces`);
+              console.log(`[SYNC:INFO] ✅ Immediate sync indexed ${syncResult.documentsIndexed} documents in ${syncResult.namespacesProcessed.length} namespaces`);
             } else {
-              console.warn(`[STORE-MANAGER] ⚠️ Immediate sync had issues: ${syncResult.error}, but namespaces should be created`);
+                              console.warn(`[SYNC:WARN] ⚠️ Immediate sync had issues: ${syncResult.error}, but namespaces should be created`);
               operations.push('immediate_sync_partial');
             }
           } catch (syncError) {
-            console.warn(`[STORE-MANAGER] ⚠️ Immediate sync failed, but namespaces created: ${syncError instanceof Error ? syncError.message : 'Unknown error'}`);
+            console.warn(`[SYNC:WARN] ⚠️ Immediate sync failed, but namespaces created: ${syncError instanceof Error ? syncError.message : 'Unknown error'}`);
             operations.push('immediate_sync_failed_namespaces_ok');
           }
           
         } else {
-          console.error(`[STORE-MANAGER] ❌ Immediate namespace initialization failed: ${namespaceResult.error}`);
+          console.error(`[SYNC:ERROR] ❌ Immediate namespace initialization failed: ${namespaceResult.error}`);
           operations.push('immediate_namespaces_failed');
           // Don't fail the whole operation - background job might still work
         }
         
       } catch (ragError) {
-        console.error(`[STORE-MANAGER] ❌ Production fix failed: ${ragError instanceof Error ? ragError.message : 'Unknown error'}`);
+        console.error(`[SYNC:ERROR] ❌ Production fix failed: ${ragError instanceof Error ? ragError.message : 'Unknown error'}`);
         operations.push('production_fix_failed');
         // Don't fail the whole operation - background job might still work
       }
       
       // 🔥 ALSO keep the original immediate sync for backward compatibility
       try {
-        console.log(`[STORE-MANAGER] Triggering additional async sync for safety: ${storeId}`);
+        console.log(`[SYNC:INFO] 🔄 Triggering additional async sync for safety: ${storeId}`);
         const { StoreService } = await import('@/lib/database/client');
         await StoreService.syncStoreDataToRAGAsync(storeId);
         operations.push('additional_sync_triggered');
       } catch (syncError) {
-        console.warn(`[STORE-MANAGER] Additional sync failed for ${storeId}:`, syncError);
+        console.warn(`[SYNC:WARN] ⚠️ Additional sync failed for ${storeId}:`, syncError);
         // Don't fail the whole operation if additional sync fails
       }
       
-      console.log(`[STORE-MANAGER] ✅ Store reconnected successfully: ${storeId}`);
+      console.log(`[SYNC:INFO] ✅ Store reconnected successfully: ${storeId}`);
 
       return {
         success: true,
@@ -341,7 +341,7 @@ export class StoreDataManager {
       };
 
     } catch (error) {
-      console.error('[STORE-MANAGER] ❌ Store reconnection failed:', error);
+      console.error('[SYNC:ERROR] ❌ Store reconnection failed:', error);
       
       return {
         success: false,
