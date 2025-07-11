@@ -169,9 +169,8 @@ export class UnifiedFiniRAGEngine {
       console.log(`[UNIFIED-RAG] 🏗️ Initializing namespaces for store: ${storeId}`);
 
       // 🚀 ENHANCED: Add brief delay to ensure store has been properly updated in DB
-      // This prevents race condition where namespace creation happens before store update completes
       console.log(`[UNIFIED-RAG] ⏳ Waiting for store update synchronization...`);
-      await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 second delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
       // 🚀 ENHANCED: Verify store is ready for namespace creation
       try {
@@ -206,34 +205,45 @@ export class UnifiedFiniRAGEngine {
       // Define consistent namespace structure
       const namespaceTypes = ['store', 'products', 'orders', 'customers', 'analytics', 'conversations'];
       
-      // Create namespaces in parallel
-      const initPromises = namespaceTypes.map(type => 
-        this.initializeSingleNamespace(storeId, type)
-      );
+      // 🔥 FIX: Create namespaces sequentially instead of parallel to avoid race conditions
+      // and ensure proper error handling for each namespace
+      const createdNamespaces: string[] = [];
+      const failedNamespaces: { type: string; error: string }[] = [];
       
-      const results = await Promise.allSettled(initPromises);
-      
-      // Check for failures
-      const failures = results.filter(result => result.status === 'rejected');
-      if (failures.length > 0) {
-        console.warn(`[UNIFIED-RAG] ⚠️ Some namespace initializations failed (${failures.length}/${namespaceTypes.length}):`, failures);
-        // Don't fail completely if some succeed
-        const successes = results.length - failures.length;
-        if (successes > 0) {
-          console.log(`[UNIFIED-RAG] ✅ Successfully initialized ${successes}/${namespaceTypes.length} namespaces for store: ${storeId}`);
-          return { success: true };
+      for (const type of namespaceTypes) {
+        try {
+          console.log(`[UNIFIED-RAG] 🔧 Creating namespace for type: ${type}`);
+          await this.initializeSingleNamespace(storeId, type);
+          createdNamespaces.push(type);
+          console.log(`[UNIFIED-RAG] ✅ Successfully created namespace: ${type}`);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          failedNamespaces.push({ type, error: errorMessage });
+          console.error(`[UNIFIED-RAG] ❌ Failed to create namespace ${type}:`, errorMessage);
         }
-      } else {
-        console.log(`[UNIFIED-RAG] ✅ Successfully initialized all ${namespaceTypes.length} namespaces for store: ${storeId}`);
-        return { success: true };
       }
       
-      // If we get here, all initializations failed
-      const errorMessages = failures.map(f => f.status === 'rejected' ? f.reason.message : 'Unknown error');
-      return { 
-        success: false, 
-        error: `Failed to initialize namespaces: ${errorMessages.join(', ')}` 
-      };
+      // Report final results
+      console.log(`[UNIFIED-RAG] 📊 Namespace initialization complete: ${createdNamespaces.length}/${namespaceTypes.length} successful`);
+      
+      if (createdNamespaces.length === namespaceTypes.length) {
+        console.log(`[UNIFIED-RAG] ✅ ALL namespaces initialized successfully for store: ${storeId}`);
+        return { success: true };
+      } else if (createdNamespaces.length > 0) {
+        // Partial success - some namespaces created
+        console.warn(`[UNIFIED-RAG] ⚠️ Partial namespace initialization: ${createdNamespaces.length}/${namespaceTypes.length} created`);
+        console.warn(`[UNIFIED-RAG] ❌ Failed namespaces:`, failedNamespaces);
+        return { 
+          success: false, 
+          error: `Only ${createdNamespaces.length}/${namespaceTypes.length} namespaces created. Failed: ${failedNamespaces.map(f => `${f.type} (${f.error})`).join(', ')}` 
+        };
+      } else {
+        // Total failure
+        return { 
+          success: false, 
+          error: `All namespace initializations failed: ${failedNamespaces.map(f => `${f.type} (${f.error})`).join(', ')}` 
+        };
+      }
       
     } catch (error) {
       console.error('[UNIFIED-RAG] ❌ Failed to initialize store namespaces:', error);
