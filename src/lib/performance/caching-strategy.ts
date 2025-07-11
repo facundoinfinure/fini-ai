@@ -554,7 +554,7 @@ export class CachingSystem {
    */
   updateConfig(newConfig: Partial<CacheConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    logger.info('[CACHE] Configuration updated', this.config);
+    logger.info('[CACHE] Configuration updated', { config: this.config });
   }
 
   /**
@@ -576,7 +576,7 @@ export class CachingSystem {
   /**
    * Limpia recursos
    */
-  cleanup(): void {
+  destroy(): void {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
     }

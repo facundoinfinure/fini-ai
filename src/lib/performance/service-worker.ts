@@ -619,8 +619,13 @@ console.log('[SW] Service Worker loaded, version:', CACHE_VERSION);
     if (!this.registration) return;
 
     try {
-      await this.registration.sync.register('background-sync');
-      logger.info('[SW] Background sync registered');
+      // Verificar si background sync está disponible
+      if ('sync' in this.registration) {
+        await (this.registration as any).sync.register('background-sync');
+        logger.info('[SW] Background sync registered');
+      } else {
+        logger.warn('[SW] Background sync not supported');
+      }
     } catch (error) {
       logger.error('[SW] Background sync registration failed', error);
     }
