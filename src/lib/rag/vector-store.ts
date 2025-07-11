@@ -591,6 +591,7 @@ export class PineconeVectorStore implements VectorStore {
   /**
    * Get namespace for a chunk based on its metadata
    * 🔥 FIX: Added store validation to prevent namespace creation for inactive stores
+   * 🚀 ENHANCED: Allow namespace creation for recently reconnected stores
    */
   private async getNamespace(chunk: DocumentChunk): Promise<string> {
     const { storeId, type } = chunk.metadata;
@@ -604,7 +605,12 @@ export class PineconeVectorStore implements VectorStore {
     const { waitForStoreUnlock } = await import('@/lib/rag/global-locks');
     await waitForStoreUnlock(storeId, 3000); // Wait up to 3 seconds for deletion to complete
     
-    // 🔥 FIX: RACE CONDITION PROTECTION - Triple validation with cache busting
+    // 🚀 ENHANCED: Special handling for namespace initialization (placeholder documents)
+    const isInitializationPlaceholder = chunk.metadata.isPlaceholder === true || 
+                                       chunk.metadata.source === 'initialization' ||
+                                       chunk.content?.includes('Namespace initialized for');
+    
+    // 🔥 FIX: RACE CONDITION PROTECTION - Enhanced validation with reconnection support
     try {
       const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
@@ -612,44 +618,88 @@ export class PineconeVectorStore implements VectorStore {
       // First check: Direct DB query (bypasses any cache)
       const { data: store, error } = await supabase
         .from('stores')
-        .select('is_active, updated_at')
+        .select('is_active, updated_at, created_at')
         .eq('id', storeId)
         .single();
-        
+      
+      // 🚀 ENHANCED: If store doesn't exist or is inactive, check if it's a recent creation/reconnection
       if (error || !store || !store.is_active) {
-        console.error(`[RAG:SECURITY] BLOCKED namespace creation - Store ${storeId} is inactive. DB check: is_active=${store?.is_active}, error=${error?.message}`);
-        throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive/deleted store: ${storeId}`);
-      }
-      
-      // Second check: Recent deletion protection (if updated in last 10 seconds, double-check)
-      const updatedAt = new Date(store.updated_at);
-      const now = new Date();
-      const timeDiff = now.getTime() - updatedAt.getTime();
-      
-      if (timeDiff < 10000) { // Less than 10 seconds
-        console.warn(`[RAG:SECURITY] Recent store update detected (${timeDiff}ms ago), double-checking...`);
         
-        // Wait a moment and re-check to avoid race conditions
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        const { data: doubleCheck, error: doubleError } = await supabase
-          .from('stores')
-          .select('is_active')
-          .eq('id', storeId)
-          .single();
-          
-        if (doubleError || !doubleCheck || !doubleCheck.is_active) {
-          console.error(`[RAG:SECURITY] DOUBLE-CHECK FAILED - Store ${storeId} became inactive during namespace creation`);
+        // Special case: Allow initialization placeholders for recently created stores
+        if (isInitializationPlaceholder) {
+          // Check if store exists but might be in transition
+          if (store && !store.is_active) {
+            const createdAt = new Date(store.created_at);
+            const updatedAt = new Date(store.updated_at);
+            const now = new Date();
+            const createdRecently = (now.getTime() - createdAt.getTime()) < 30000; // 30 seconds
+            const updatedRecently = (now.getTime() - updatedAt.getTime()) < 30000; // 30 seconds
+            
+            if (createdRecently || updatedRecently) {
+              console.warn(`[RAG:SECURITY] 🟡 ALLOWING namespace initialization for recently created/updated store ${storeId} (created: ${createdRecently}, updated: ${updatedRecently})`);
+              // Continue to namespace creation without throwing error
+            } else {
+              console.error(`[RAG:SECURITY] BLOCKED namespace creation - Store ${storeId} is inactive and not recently created. DB check: is_active=${store?.is_active}, error=${error?.message}`);
+              throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive/deleted store: ${storeId}`);
+            }
+          } else if (!store) {
+            // Store doesn't exist at all - this is an error
+            console.error(`[RAG:SECURITY] BLOCKED namespace creation - Store ${storeId} not found. Error: ${error?.message}`);
+            throw new Error(`[RAG:SECURITY] Cannot create namespace for non-existent store: ${storeId}`);
+          }
+        } else {
+          // Non-placeholder documents must have active stores
+          console.error(`[RAG:SECURITY] BLOCKED namespace creation - Store ${storeId} is inactive. DB check: is_active=${store?.is_active}, error=${error?.message}`);
           throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive/deleted store: ${storeId}`);
+        }
+      } else {
+        // Store is active - check for recent updates that might indicate reconnection
+        const updatedAt = new Date(store.updated_at);
+        const now = new Date();
+        const timeDiff = now.getTime() - updatedAt.getTime();
+        
+        if (timeDiff < 10000) { // Less than 10 seconds
+          console.warn(`[RAG:SECURITY] Recent store update detected (${timeDiff}ms ago), double-checking...`);
+          
+          // Wait a moment and re-check to avoid race conditions
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          const { data: doubleCheck, error: doubleError } = await supabase
+            .from('stores')
+            .select('is_active')
+            .eq('id', storeId)
+            .single();
+            
+          if (doubleError || !doubleCheck || !doubleCheck.is_active) {
+            // 🚀 ENHANCED: For placeholders, allow this to proceed if it's a recent update
+            if (isInitializationPlaceholder && timeDiff < 30000) {
+              console.warn(`[RAG:SECURITY] 🟡 ALLOWING namespace initialization despite double-check failure for recently updated store ${storeId}`);
+              // Continue to namespace creation
+            } else {
+              console.error(`[RAG:SECURITY] DOUBLE-CHECK FAILED - Store ${storeId} became inactive during namespace creation`);
+              throw new Error(`[RAG:SECURITY] Cannot create namespace for inactive/deleted store: ${storeId}`);
+            }
+          }
         }
       }
       
     } catch (validationError) {
-      console.error(`[RAG:SECURITY] Store validation failed for ${storeId}:`, validationError);
-      throw new Error(`Store validation failed: ${storeId}`);
+      // 🚀 ENHANCED: Check if this is a network/database error that we should be more lenient about for placeholders
+      if (isInitializationPlaceholder && validationError instanceof Error && 
+          (validationError.message.includes('network') || 
+           validationError.message.includes('timeout') ||
+           validationError.message.includes('connection'))) {
+        console.warn(`[RAG:SECURITY] 🟡 ALLOWING namespace initialization despite validation error for placeholder: ${validationError.message}`);
+        // Continue to namespace creation
+      } else {
+        console.error(`[RAG:SECURITY] Store validation failed for ${storeId}:`, validationError);
+        throw new Error(`Store validation failed: ${storeId}`);
+      }
     }
     
-    console.warn(`[RAG:SECURITY] Creating namespace for store ${storeId}, type: ${type}`);
+    // 🚀 ENHANCED: Log the type of operation being performed
+    const operationType = isInitializationPlaceholder ? 'INITIALIZATION' : 'DATA_INDEXING';
+    console.warn(`[RAG:SECURITY] Creating namespace for store ${storeId}, type: ${type}, operation: ${operationType}`);
     
     switch (type) {
       case 'product':

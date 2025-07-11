@@ -162,10 +162,46 @@ export class UnifiedFiniRAGEngine {
   /**
    * 🏗️ Initialize consistent namespace structure for a store
    * Implements the unified namespace strategy from architecture doc
+   * 🚀 ENHANCED: Wait for store to be fully synchronized before namespace creation
    */
   async initializeStoreNamespaces(storeId: string): Promise<{ success: boolean; error?: string }> {
     try {
       console.log(`[UNIFIED-RAG] 🏗️ Initializing namespaces for store: ${storeId}`);
+
+      // 🚀 ENHANCED: Add brief delay to ensure store has been properly updated in DB
+      // This prevents race condition where namespace creation happens before store update completes
+      console.log(`[UNIFIED-RAG] ⏳ Waiting for store update synchronization...`);
+      await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 second delay
+      
+      // 🚀 ENHANCED: Verify store is ready for namespace creation
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        
+        const { data: store, error } = await supabase
+          .from('stores')
+          .select('is_active, updated_at, created_at')
+          .eq('id', storeId)
+          .single();
+          
+        if (error || !store) {
+          console.warn(`[UNIFIED-RAG] ⚠️ Store not found during namespace initialization: ${storeId}, continuing anyway for placeholders`);
+        } else {
+          const updatedAt = new Date(store.updated_at);
+          const now = new Date();
+          const timeSinceUpdate = now.getTime() - updatedAt.getTime();
+          
+          console.log(`[UNIFIED-RAG] 📊 Store ${storeId} status: active=${store.is_active}, updated_${timeSinceUpdate}ms ago`);
+          
+          // If store was updated very recently (less than 30 seconds), it's likely a reconnection
+          if (timeSinceUpdate < 30000) {
+            console.log(`[UNIFIED-RAG] 🔄 Detected recent store update (${timeSinceUpdate}ms ago), treating as reconnection scenario`);
+          }
+        }
+      } catch (storeCheckError) {
+        console.warn(`[UNIFIED-RAG] ⚠️ Store check failed during namespace initialization:`, storeCheckError);
+        // Continue anyway - might be a network issue
+      }
 
       // Define consistent namespace structure
       const namespaceTypes = ['store', 'products', 'orders', 'customers', 'analytics', 'conversations'];
@@ -180,12 +216,25 @@ export class UnifiedFiniRAGEngine {
       // Check for failures
       const failures = results.filter(result => result.status === 'rejected');
       if (failures.length > 0) {
-        console.warn(`[UNIFIED-RAG] ⚠️ Some namespace initializations failed:`, failures);
+        console.warn(`[UNIFIED-RAG] ⚠️ Some namespace initializations failed (${failures.length}/${namespaceTypes.length}):`, failures);
+        // Don't fail completely if some succeed
+        const successes = results.length - failures.length;
+        if (successes > 0) {
+          console.log(`[UNIFIED-RAG] ✅ Successfully initialized ${successes}/${namespaceTypes.length} namespaces for store: ${storeId}`);
+          return { success: true };
+        }
+      } else {
+        console.log(`[UNIFIED-RAG] ✅ Successfully initialized all ${namespaceTypes.length} namespaces for store: ${storeId}`);
+        return { success: true };
       }
       
-      console.log(`[UNIFIED-RAG] ✅ Initialized ${namespaceTypes.length} namespaces for store: ${storeId}`);
+      // If we get here, all initializations failed
+      const errorMessages = failures.map(f => f.status === 'rejected' ? f.reason.message : 'Unknown error');
+      return { 
+        success: false, 
+        error: `Failed to initialize namespaces: ${errorMessages.join(', ')}` 
+      };
       
-      return { success: true };
     } catch (error) {
       console.error('[UNIFIED-RAG] ❌ Failed to initialize store namespaces:', error);
       return { 

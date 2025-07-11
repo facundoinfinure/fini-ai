@@ -1,56 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 
-export async function GET() {
+/**
+ * 🐛 DEBUG ENDPOINT: List All Stores
+ * ==================================
+ * 
+ * Lists all stores in the database for debugging purposes.
+ * Only works in development mode.
+ */
+export async function GET(request: NextRequest) {
   try {
-    console.log('[DEBUG-LIST-STORES] Listing all stores...');
+    // Only allow in development
+    if (process.env.NODE_ENV !== 'development') {
+      return NextResponse.json({
+        success: false,
+        error: 'This endpoint is only available in development mode'
+      }, { status: 403 });
+    }
 
-    const supabase = createClient();
+    console.log('[DEBUG] 📋 Listing all stores...');
+    
+    const supabase = createServiceClient();
 
     // Get all stores
     const { data: stores, error } = await supabase
       .from('stores')
-      .select('id, name, platform, platform_store_id, user_id, is_active, created_at, updated_at')
+      .select('*')
       .order('created_at', { ascending: false });
-
+      
     if (error) {
-      console.error('[DEBUG-LIST-STORES] Error fetching stores:', error);
+      console.error('[DEBUG] ❌ Database error:', error);
       return NextResponse.json({
         success: false,
-        error: 'Failed to fetch stores',
-        details: error.message
-      });
+        error: `Database error: ${error.message}`
+      }, { status: 500 });
     }
 
-    console.log('[DEBUG-LIST-STORES] Found stores:', stores?.length || 0);
-
-    // Filter TiendaNube stores
-    const tiendanubeStores = stores?.filter(store => store.platform === 'tiendanube') || [];
+    console.log(`[DEBUG] 📊 Found ${stores?.length || 0} stores`);
 
     return NextResponse.json({
       success: true,
-      data: {
-        totalStores: stores?.length || 0,
-        tiendanubeStores: tiendanubeStores.length,
-        stores: stores?.map(store => ({
-          id: store.id,
-          name: store.name,
-          platform: store.platform,
-          platformStoreId: store.platform_store_id,
-          userId: store.user_id,
-          isActive: store.is_active,
-          createdAt: store.created_at,
-          updatedAt: store.updated_at
-        })) || []
-      }
+      message: `Found ${stores?.length || 0} stores`,
+      stores: stores?.map(store => ({
+        id: store.id,
+        name: store.name,
+        user_id: store.user_id,
+        platform: store.platform,
+        is_active: store.is_active,
+        created_at: store.created_at,
+        updated_at: store.updated_at,
+        last_sync_at: store.last_sync_at,
+        has_token: !!store.access_token
+      })) || []
     });
 
   } catch (error) {
-    console.error('[DEBUG-LIST-STORES] Unexpected error:', error);
+    console.error('[DEBUG] ❌ Fatal error:', error);
+    
     return NextResponse.json({
       success: false,
-      error: 'Unexpected error',
-      details: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 } 

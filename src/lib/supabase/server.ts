@@ -50,4 +50,34 @@ export function createClient() {
     console.error('[ERROR] Failed to create Supabase client:', error)
     throw error
   }
+}
+
+// Service client for admin operations (bypasses RLS)
+export function createServiceClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing Supabase service configuration')
+  }
+
+  try {
+    const client = createServerClient(
+      supabaseUrl,
+      supabaseServiceKey,
+      {
+        cookies: {
+          get() { return undefined },
+          set() {},
+          remove() {},
+        },
+      }
+    )
+    
+    console.log('[DEBUG] Supabase service client created successfully')
+    return client
+  } catch (error) {
+    console.error('[ERROR] Failed to create Supabase service client:', error)
+    throw error
+  }
 } 
