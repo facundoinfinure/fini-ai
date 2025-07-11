@@ -15,7 +15,7 @@
  * - Reconexión OAuth unificada
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 
 export type Platform = 'tiendanube' | 'shopify' | 'woocommerce' | 'other';
 
@@ -75,7 +75,7 @@ export class UniversalTokenManager {
     try {
       console.log(`[UNIVERSAL-TOKEN] Getting valid token for store: ${storeId}`);
       
-      const supabase = createClient();
+      const supabase = createServiceClient(); // Use service client to bypass RLS
       
       // Buscar store por ID (UUID interno) o platform_store_id
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(storeId);
@@ -135,7 +135,7 @@ export class UniversalTokenManager {
     try {
       console.log(`[UNIVERSAL-TOKEN] Getting complete store data for: ${storeId}`);
       
-      const supabase = createClient();
+      const supabase = createServiceClient(); // Use service client to bypass RLS
       
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(storeId);
       const searchField = isUUID ? 'id' : 'platform_store_id';
@@ -323,7 +323,7 @@ export class UniversalTokenManager {
     try {
       console.log(`[UNIVERSAL-TOKEN] Marking store for reconnection: ${storeId}, Reason: ${reason}`);
       
-      const supabase = createClient();
+      const supabase = createServiceClient(); // Use service client to bypass RLS
       
       const { error } = await supabase
         .from('stores')
@@ -376,7 +376,7 @@ export class UniversalTokenManager {
   async validateUserStores(userId: string): Promise<ReconnectionData[]> {
     console.log(`[UNIVERSAL-TOKEN] Validating all stores for user: ${userId}`);
     
-    const supabase = createClient();
+    const supabase = createServiceClient(); // Use service client to bypass RLS
     
     const { data: stores, error } = await supabase
       .from('stores')
@@ -434,7 +434,7 @@ export class UniversalTokenManager {
   }> {
     console.log(`[UNIVERSAL-TOKEN] Running system-wide health check...`);
     
-    const supabase = createClient();
+    const supabase = createServiceClient(); // Use service client to bypass RLS
     
     const { data: stores, error } = await supabase
       .from('stores')

@@ -17,7 +17,7 @@
  * - Re-autorización OAuth cuando token es inválido
  */
 
-import { createClient } from '@/lib/supabase/client';
+import { createServiceClient } from '@/lib/supabase/server';
 import { TiendaNubeAPI } from './tiendanube';
 import { StoreService } from '@/lib/database/client';
 
@@ -136,7 +136,7 @@ export class TiendaNubeTokenManager {
     try {
       console.log(`[TOKEN] Getting valid token and store data for store: ${storeId}`);
       
-      const supabase = createClient();
+      const supabase = createServiceClient(); // Use service client to bypass RLS
       
       // 🔥 FIX: Determine if storeId is a UUID (our internal ID) or platform store ID (Tienda Nube ID)
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(storeId);
@@ -372,7 +372,7 @@ export class TiendaNubeTokenManager {
   async validateUserStores(userId: string): Promise<StoreReconnectionData[]> {
     console.log('[INFO] Validating all TiendaNube stores for user:', userId);
     
-    const supabase = createClient();
+    const supabase = createServiceClient(); // Use service client to bypass RLS
     
     // Get all active TiendaNube stores for user
     const { data: stores, error } = await supabase
@@ -494,7 +494,7 @@ export class TiendaNubeTokenManager {
   }> {
     console.log('[INFO] Running TiendaNube health check...');
     
-    const supabase = createClient();
+    const supabase = createServiceClient(); // Use service client to bypass RLS
     
     // Get all active TiendaNube stores
     const { data: stores, error } = await supabase
