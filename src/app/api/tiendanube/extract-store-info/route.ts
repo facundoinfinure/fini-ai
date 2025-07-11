@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering to prevent static build errors
+export const dynamic = 'force-dynamic';
+
 interface ExtractStoreInfoRequest {
   storeUrl: string;
 }

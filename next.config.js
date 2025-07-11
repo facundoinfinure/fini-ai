@@ -7,8 +7,9 @@ const nextConfig = {
   output: 'standalone',
   experimental: {
     turbo: {
-      loaders: {
-        // Add loaders
+      rules: {
+        // Updated from loaders to rules as per Next.js 14.2.30 deprecation warning
+        // Add rules here if needed
       },
     },
     optimizeCss: true,

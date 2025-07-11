@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { exchangeCodeForToken } from '@/lib/integrations/tiendanube';
 
+// Force dynamic rendering to prevent static build errors
+export const dynamic = 'force-dynamic';
+
 /**
  * 🚀 ULTRA-SIMPLE OAuth Callback
  * ==============================

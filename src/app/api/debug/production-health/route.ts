@@ -9,6 +9,9 @@ import { TiendaNubeAPI } from '@/lib/integrations/tiendanube';
 import { TiendaNubeTokenManager } from '@/lib/integrations/tiendanube-token-manager';
 import { getUnifiedRAGEngine } from '@/lib/rag/unified-rag-engine';
 
+// Force dynamic rendering to prevent static build errors
+export const dynamic = 'force-dynamic';
+
 interface HealthCheckResult {
   service: string;
   status: 'healthy' | 'warning' | 'error';

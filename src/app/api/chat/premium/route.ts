@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server';
 import { premiumRAG } from '@/lib/rag/premium-rag-engine';
 import { MessageService } from '@/lib/database/client';
 
+// Force dynamic rendering to prevent static build errors
+export const dynamic = 'force-dynamic';
+
 /**
  * Premium Chat Endpoint - ChatGPT-like experience with enhanced RAG
  * POST /api/chat/premium
