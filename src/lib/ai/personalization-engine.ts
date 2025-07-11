@@ -4,7 +4,6 @@
  */
 
 import { logger } from '../logger';
-import { segment } from '../analytics/segment-integration';
 import { recommendationEngine, UserProfile } from './recommendation-engine';
 import { predictiveAnalytics } from './predictive-analytics';
 import { performanceManager } from '../performance/performance-manager';
@@ -299,8 +298,8 @@ export class PersonalizationEngine {
       timestamp: Date.now()
     };
 
-    // Track analytics
-    await segment.track({
+    // Log analytics
+    logger.info('[PERSONALIZATION] Dashboard generated', {
       event: 'Personalized Dashboard Generated',
       userId,
       properties: {
@@ -824,8 +823,8 @@ export class PersonalizationEngine {
         improvement: Math.random() * 0.4 + 0.1 // Simulado
       };
 
-      // Track analytics
-      await segment.track({
+      // Log analytics
+      logger.info('[PERSONALIZATION] Auto optimization applied', {
         event: 'Auto Optimization Applied',
         userId,
         properties: {
@@ -901,8 +900,8 @@ export class PersonalizationEngine {
       this.dashboards.delete(userId);
     }
 
-    // Track analytics
-    await segment.track({
+    // Log analytics
+    logger.info('[PERSONALIZATION] User behavior updated', {
       event: 'User Behavior Updated',
       userId,
       properties: {
