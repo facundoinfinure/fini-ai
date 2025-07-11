@@ -5,7 +5,7 @@
 
 import { createServiceClient } from '@/lib/supabase/server';
 import { TiendaNubeTokenManager } from '@/lib/integrations/tiendanube-token-manager';
-import { FiniRAGEngine } from '@/lib/rag/fini-rag-engine';
+import { FiniRAGEngine } from '@/lib/rag/rag-engine';
 
 export interface HealthCheckResult {
   service: string;
@@ -181,9 +181,6 @@ export class ConnectionHealthChecker {
         throw new Error('Missing Tienda Nube credentials');
       }
 
-      // Test con token manager
-      const tokenManager = new TiendaNubeTokenManager();
-      
       // Obtener tienda de prueba (si existe)
       const supabase = createServiceClient();
       const { data: testStore } = await supabase
@@ -196,7 +193,7 @@ export class ConnectionHealthChecker {
       let tokenTest = 'NO_STORE_TO_TEST';
       if (testStore) {
         try {
-          const token = await tokenManager.getValidToken(testStore.id);
+          const token = await TiendaNubeTokenManager.getValidToken(testStore.id);
           tokenTest = token ? 'VALID' : 'INVALID';
         } catch (error) {
           tokenTest = 'ERROR';
@@ -248,8 +245,14 @@ export class ConnectionHealthChecker {
       // Test con RAG engine
       const ragEngine = new FiniRAGEngine();
       
-      // Test básico de conexión
-      const connectionTest = await ragEngine.testConnection();
+      // Test básico de conexión usando getStats()
+      let connectionTest = false;
+      try {
+        const stats = await ragEngine.getStats();
+        connectionTest = stats.isConfigured && stats.errors.length === 0;
+      } catch (error) {
+        connectionTest = false;
+      }
       
       // Test de namespace (si existe alguno)
       const supabase = createServiceClient();
@@ -263,9 +266,13 @@ export class ConnectionHealthChecker {
       let namespaceTest = 'NO_STORE_TO_TEST';
       if (testStore) {
         try {
-          const namespace = `store-${testStore.id}`;
-          const stats = await ragEngine.getNamespaceStats(namespace);
-          namespaceTest = stats ? 'OK' : 'EMPTY';
+          // Usar search para verificar si el namespace existe
+          const searchResult = await ragEngine.search({
+            query: 'test connection',
+            context: { storeId: testStore.id, userId: 'health-check' },
+            options: { topK: 1 }
+          });
+          namespaceTest = 'OK';
         } catch (error) {
           namespaceTest = 'ERROR';
         }

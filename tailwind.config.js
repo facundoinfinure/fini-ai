@@ -23,6 +23,17 @@ module.exports = {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			primary: {
+  				50: 'var(--primary-50)',
+  				100: 'var(--primary-100)',
+  				200: 'var(--primary-200)',
+  				300: 'var(--primary-300)',
+  				400: 'var(--primary-400)',
+  				500: 'var(--primary-500)',
+  				600: 'var(--primary-600)',
+  				700: 'var(--primary-700)',
+  				800: 'var(--primary-800)',
+  				900: 'var(--primary-900)',
+  				950: 'var(--primary-950)',
   				DEFAULT: 'hsl(var(--primary))',
   				foreground: 'hsl(var(--primary-foreground))'
   			},
@@ -62,6 +73,11 @@ module.exports = {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
+  		},
+  		transitionTimingFunction: {
+  			'smooth': 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+  			'bounce': 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+  			'elastic': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)'
   		},
   		keyframes: {
   			'accordion-down': {

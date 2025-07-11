@@ -93,7 +93,7 @@
 
   /* Focus styles mejorados */
   *:focus-visible {
-    @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+    @apply outline-none ring-2 ring-green-500 ring-offset-2;
   }
 
   /* Tipografía mejorada */
@@ -127,7 +127,7 @@
 
   /* Enlaces mejorados */
   a {
-    @apply text-primary-600 hover:text-primary-700 transition-colors duration-200;
+    @apply text-green-600 hover:text-green-700 transition-colors duration-200;
   }
 
   /* Formularios mejorados */
