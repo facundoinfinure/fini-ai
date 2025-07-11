@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server';
 import { TiendaNubeAPI } from '@/lib/integrations/tiendanube';
 import { Pinecone } from '@pinecone-database/pinecone';
 import { EmbeddingsService } from '@/lib/rag/embeddings';
+import type { TiendaNubeProduct, TiendaNubeOrder, TiendaNubeCustomer } from '@/types/tiendanube';
 
 export interface SyncProgress {
   step: string;
@@ -159,7 +160,7 @@ export class SimpleStoreSync {
         const placeholderContent = `Namespace inicializado para ${namespace.split('-').pop()} en tienda ${storeId}`;
         const embedding = await this.embeddings.generateEmbedding(placeholderContent);
         
-        if (embedding.success && embedding.embedding) {
+        if (embedding && embedding.embedding) {
           await index.namespace(namespace).upsert([{
             id: `placeholder-${namespace}`,
             values: embedding.embedding,
@@ -184,7 +185,7 @@ export class SimpleStoreSync {
    */
   private async syncProducts(api: TiendaNubeAPI, storeId: string): Promise<number> {
     try {
-      const products = await api.getProducts();
+      const products: TiendaNubeProduct[] = await api.getProducts();
       const indexName = process.env.PINECONE_INDEX_NAME!;
       const index = this.pinecone.Index(indexName);
       const namespace = `store-${storeId}-products`;
@@ -195,17 +196,17 @@ export class SimpleStoreSync {
         try {
           // Crear contenido rico para el embedding
           const content = `
-            Producto: ${product.name.es || product.name}
-            Descripción: ${product.description?.es || product.description || 'Sin descripción'}
+            Producto: ${product.name}
+            Descripción: ${product.description || 'Sin descripción'}
             Precio: $${product.variants?.[0]?.price || 'No disponible'}
-            Categorías: ${product.categories?.map(c => c.name?.es || c.name).join(', ') || 'Sin categoría'}
+            Categorías: ${product.categories?.map(c => c.name).join(', ') || 'Sin categoría'}
             Estado: ${product.published ? 'Publicado' : 'No publicado'}
             SKU: ${product.variants?.[0]?.sku || 'Sin SKU'}
           `.trim();
 
           const embedding = await this.embeddings.generateEmbedding(content);
 
-          if (embedding.success && embedding.embedding) {
+          if (embedding && embedding.embedding) {
             await index.namespace(namespace).upsert([{
               id: `product-${product.id}`,
               values: embedding.embedding,
@@ -213,8 +214,8 @@ export class SimpleStoreSync {
                 type: 'product',
                 storeId,
                 productId: product.id,
-                name: product.name.es || product.name,
-                price: product.variants?.[0]?.price || 0,
+                name: product.name,
+                price: parseFloat(product.variants?.[0]?.price || '0'),
                 published: product.published,
                 content,
                 timestamp: new Date().toISOString()
@@ -242,7 +243,7 @@ export class SimpleStoreSync {
    */
   private async syncOrders(api: TiendaNubeAPI, storeId: string): Promise<number> {
     try {
-      const orders = await api.getOrders({ limit: 50 }); // Últimos 50 pedidos
+      const orders: TiendaNubeOrder[] = await api.getOrders({ limit: 50 }); // Últimos 50 pedidos
       const indexName = process.env.PINECONE_INDEX_NAME!;
       const index = this.pinecone.Index(indexName);
       const namespace = `store-${storeId}-orders`;
@@ -255,7 +256,8 @@ export class SimpleStoreSync {
           const content = `
             Pedido #${order.number || order.id}
             Total: $${order.total}
-            Estado: ${order.fulfillment_status || order.payment_status}
+            Estado: ${order.status}
+            Estado de pago: ${order.payment_status}
             Cliente: ${order.customer?.name || 'Cliente sin nombre'}
             Email: ${order.customer?.email || 'Sin email'}
             Fecha: ${order.created_at}
@@ -264,7 +266,7 @@ export class SimpleStoreSync {
 
           const embedding = await this.embeddings.generateEmbedding(content);
 
-          if (embedding.success && embedding.embedding) {
+          if (embedding && embedding.embedding) {
             await index.namespace(namespace).upsert([{
               id: `order-${order.id}`,
               values: embedding.embedding,
@@ -273,8 +275,8 @@ export class SimpleStoreSync {
                 storeId,
                 orderId: order.id,
                 orderNumber: order.number,
-                total: order.total,
-                status: order.fulfillment_status || order.payment_status,
+                total: parseFloat(order.total),
+                status: order.status,
                 customerEmail: order.customer?.email,
                 content,
                 timestamp: new Date().toISOString()
@@ -302,7 +304,7 @@ export class SimpleStoreSync {
    */
   private async syncCustomers(api: TiendaNubeAPI, storeId: string): Promise<number> {
     try {
-      const customers = await api.getCustomers({ limit: 100 }); // Últimos 100 clientes
+      const customers: TiendaNubeCustomer[] = await api.getCustomers({ limit: 100 }); // Últimos 100 clientes
       const indexName = process.env.PINECONE_INDEX_NAME!;
       const index = this.pinecone.Index(indexName);
       const namespace = `store-${storeId}-customers`;
@@ -316,14 +318,15 @@ export class SimpleStoreSync {
             Cliente: ${customer.name || 'Sin nombre'}
             Email: ${customer.email}
             Teléfono: ${customer.phone || 'Sin teléfono'}
-            Pedidos totales: ${customer.total_spent || 0}
-            Última compra: ${customer.last_order_date || 'Nunca'}
-            Estado: ${customer.accepts_marketing ? 'Acepta marketing' : 'No acepta marketing'}
+            Total gastado: $${customer.total_spent || '0'}
+            Último pedido ID: ${customer.last_order_id || 'Ninguno'}
+            Activo: ${customer.active ? 'Sí' : 'No'}
+            Primera interacción: ${customer.first_interaction}
           `.trim();
 
           const embedding = await this.embeddings.generateEmbedding(content);
 
-          if (embedding.success && embedding.embedding) {
+          if (embedding && embedding.embedding) {
             await index.namespace(namespace).upsert([{
               id: `customer-${customer.id}`,
               values: embedding.embedding,
@@ -333,7 +336,7 @@ export class SimpleStoreSync {
                 customerId: customer.id,
                 email: customer.email,
                 name: customer.name,
-                totalSpent: customer.total_spent || 0,
+                totalSpent: parseFloat(customer.total_spent || '0'),
                 content,
                 timestamp: new Date().toISOString()
               }
@@ -373,13 +376,13 @@ export class SimpleStoreSync {
         País: ${storeInfo.country}
         Moneda: ${storeInfo.currency}
         Idioma: ${storeInfo.language}
-        Plan: ${storeInfo.plan_name || 'Plan básico'}
+        Email: ${storeInfo.email}
         Activa desde: ${storeInfo.created_at}
       `.trim();
 
       const embedding = await this.embeddings.generateEmbedding(content);
 
-      if (embedding.success && embedding.embedding) {
+      if (embedding && embedding.embedding) {
         await index.namespace(namespace).upsert([{
           id: `store-info-${storeId}`,
           values: embedding.embedding,
