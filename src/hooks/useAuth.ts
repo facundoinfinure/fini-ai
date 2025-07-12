@@ -64,32 +64,11 @@ export function useAuth() {
 
     const initializeAutoSyncForUser = async (userId: string) => {
       try {
-        console.log('[INFO] Initializing auto-sync for user:', userId)
-        
-        // Call the auto-sync scheduler API to initialize for user
-        const response = await fetch('/api/stores/auto-sync-scheduler', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'initialize'
-          })
-        })
-        
-        if (!response.ok) {
-          console.error('[ERROR] Failed to initialize auto-sync:', response.statusText)
-          return
-        }
-        
-        const result = await response.json()
-        if (result.success) {
-          console.log('[INFO] Auto-sync initialized successfully for user:', userId)
-        } else {
-          console.error('[ERROR] Failed to initialize auto-sync:', result.error)
-        }
+        console.log('[INFO] Auto-sync is now immediate - no initialization needed for user:', userId)
+        // 🔥 NEW: Auto-sync is now immediate when stores are connected/reconnected
+        // No need for separate initialization as SimpleStoreSync handles everything
       } catch (error) {
-        console.error('[ERROR] Exception initializing auto-sync:', error)
+        console.error('[ERROR] Exception in auto-sync check:', error)
         // Don't throw error, just log it
       }
     }

@@ -7,6 +7,11 @@ import { getStoreDataManager, type OAuthData } from '@/lib/services/store-data-m
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// 🔥 FIX: Configuración de timeouts para cumplir con límites de Vercel (max 10s)
+const VERCEL_SAFE_TIMEOUT = 8000; // 8 segundos - margen de seguridad de 2s
+const TOKEN_EXCHANGE_TIMEOUT = 5000; // 5 segundos para token exchange
+const STORE_CHECK_TIMEOUT = 2000; // 2 segundos para verificar store existente
+
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
   
@@ -63,12 +68,12 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      console.log('🚀 [UNIFIED-CALLBACK] Using unified architecture...');
+      console.log('🚀 [UNIFIED-CALLBACK] Using ultra-fast architecture...');
       
-      // PASO 1: Exchange code for token (ULTRA-FAST)
+      // 🔥 FIX: PASO 1 - Exchange code for token (TIMEOUT REDUCIDO)
       const authResult = await Promise.race([
         exchangeCodeForToken(code),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Token exchange timeout')), 15000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Token exchange timeout')), TOKEN_EXCHANGE_TIMEOUT))
       ]) as any;
 
       if (!authResult || !authResult.access_token || !authResult.user_id) {
@@ -77,7 +82,7 @@ export async function GET(request: NextRequest) {
 
       console.log('✅ [UNIFIED-CALLBACK] Token exchange successful');
 
-      // PASO 2: Check if store already exists for reconnection logic
+      // 🔥 FIX: PASO 2 - Check existing store (TIMEOUT ULTRA-REDUCIDO) 
       const { data: existingStore } = await Promise.race([
         supabase
           .from('stores')
@@ -86,7 +91,7 @@ export async function GET(request: NextRequest) {
           .eq('platform_store_id', authResult.user_id.toString())
           .eq('platform', 'tiendanube')
           .single(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Store check timeout')), 5000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Store check timeout')), STORE_CHECK_TIMEOUT))
       ]).catch(error => {
         console.warn('⚠️ [UNIFIED-CALLBACK] Store check failed, proceeding as new store:', error);
         return { data: null };
@@ -106,19 +111,20 @@ export async function GET(request: NextRequest) {
 
       let result;
       
+      // 🔥 FIX: PASO 4 - Store operations (TIMEOUT SEGURO PARA VERCEL)
       if (existingStore) {
         // Reconnect existing store
         console.log('🔄 [UNIFIED-CALLBACK] Reconnecting existing store:', existingStore.id);
         result = await Promise.race([
           storeManager.reconnectExistingStore(existingStore.id, oauthData),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Store reconnection timeout')), 25000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Store reconnection timeout')), VERCEL_SAFE_TIMEOUT))
         ]);
       } else {
         // Create new store
         console.log('🆕 [UNIFIED-CALLBACK] Creating new store');
         result = await Promise.race([
           storeManager.createNewStore(oauthData),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Store creation timeout')), 25000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Store creation timeout')), VERCEL_SAFE_TIMEOUT))
         ]);
       }
 
@@ -131,7 +137,7 @@ export async function GET(request: NextRequest) {
       const totalTime = Date.now() - startTime;
       console.log(`✅ [UNIFIED-CALLBACK] Completed in ${totalTime}ms, store ID: ${store.id}, job: ${result.backgroundJobId}`);
 
-      // PASO 4: Redirect inmediato con información del background job
+      // PASO 5: Redirect inmediato con información del background job
       const baseParams = new URLSearchParams({
         success: existingStore ? 'store_reconnected' : 'store_connected',
         store_name: store.name,

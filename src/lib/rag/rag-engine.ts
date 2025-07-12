@@ -784,80 +784,131 @@ export class FiniRAGEngine implements RAGEngine {
 
   /**
    * Initialize Pinecone namespaces for a new store
-   * 🚀 EFFICIENT: Pre-creates namespaces without breaking existing functionality
+   * 🔥 FIXED: Robust namespace creation with proper error reporting
    */
-  async initializeStoreNamespaces(storeId: string): Promise<{ success: boolean; error?: string }> {
+  async initializeStoreNamespaces(storeId: string): Promise<{ success: boolean; error?: string; details?: any }> {
     try {
-      console.warn(`[RAG:engine] Initializing namespaces for store: ${storeId}`);
+      console.warn(`[RAG:engine] 🏗️ Initializing ALL 6 namespaces for store: ${storeId}`);
 
       const namespaceTypes = ['store', 'products', 'orders', 'customers', 'analytics', 'conversations'];
       
-      // Create namespaces in parallel
-      const initPromises = namespaceTypes.map(type => 
-        this.initializeSingleNamespace(storeId, type)
-      );
+      // 🔥 FIX: Create namespaces SEQUENTIALLY instead of parallel to avoid race conditions
+      const createdNamespaces: string[] = [];
+      const failedNamespaces: { type: string; error: string }[] = [];
       
-      await Promise.allSettled(initPromises);
+      for (const type of namespaceTypes) {
+        try {
+          console.warn(`[RAG:engine] 🔧 Creating namespace for type: ${type}`);
+          await this.initializeSingleNamespace(storeId, type);
+          createdNamespaces.push(type);
+          console.warn(`[RAG:engine] ✅ Successfully created namespace: ${type}`);
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          failedNamespaces.push({ type, error: errorMessage });
+          console.error(`[RAG:engine] ❌ Failed to create namespace ${type}:`, errorMessage);
+        }
+      }
       
-      console.warn(`[RAG:engine] Successfully initialized ${namespaceTypes.length} namespaces for store: ${storeId}`);
+      // 🔥 FIX: Report actual results instead of always returning success
+      const totalNamespaces = namespaceTypes.length;
+      const successCount = createdNamespaces.length;
+      const failureCount = failedNamespaces.length;
       
-      return { success: true };
+      console.warn(`[RAG:engine] 📊 Namespace initialization summary: ${successCount}/${totalNamespaces} successful`);
+      
+      if (successCount === totalNamespaces) {
+        console.warn(`[RAG:engine] ✅ ALL ${totalNamespaces} namespaces initialized successfully for store: ${storeId}`);
+        return { 
+          success: true, 
+          details: { 
+            created: createdNamespaces, 
+            total: totalNamespaces,
+            timing: 'sequential_creation'
+          }
+        };
+      } else if (successCount > 0) {
+        // Partial success - some namespaces created
+        console.warn(`[RAG:engine] ⚠️ Partial namespace initialization: ${successCount}/${totalNamespaces} created`);
+        console.warn(`[RAG:engine] ❌ Failed namespaces:`, failedNamespaces);
+        
+        return { 
+          success: false, 
+          error: `Only ${successCount}/${totalNamespaces} namespaces created. Failed: ${failedNamespaces.map(f => `${f.type} (${f.error})`).join(', ')}`,
+          details: {
+            created: createdNamespaces,
+            failed: failedNamespaces,
+            total: totalNamespaces,
+            partial: true
+          }
+        };
+      } else {
+        // Total failure - no namespaces created
+        console.error(`[RAG:engine] ❌ COMPLETE FAILURE: No namespaces created for store: ${storeId}`);
+        
+        return { 
+          success: false, 
+          error: `All ${totalNamespaces} namespace initializations failed: ${failedNamespaces.map(f => `${f.type} (${f.error})`).join(', ')}`,
+          details: {
+            created: [],
+            failed: failedNamespaces,
+            total: totalNamespaces,
+            complete_failure: true
+          }
+        };
+      }
+      
     } catch (error) {
-      console.warn('[ERROR] Failed to initialize store namespaces:', error);
+      console.error('[RAG:engine] ❌ Critical error during namespace initialization:', error);
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        details: { critical_error: true }
       };
     }
   }
 
   /**
    * Initialize a single namespace with placeholder data
-   * 🔥 FIXED: Better error handling for Pinecone operations
+   * 🔥 FIXED: Proper error handling with detailed reporting
    */
   private async initializeSingleNamespace(storeId: string, type: string): Promise<void> {
     try {
-      const namespace = `store-${storeId}-${type}`;
+      const namespace = `store-${storeId}${type === 'store' ? '' : `-${type}`}`;
       
-      console.warn(`[RAG:SECURITY] Creating namespace for store ${storeId}, type: ${type}`);
+      console.warn(`[RAG:engine] 🔧 Creating namespace: ${namespace} for store ${storeId}, type: ${type}`);
       
       // Create a minimal placeholder document to initialize the namespace
-      const placeholderContent = `Placeholder for ${type} data in store ${storeId}`;
+      const placeholderContent = `Namespace initialized for ${type} data in store ${storeId}`;
       const placeholderId = `placeholder-${storeId}-${type}`;
       
+      // 🔥 FIX: Use proper indexDocument with error propagation
       await this.indexDocument(placeholderContent, {
         type: type as any,
         storeId,
         source: 'initialization',
         timestamp: new Date().toISOString(),
-        isPlaceholder: true
+        isPlaceholder: true,
+        title: `${type} namespace initialization`,
+        category: 'system'
       });
       
-      console.warn(`[RAG:engine] Initialized namespace: ${namespace}`);
+      console.warn(`[RAG:engine] ✅ Successfully initialized namespace: ${namespace} with placeholder ${placeholderId}`);
       
-      // 🔥 FIX: Cleanup placeholder with proper namespace and better error handling
+      // 🔥 FIX: Schedule cleanup but don't fail if cleanup fails
       setTimeout(async () => {
         try {
-          // Proporcionar el namespace específico para evitar errores de validación
           await this.vectorStore.delete([placeholderId], namespace);
-          console.warn(`[RAG:engine] ✅ Cleaned up placeholder for ${namespace}`);
+          console.warn(`[RAG:engine] 🧹 Cleaned up placeholder for ${namespace}`);
         } catch (cleanupError: any) {
-          // 🔥 IMPORTANT: Manejo silencioso de errores esperados durante cleanup
-          if (cleanupError?.message?.includes('404') || 
-              cleanupError?.message?.includes('not found') ||
-              cleanupError?.message?.includes('Store ID is required')) {
-            // Estos errores son esperados durante el cleanup y no son críticos
-            console.warn(`[RAG:engine] Placeholder cleanup completed for ${namespace} (expected: ${cleanupError?.message?.split(':')[0] || 'cleanup'})`);
-          } else {
-            console.warn(`[RAG:engine] Note: Placeholder cleanup failed for ${namespace}: ${cleanupError?.message || cleanupError}`);
-          }
-          // Don't throw - cleanup failure is not critical
+          // Log cleanup failure but don't fail the namespace creation
+          console.warn(`[RAG:engine] ⚠️ Placeholder cleanup failed for ${namespace}: ${cleanupError?.message || cleanupError}`);
         }
-      }, 2000); // Aumentar tiempo para permitir que la indexación se complete
+      }, 3000); // Increased delay to ensure indexing completes
       
     } catch (error) {
-      console.warn(`[ERROR] Failed to initialize namespace for ${type}:`, error);
-      // Don't throw - individual namespace failure shouldn't break the whole process
+      console.error(`[RAG:engine] ❌ Failed to initialize namespace for ${type}:`, error);
+      // 🔥 FIX: THROW ERROR instead of swallowing it
+      throw new Error(`Namespace initialization failed for ${type}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

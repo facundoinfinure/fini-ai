@@ -223,27 +223,11 @@ export abstract class BaseAgent implements Agent {
           // Continue with direct sync trigger if lock system unavailable
         }
         
-        // STEP 2: Try to use auto-sync scheduler first (lock-aware)
+        // STEP 2: 🔥 Use simple store sync for immediate data synchronization
         try {
-          const { getAutoSyncScheduler } = await import('@/lib/services/auto-sync-scheduler');
-          const scheduler = await getAutoSyncScheduler();
+          console.warn(`[AGENT:${this.type}] 🔄 Triggering immediate sync for store: ${storeId}`);
           
-          console.warn(`[AGENT:${this.type}] 🔄 Triggering lock-aware scheduler sync for store: ${storeId}`);
-          
-          scheduler.triggerImmediateSync(storeId).then(result => {
-            if (result.success) {
-              console.warn(`[AGENT:${this.type}] ✅ Lock-aware sync completed for store: ${storeId}`);
-            } else {
-              console.warn(`[AGENT:${this.type}] ⚠️ Lock-aware sync failed for store ${storeId}: ${result.error}`);
-            }
-          }).catch(schedulerError => {
-            console.warn(`[AGENT:${this.type}] Lock-aware scheduler sync failed:`, schedulerError);
-          });
-          
-        } catch (schedulerError) {
-          console.warn(`[AGENT:${this.type}] ⚠️ Scheduler unavailable, using direct endpoint:`, schedulerError);
-          
-          // STEP 3: Fallback to direct sync endpoint
+          // Use direct sync endpoint for immediate sync
           const syncUrl = process.env.VERCEL_URL ? 
             `https://${process.env.VERCEL_URL}/api/stores/${storeId}/sync-rag` :
             `https://fini-tn.vercel.app/api/stores/${storeId}/sync-rag`;
@@ -251,9 +235,18 @@ export abstract class BaseAgent implements Agent {
           fetch(syncUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
+          }).then(response => {
+            if (response.ok) {
+              console.warn(`[AGENT:${this.type}] ✅ Immediate sync triggered for store: ${storeId}`);
+            } else {
+              console.warn(`[AGENT:${this.type}] ⚠️ Sync trigger failed for store ${storeId}: ${response.status}`);
+            }
           }).catch(syncError => {
             console.warn(`[AGENT:${this.type}] Direct sync trigger failed:`, syncError);
           });
+          
+        } catch (syncError) {
+          console.warn(`[AGENT:${this.type}] ⚠️ Sync trigger error:`, syncError);
         }
         
       } catch (error) {

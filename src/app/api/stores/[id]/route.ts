@@ -164,16 +164,9 @@ export async function DELETE(
       );
     }
 
-    // 🔥 FIX: Remover tienda del auto-sync scheduler
-    try {
-      const { getAutoSyncScheduler } = await import('@/lib/services/auto-sync-scheduler');
-      const scheduler = await getAutoSyncScheduler();
-      scheduler.removeStore(storeId);
-      console.log(`[INFO] Store ${storeId} removed from auto-sync scheduler`);
-    } catch (schedulerError) {
-      console.warn(`[WARN] Failed to remove store from scheduler: ${schedulerError instanceof Error ? schedulerError.message : 'Unknown error'}`);
-      // No need to fail the delete operation if scheduler removal fails
-    }
+    // 🔥 DEPRECATED: Auto-sync scheduler no longer exists (using immediate sync now)
+    console.log(`[INFO] Store ${storeId} - no scheduler removal needed (immediate sync system)`);
+    // No need to remove from scheduler as sync is now immediate when stores are connected
 
     console.log(`[INFO] Store ${store.name} deleted successfully (database + Pinecone cleanup + scheduler removal)`);
 
