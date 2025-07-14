@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { TiendaNubeTokenManager } from '@/lib/integrations/tiendanube-token-manager';
+import { UniversalTokenManager } from '@/lib/integrations/tiendanube-token-manager';
 
 /**
  * 🔧 DEBUG ENDPOINT: Test TiendaNube Token Management Fix
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       
       try {
         // Test the fixed getValidToken method
-        const validToken = await TiendaNubeTokenManager.getValidToken(store.id);
+        const validToken = await UniversalTokenManager.getValidToken(store.id);
         
         const storeResult: any = {
           storeId: store.id,

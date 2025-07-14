@@ -77,8 +77,8 @@ export async function POST(request: NextRequest) {
     let validToken: string | null = null;
     try {
       // Import TiendaNubeTokenManager dynamically to avoid import issues
-      const { TiendaNubeTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
-      validToken = await TiendaNubeTokenManager.getValidToken(store.id);
+      const { UniversalTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
+              validToken = await UniversalTokenManager.getValidToken(store.id);
       
       if (!validToken) {
         console.error('[ERROR] No valid token available for store:', {

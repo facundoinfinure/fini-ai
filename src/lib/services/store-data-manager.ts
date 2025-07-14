@@ -16,7 +16,7 @@
 
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { StoreService } from '@/lib/database/client';
-import { TiendaNubeTokenManager } from '@/lib/integrations/tiendanube-token-manager';
+import { UniversalTokenManager } from '@/lib/integrations/tiendanube-token-manager';
 import { TiendaNubeAPI } from '@/lib/integrations/tiendanube';
 import type { Store } from '@/lib/database/schema';
 
@@ -53,7 +53,7 @@ export class StoreDataManager {
   private static instance: StoreDataManager;
   
   private constructor(
-    private tokenManager: TiendaNubeTokenManager,
+    private tokenManager: UniversalTokenManager,
     private storeService: typeof StoreService
   ) {}
 
@@ -63,7 +63,7 @@ export class StoreDataManager {
   public static getInstance(): StoreDataManager {
     if (!StoreDataManager.instance) {
       StoreDataManager.instance = new StoreDataManager(
-        TiendaNubeTokenManager.getInstance(),
+        UniversalTokenManager.getInstance(),
         StoreService
       );
     }

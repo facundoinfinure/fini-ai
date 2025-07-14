@@ -3,7 +3,7 @@
  * Verifica Tienda Nube, Supabase, Pinecone y otros servicios críticos
  */
 
-import { TiendaNubeTokenManager } from '@/lib/integrations/tiendanube-token-manager';
+import { UniversalTokenManager } from '@/lib/integrations/tiendanube-token-manager';
 import { TiendaNubeAPI } from '@/lib/integrations/tiendanube';
 import { Pinecone } from '@pinecone-database/pinecone';
 import { OpenAI } from 'openai';
@@ -197,7 +197,7 @@ export class ConnectionHealthChecker {
       let tokenTest = 'NO_STORE_TO_TEST';
       if (testStore) {
         try {
-          const token = await TiendaNubeTokenManager.getValidToken(testStore.id);
+          const token = await UniversalTokenManager.getValidToken(testStore.id);
           tokenTest = token ? 'VALID' : 'INVALID';
         } catch (error) {
           tokenTest = 'ERROR';

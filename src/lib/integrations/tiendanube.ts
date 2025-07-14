@@ -173,18 +173,18 @@ export class TiendaNubeAPI {
 
     // 🔥 NEW: Pre-validate token before making API calls
     try {
-      const { TiendaNubeTokenManager } = await import('./tiendanube-token-manager');
-      const tokenData = await TiendaNubeTokenManager.getValidTokenWithStoreData(this.storeId);
+      const { UniversalTokenManager } = await import('./tiendanube-token-manager');
+              const tokenData = await UniversalTokenManager.getValidStoreData(this.storeId);
       
-      if (!tokenData || tokenData.token !== this.accessToken) {
+              if (!tokenData || tokenData.access_token !== this.accessToken) {
         console.warn(`[TIENDANUBE] Token validation failed for store ${this.storeId} - token may be stale`);
         throw new Error('Authentication failed - token may be invalid');
       }
       
       // Update our token if it was refreshed
-      if (tokenData.token !== this.accessToken) {
+      if (tokenData.access_token !== this.accessToken) {
         console.log(`[TIENDANUBE] Updating token for store ${this.storeId}`);
-        this.accessToken = tokenData.token;
+        this.accessToken = tokenData.access_token;
       }
       
     } catch (validationError) {

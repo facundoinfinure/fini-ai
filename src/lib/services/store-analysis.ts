@@ -142,12 +142,12 @@ export class StoreAnalysisService {
       let platformStoreId: string | null = null;
       
       try {
-        const { TiendaNubeTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
-        const storeData = await TiendaNubeTokenManager.getValidTokenWithStoreData(storeId);
+        const { UniversalTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
+                  const storeData = await UniversalTokenManager.getValidStoreData(storeId);
         
         if (storeData) {
-          validToken = storeData.token;
-          platformStoreId = storeData.platformStoreId;
+          validToken = storeData.access_token;
+          platformStoreId = storeData.platform_store_id;
           console.log(`[STORE-ANALYSIS] Using validated token for store: ${storeId} (platform_store_id: ${platformStoreId})`);
         } else {
           console.warn(`[STORE-ANALYSIS] No valid token for store ${storeId}, using provided token as fallback`);

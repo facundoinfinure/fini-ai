@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { tiendaNubeTokenManager, validateUserTiendaNubeStores } from '@/lib/integrations/tiendanube-token-manager';
-import { TiendaNubeTokenManager } from '@/lib/integrations/tiendanube-token-manager';
+import { UniversalTokenManager } from '@/lib/integrations/tiendanube-token-manager';
 
 /**
  * 🔄 TIENDANUBE TOKEN HEALTH ENDPOINT
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
       try {
         console.log(`[INFO] Checking token health for store: ${store.store_id}`);
         
-        const validation = await TiendaNubeTokenManager.validateStoreTokens(store.store_id);
+        const validation = await UniversalTokenManager.validateStoreTokens(store.store_id);
         
         let status = 'healthy';
         let action = 'none';
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
           console.warn(`[WARNING] Store ${store.store_id} has invalid token, attempting refresh`);
           
           // Try to get a fresh token (includes automatic refresh)
-          newToken = await TiendaNubeTokenManager.getValidToken(store.store_id);
+          newToken = await UniversalTokenManager.getValidToken(store.store_id);
           
           if (newToken && newToken !== store.access_token) {
             status = 'refreshed';
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
           console.log(`[INFO] Store ${store.store_id} token needs proactive refresh`);
           
           // Proactively refresh token that's about to expire
-          newToken = await TiendaNubeTokenManager.getValidToken(store.store_id);
+          newToken = await UniversalTokenManager.getValidToken(store.store_id);
           
           if (newToken && newToken !== store.access_token) {
             status = 'proactive_refresh';
@@ -255,6 +255,7 @@ export async function PATCH(request: NextRequest) {
             storeName: store.name || 'Tienda sin nombre',
             platformStoreId: store.platform_store_id,
             userId: store.user_id,
+            platform: 'tiendanube',
             lastValidation: new Date().toISOString(),
             reconnectionRequired: true
           })

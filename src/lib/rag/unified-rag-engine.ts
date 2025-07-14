@@ -765,14 +765,14 @@ export class UnifiedFiniRAGEngine {
   } | null> {
     // Try Token Manager first (most reliable)
     try {
-      const { TiendaNubeTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
-      const storeData = await TiendaNubeTokenManager.getValidTokenWithStoreData(storeId);
+      const { UniversalTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
+              const storeData = await UniversalTokenManager.getValidStoreData(storeId);
       
       if (storeData) {
         console.log(`[UNIFIED-RAG] ✅ Using validated token from Token Manager`);
         return {
-          token: storeData.token,
-          platformStoreId: storeData.platformStoreId,
+          token: storeData.access_token,
+          platformStoreId: storeData.platform_store_id,
           source: 'token_manager'
         };
       }
