@@ -316,10 +316,7 @@ export function SidebarLayout({
           </button>
           
           <button
-            onClick={() => {
-              console.log('🔴 SIDEBAR - Configuración clicked, sending: configuracion');
-              onTabChange?.('configuracion');
-            }}
+            onClick={() => onTabChange?.('configuracion')}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 hover:bg-gray-100 group",
               activeTab === 'configuracion' ? 'bg-gray-900 text-white shadow-lg hover:bg-gray-800' : 'text-gray-600 hover:text-gray-900'

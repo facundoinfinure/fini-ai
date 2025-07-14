@@ -19,35 +19,6 @@ interface ConfigurationManagementProps {
 }
 
 export function ConfigurationManagement({ stores, onStoreUpdate }: ConfigurationManagementProps) {
-  // 🔴 DEBUG SÚPER EVIDENTE
-  console.log('🔴🔴🔴 CONFIGURACIÓN MANAGEMENT SE ESTÁ EJECUTANDO! 🔴🔴🔴');
-  console.log('🔴 Stores recibidos:', stores);
-  console.log('🔴 onStoreUpdate:', onStoreUpdate);
-  
-  // SUPER DEBUG - DEBE SER VISIBLE EN CONSOLE
-  console.log('🔴 CONFIGURACION RENDERIZANDO - SI VES ESTO, EL COMPONENTE SE CARGA');
-  console.log('🔴 STORES COUNT:', stores?.length || 0);
-  console.log('🔴 TIMESTAMP:', new Date().toISOString());
-  
-  // Alert para debug inmediato (remover después)
-  if (typeof window !== 'undefined') {
-    setTimeout(() => {
-      console.log('🔴 COMPONENTE MONTADO EN DOM');
-    }, 100);
-  }
-  // Enhanced debugging
-  console.log('[CONFIG-DEBUG] Component initialized', {
-    timestamp: new Date().toISOString(),
-    storesCount: stores?.length || 0,
-    storesData: stores,
-    onStoreUpdateType: typeof onStoreUpdate
-  });
-  
-  // Component lifecycle debug
-  console.log('[CONFIG-DEBUG] Rendering ConfigurationManagement');
-  // Simplified debugging - only essential logs
-  console.log('[CONFIG] Component rendering with', stores?.length || 0, 'stores');
-  
   const [showConnectDialog, setShowConnectDialog] = useState(false);
   const [storeUrl, setStoreUrl] = useState('');
   const [storeName, setStoreName] = useState('');
@@ -99,13 +70,7 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
 
   // Minimal UI that should always render
   return (
-    <>
-      <DebugConfigTab />
     <div className="space-y-8 p-6">
-      {/* CRITICAL: Always visible test element */}
-      <div className="bg-red-500 border border-red-600 text-white px-6 py-4 rounded-lg font-bold text-xl mb-6" style={{zIndex: 9999, position: "relative"}}>
-        ✅ ConfigurationManagement está funcionando - Tiendas: {stores?.length || 0}
-      </div>
 
       {/* Gestión de Tiendas - Simplified */}
       <Card>
@@ -213,6 +178,5 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
         </DialogContent>
       </Dialog>
     </div>
-    </>
   );
 } 

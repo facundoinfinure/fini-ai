@@ -605,12 +605,7 @@ export function DashboardContent() {
   };
 
 
-  // 🔴 SUPER DEBUG - ACTIVE TAB VALUE
-  console.log('🔴🔴🔴 DASHBOARD CONTENT - ACTIVE TAB:', activeTab);
-  console.log('🔴 Type of activeTab:', typeof activeTab);
-  console.log('🔴 activeTab === "configuracion":', activeTab === "configuracion");
-  console.log('🔴 activeTab === "Configuration":', activeTab === "Configuration");
-  console.log('🔴 activeTab === "Configuración":', activeTab === "Configuración");
+
 
   return (
     <StoreConnectionHandler onStoreConnected={(storeId, storeName) => {
