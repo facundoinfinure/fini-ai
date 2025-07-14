@@ -101,48 +101,48 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
 
   return (
     <>
-      <div className="config-container">
-        {/* Header - Origin Style */}
-        <div className="config-header">
-          <h1 className="config-title">Configuración</h1>
-          <p className="config-subtitle">Gestiona tus tiendas y números de WhatsApp en un solo lugar</p>
+      <div className="space-y-8 p-6">
+        {/* Header */}
+        <div className="border-b border-gray-200 pb-4">
+          <h1 className="text-3xl font-bold text-gray-900">Configuración</h1>
+          <p className="text-gray-600 mt-2">Gestiona tus tiendas y números de WhatsApp en un solo lugar</p>
         </div>
 
         {/* Gestión de Tiendas Section */}
-        <div className="config-section">
-          <div className="section-header">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between w-full">
               <div>
-                <h2 className="section-title">
-                  <StoreIcon className="h-5 w-5" />
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <StoreIcon className="h-5 w-5 text-green-600" />
                   Gestión de Tiendas
                 </h2>
-                <p className="section-description">Administra tus tiendas conectadas a Fini AI</p>
+                <p className="text-gray-600 mt-1">Administra tus tiendas conectadas a Fini AI</p>
               </div>
               <Button 
                 onClick={handleAddStore}
-                className="btn-primary"
+                className="bg-green-600 hover:bg-green-700 text-white"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Conectar Tienda
               </Button>
             </div>
           </div>
-          <div className="section-content">
+          <div className="p-6">
             <StoreManagement stores={stores} onStoreUpdate={onStoreUpdate} />
           </div>
         </div>
 
         {/* Gestión de WhatsApp Section */}
-        <div className="config-section">
-          <div className="section-header">
-            <h2 className="section-title">
-              <MessageSquare className="h-5 w-5" />
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-green-600" />
               Gestión de WhatsApp
             </h2>
-            <p className="section-description">Administra los números conectados a tus tiendas</p>
+            <p className="text-gray-600 mt-1">Administra los números conectados a tus tiendas</p>
           </div>
-          <div className="section-content">
+          <div className="p-6">
             <WhatsAppManagement stores={stores} />
           </div>
         </div>
