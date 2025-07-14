@@ -47,7 +47,7 @@ interface UserSubscription {
   billing: 'monthly' | 'annual';
 }
 
-export function SubscriptionManagement() {
+export default function SubscriptionManagement() {
   const { user } = useAuth();
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState(true);

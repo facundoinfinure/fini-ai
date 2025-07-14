@@ -50,7 +50,7 @@ interface AnalyticsData {
 
 // const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
-export function AnalyticsOverview() {
+export default function AnalyticsOverview() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

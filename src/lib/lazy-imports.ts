@@ -8,7 +8,6 @@ import { lazy } from 'react';
 // Dashboard Components
 export const AnalyticsOverview = lazy(() => 
   import('@/components/dashboard/analytics-overview')
-    .then(module => ({ default: module.AnalyticsOverview }))
 );
 
 export const StoreManagement = lazy(() => 
@@ -28,7 +27,6 @@ export const ConfigurationManagement = lazy(() =>
 
 export const SubscriptionManagement = lazy(() => 
   import('@/components/dashboard/subscription-management')
-    .then(module => ({ default: module.SubscriptionManagement }))
 );
 
 export const ChatPreview = lazy(() => 

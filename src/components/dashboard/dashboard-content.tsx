@@ -686,18 +686,6 @@ export function DashboardContent() {
 
         {/* Tab Content */}
         <div className="space-y-6">
-          {(() => {
-            console.log('[DEBUG] Active tab:', activeTab);
-            console.log('[DEBUG] Stores array:', stores);
-            console.log('[DEBUG] All tab conditions:', {
-              chat: activeTab === "chat",
-              analytics: activeTab === "analytics", 
-              suscripcion: activeTab === "suscripcion",
-              configuracion: activeTab === "configuracion",
-              perfil: activeTab === "perfil"
-            });
-            return null;
-          })()}
           
           {activeTab === "chat" && (
             <DashboardErrorBoundary>
@@ -772,15 +760,6 @@ export function DashboardContent() {
 
           {activeTab === "configuracion" && (
             <DashboardErrorBoundary>
-              {(() => {
-                console.log('[DEBUG] ✅ ENTERING CONFIGURATION TAB');
-                console.log('[DEBUG] Stores count:', stores?.length || 0);
-                console.log('[DEBUG] About to render ConfigurationManagement');
-                return null;
-              })()}
-              <div style={{ background: 'red', color: 'white', padding: '10px' }}>
-                DEBUG: Configuration tab is active
-              </div>
               <ConfigurationManagement 
                 stores={stores} 
                 onStoreUpdate={fetchDashboardData}
