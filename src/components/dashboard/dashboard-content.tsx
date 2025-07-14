@@ -759,10 +759,20 @@ export function DashboardContent() {
 
           {activeTab === "configuracion" && (
             <DashboardErrorBoundary>
-              <ConfigurationManagement 
-                stores={stores} 
-                onStoreUpdate={fetchDashboardData}
-              />
+              {(() => {
+                console.log('[DEBUG] Rendering ConfigurationManagement with stores:', { 
+                  activeTab,
+                  storesCount: stores?.length || 0, 
+                  stores,
+                  timestamp: new Date().toISOString()
+                });
+                return (
+                  <ConfigurationManagement 
+                    stores={stores} 
+                    onStoreUpdate={fetchDashboardData}
+                  />
+                );
+              })()}
             </DashboardErrorBoundary>
           )}
 

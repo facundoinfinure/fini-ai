@@ -18,6 +18,12 @@ interface ConfigurationManagementProps {
 }
 
 export function ConfigurationManagement({ stores, onStoreUpdate }: ConfigurationManagementProps) {
+  console.log('[DEBUG] ConfigurationManagement rendered', { 
+    storesCount: stores?.length || 0, 
+    stores,
+    timestamp: new Date().toISOString()
+  });
+  
   const [showConnectDialog, setShowConnectDialog] = useState(false);
   const [storeUrl, setStoreUrl] = useState('');
   const [storeName, setStoreName] = useState('');

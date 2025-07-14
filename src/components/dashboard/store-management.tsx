@@ -33,6 +33,12 @@ interface StoreManagementProps {
 }
 
 export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps) {
+  console.log('[DEBUG] StoreManagement rendered', { 
+    storesCount: stores?.length || 0, 
+    stores,
+    timestamp: new Date().toISOString()
+  });
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
