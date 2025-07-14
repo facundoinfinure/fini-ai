@@ -6,7 +6,8 @@ import { WhatsAppManagement } from './whatsapp-management';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Settings, Store as StoreIcon, MessageSquare, Plus, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -20,12 +21,39 @@ interface ConfigurationManagementProps {
 export function ConfigurationManagement({ stores, onStoreUpdate }: ConfigurationManagementProps) {
   console.log('[DEBUG] 🎯 ConfigurationManagement component started');
   console.log('[DEBUG] 🎯 Stores received:', stores?.length || 0, 'stores');
+  console.log('[DEBUG] 🎯 Current timestamp:', new Date().toISOString());
   
   const [showConnectDialog, setShowConnectDialog] = useState(false);
   const [storeUrl, setStoreUrl] = useState('');
   const [storeName, setStoreName] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isRendering, setIsRendering] = useState(true);
+
+  // Add useEffect to track rendering lifecycle
+  useEffect(() => {
+    console.log('[DEBUG] 🎯 ConfigurationManagement useEffect triggered');
+    console.log('[DEBUG] 🎯 Component mounted successfully');
+    setIsRendering(false);
+    
+    // Log every 5 seconds that the component is still active
+    const interval = setInterval(() => {
+      console.log('[DEBUG] 🎯 ConfigurationManagement still active at:', new Date().toISOString());
+    }, 5000);
+    
+    return () => {
+      console.log('[DEBUG] 🎯 ConfigurationManagement unmounting');
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Add error boundary simulation
+  useEffect(() => {
+    console.log('[DEBUG] 🎯 Stores updated:', { 
+      count: stores?.length || 0, 
+      firstStore: stores?.[0]?.name || 'N/A' 
+    });
+  }, [stores]);
 
   const handleConnectStore = async () => {
     if (!storeUrl.trim()) {
@@ -104,6 +132,17 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
 
   return (
     <>
+      {/* DEBUG: Visual indicator that component is rendering */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-green-100 border border-green-300 text-green-800 px-4 py-2 rounded mb-4">
+          🎯 ConfigurationManagement está renderizando correctamente
+          <br />
+          📊 Tiendas recibidas: {stores?.length || 0}
+          <br />
+          🕐 Timestamp: {new Date().toLocaleTimeString()}
+        </div>
+      )}
+      
       <div className="space-y-8 p-6">
         {/* Header */}
         <div className="border-b border-gray-200 pb-4">
@@ -132,7 +171,12 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
             </div>
           </div>
           <div className="p-6">
-            <StoreManagement stores={stores} onStoreUpdate={onStoreUpdate} />
+            <ErrorBoundary 
+              level="component" 
+              context="Gestión de Tiendas"
+            >
+              <StoreManagement stores={stores} onStoreUpdate={onStoreUpdate} />
+            </ErrorBoundary>
           </div>
         </div>
 
@@ -146,7 +190,12 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
             <p className="text-gray-600 mt-1">Administra los números conectados a tus tiendas</p>
           </div>
           <div className="p-6">
-            <WhatsAppManagement stores={stores} />
+            <ErrorBoundary 
+              level="component" 
+              context="Gestión de WhatsApp"
+            >
+              <WhatsAppManagement stores={stores} />
+            </ErrorBoundary>
           </div>
         </div>
       </div>
