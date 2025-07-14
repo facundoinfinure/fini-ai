@@ -19,6 +19,11 @@ interface ConfigurationManagementProps {
 }
 
 export function ConfigurationManagement({ stores, onStoreUpdate }: ConfigurationManagementProps) {
+  // 🔴 DEBUG SÚPER EVIDENTE
+  console.log('🔴🔴🔴 CONFIGURACIÓN MANAGEMENT SE ESTÁ EJECUTANDO! 🔴🔴🔴');
+  console.log('🔴 Stores recibidos:', stores);
+  console.log('🔴 onStoreUpdate:', onStoreUpdate);
+  
   // SUPER DEBUG - DEBE SER VISIBLE EN CONSOLE
   console.log('🔴 CONFIGURACION RENDERIZANDO - SI VES ESTO, EL COMPONENTE SE CARGA');
   console.log('🔴 STORES COUNT:', stores?.length || 0);
