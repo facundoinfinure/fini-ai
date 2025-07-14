@@ -85,6 +85,9 @@ export function DashboardContent() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("chat");
   
+  // 🔴 TAB STATE DEBUG
+  console.log('🔴 INITIAL ACTIVE TAB:', activeTab);
+  
   // Conversations state for coordinating between sidebar and chat
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -758,7 +761,11 @@ export function DashboardContent() {
             </DashboardErrorBoundary>
           )}
 
-          {activeTab === "configuracion" && (
+          {activeTab === "configuracion" && (() => {
+        console.log('🔴 ACTIVE TAB CHANGED TO CONFIGURACION');
+        console.log('🔴 RENDERING CONFIGURATION TAB');
+        return true;
+      })() && (
             <DashboardErrorBoundary>
               <ConfigurationManagement 
                 stores={stores} 

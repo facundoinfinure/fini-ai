@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { fetchPostWithAuth } from '@/lib/fetch-with-auth';
+import { DebugConfigTab } from '@/components/debug-config-tab';
 
 interface ConfigurationManagementProps {
   stores: Store[];
@@ -18,6 +19,17 @@ interface ConfigurationManagementProps {
 }
 
 export function ConfigurationManagement({ stores, onStoreUpdate }: ConfigurationManagementProps) {
+  // SUPER DEBUG - DEBE SER VISIBLE EN CONSOLE
+  console.log('🔴 CONFIGURACION RENDERIZANDO - SI VES ESTO, EL COMPONENTE SE CARGA');
+  console.log('🔴 STORES COUNT:', stores?.length || 0);
+  console.log('🔴 TIMESTAMP:', new Date().toISOString());
+  
+  // Alert para debug inmediato (remover después)
+  if (typeof window !== 'undefined') {
+    setTimeout(() => {
+      console.log('🔴 COMPONENTE MONTADO EN DOM');
+    }, 100);
+  }
   // Enhanced debugging
   console.log('[CONFIG-DEBUG] Component initialized', {
     timestamp: new Date().toISOString(),
@@ -82,9 +94,11 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
 
   // Minimal UI that should always render
   return (
+    <>
+      <DebugConfigTab />
     <div className="space-y-8 p-6">
       {/* CRITICAL: Always visible test element */}
-      <div className="bg-blue-100 border border-blue-300 text-blue-800 px-4 py-2 rounded">
+      <div className="bg-red-500 border border-red-600 text-white px-6 py-4 rounded-lg font-bold text-xl mb-6" style={{zIndex: 9999, position: "relative"}}>
         ✅ ConfigurationManagement está funcionando - Tiendas: {stores?.length || 0}
       </div>
 
@@ -194,5 +208,6 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 } 
