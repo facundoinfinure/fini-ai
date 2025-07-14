@@ -91,8 +91,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`[TEST-STORE-FLOW] 2. Testing namespace creation...`);
       
       try {
-        const { FiniRAGEngine } = await import('@/lib/rag');
-        const ragEngine = new FiniRAGEngine();
+        const { getUnifiedRAGEngine } = await import('@/lib/rag');
+        const ragEngine = getUnifiedRAGEngine();
         
         // Test namespace initialization
         const namespaceResult = await ragEngine.initializeStoreNamespaces(results.storeId);
@@ -133,17 +133,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       try {
         const store = results.tests.store_connection.data;
         
-        // Trigger immediate sync
-        await StoreService.syncStoreDataToRAGImmediate(results.storeId);
+        // Trigger immediate sync using UnifiedRAGEngine
+        const { getUnifiedRAGEngine } = await import('@/lib/rag');
+        const ragEngine = getUnifiedRAGEngine();
         
-        results.tests.data_sync = {
-          status: 'success',
-          data: {
-            syncTriggered: true,
-            syncTimestamp: new Date().toISOString(),
-            message: 'Store data synchronized to RAG successfully'
-          }
-        };
+        const syncResult = await ragEngine.indexStoreData(results.storeId, store.access_token);
+        
+        if (syncResult.success) {
+          results.tests.data_sync = {
+            status: 'success',
+            data: {
+              syncTriggered: true,
+              syncTimestamp: new Date().toISOString(),
+              documentsIndexed: syncResult.documentsIndexed,
+              processingTime: syncResult.processingTime,
+              message: 'Store data synchronized to RAG successfully'
+            }
+          };
+        } else {
+          throw new Error(syncResult.error || 'Sync failed');
+        }
         
         console.log(`[TEST-STORE-FLOW] ✅ Data synchronization completed`);
         
@@ -161,8 +170,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(`[TEST-STORE-FLOW] 4. Testing agent data access...`);
       
       try {
-        const { FiniRAGEngine } = await import('@/lib/rag');
-        const ragEngine = new FiniRAGEngine();
+        const { getUnifiedRAGEngine } = await import('@/lib/rag');
+        const ragEngine = getUnifiedRAGEngine();
         
         // Test a product query
         const testQuery = {

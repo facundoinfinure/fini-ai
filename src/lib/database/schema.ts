@@ -58,22 +58,6 @@ export interface WhatsAppStoreConnection {
   updated_at: string;
 }
 
-// DEPRECATED - Mantener por compatibilidad pero migrar
-export interface WhatsAppConfig {
-  id: string;
-  user_id: string;
-  store_id?: string;
-  phone_numbers: string[];
-  webhook_url: string;
-  twilio_account_sid?: string;
-  twilio_auth_token?: string;
-  twilio_phone_number?: string;
-  is_active: boolean;
-  is_configured: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface Conversation {
   id: string;
   user_id: string;
@@ -202,22 +186,6 @@ CREATE TABLE IF NOT EXISTS whatsapp_store_connections (
   UNIQUE(whatsapp_number_id, store_id)
 );
 
--- WhatsApp configurations table (DEPRECATED - mantener por compatibilidad)
-CREATE TABLE IF NOT EXISTS whatsapp_configs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  store_id UUID REFERENCES stores(id) ON DELETE SET NULL,
-  phone_numbers TEXT[] NOT NULL,
-  webhook_url TEXT NOT NULL,
-  twilio_account_sid TEXT,
-  twilio_auth_token TEXT,
-  twilio_phone_number TEXT,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_configured BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
 -- Conversations table
 CREATE TABLE IF NOT EXISTS conversations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -282,7 +250,6 @@ CREATE INDEX IF NOT EXISTS idx_whatsapp_numbers_user_id ON whatsapp_numbers(user
 CREATE INDEX IF NOT EXISTS idx_whatsapp_numbers_phone ON whatsapp_numbers(phone_number);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_store_connections_number_id ON whatsapp_store_connections(whatsapp_number_id);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_store_connections_store_id ON whatsapp_store_connections(store_id);
-CREATE INDEX IF NOT EXISTS idx_whatsapp_configs_user_id ON whatsapp_configs(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_customer_number ON conversations(customer_number);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
@@ -295,7 +262,6 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE whatsapp_numbers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE whatsapp_store_connections ENABLE ROW LEVEL SECURITY;
-ALTER TABLE whatsapp_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE analytics_cache ENABLE ROW LEVEL SECURITY;
@@ -350,12 +316,6 @@ CREATE POLICY "Users can delete own whatsapp store connections" ON whatsapp_stor
     AND whatsapp_numbers.user_id::text = auth.uid()::text
   )
 );
-
--- WhatsApp configs policies
-CREATE POLICY "Users can view own whatsapp configs" ON whatsapp_configs FOR SELECT USING (auth.uid()::text = user_id::text);
-CREATE POLICY "Users can insert own whatsapp configs" ON whatsapp_configs FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
-CREATE POLICY "Users can update own whatsapp configs" ON whatsapp_configs FOR UPDATE USING (auth.uid()::text = user_id::text);
-CREATE POLICY "Users can delete own whatsapp configs" ON whatsapp_configs FOR DELETE USING (auth.uid()::text = user_id::text);
 
 -- Conversations policies
 CREATE POLICY "Users can view own conversations" ON conversations FOR SELECT USING (auth.uid()::text = user_id::text);
@@ -413,7 +373,6 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECU
 CREATE TRIGGER update_stores_updated_at BEFORE UPDATE ON stores FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_whatsapp_numbers_updated_at BEFORE UPDATE ON whatsapp_numbers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_whatsapp_store_connections_updated_at BEFORE UPDATE ON whatsapp_store_connections FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_whatsapp_configs_updated_at BEFORE UPDATE ON whatsapp_configs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_conversations_updated_at BEFORE UPDATE ON conversations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_user_settings_updated_at BEFORE UPDATE ON user_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

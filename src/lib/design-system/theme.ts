@@ -1,34 +1,34 @@
 /**
- * Fini AI Design System - Premium Theme
- * Optimizado para LATAM y mobile-first
+ * Fini AI Design System - Ultra Premium Theme
+ * Inspirado en aplicaciones top tier con estética moderna y sofisticada
  */
 
 export const theme = {
-  // Paleta de colores premium inspirada en fintech LATAM
+  // Paleta de colores ultra premium - Dark & Modern
   colors: {
-    // Colores primarios - Verde vibrante (confianza, crecimiento)
+    // Colores primarios - Negro sofisticado con acentos
     primary: {
-      50: '#f0fdf4',
-      100: '#dcfce7',
-      200: '#bbf7d0',
-      300: '#86efac',
-      400: '#4ade80',
-      500: '#22c55e', // Principal
-      600: '#16a34a',
-      700: '#15803d',
-      800: '#166534',
-      900: '#14532d',
-      950: '#052e16'
+      50: '#f8f9fa',
+      100: '#f1f3f4',
+      200: '#e8eaed',
+      300: '#dadce0',
+      400: '#9aa0a6',
+      500: '#5f6368',
+      600: '#3c4043',
+      700: '#202124',
+      800: '#171717',
+      900: '#0d0d0d',
+      950: '#000000'
     },
     
-    // Colores secundarios - Azul confianza (tecnología, profesionalismo)
+    // Colores secundarios - Azul eléctrico (tecnología premium)
     secondary: {
       50: '#eff6ff',
       100: '#dbeafe',
       200: '#bfdbfe',
       300: '#93c5fd',
       400: '#60a5fa',
-      500: '#3b82f6', // Principal
+      500: '#3b82f6',
       600: '#2563eb',
       700: '#1d4ed8',
       800: '#1e40af',
@@ -36,14 +36,29 @@ export const theme = {
       950: '#172554'
     },
     
-    // Colores de acento - Naranja energético (acción, conversión)
+    // Colores de acento - Verde premium (éxito, dinero)
     accent: {
+      50: '#ecfdf5',
+      100: '#d1fae5',
+      200: '#a7f3d0',
+      300: '#6ee7b7',
+      400: '#34d399',
+      500: '#10b981',
+      600: '#059669',
+      700: '#047857',
+      800: '#065f46',
+      900: '#064e3b',
+      950: '#022c22'
+    },
+    
+    // Colores de warning - Naranja premium
+    warning: {
       50: '#fff7ed',
       100: '#ffedd5',
       200: '#fed7aa',
       300: '#fdba74',
       400: '#fb923c',
-      500: '#f97316', // Principal
+      500: '#f97316',
       600: '#ea580c',
       700: '#c2410c',
       800: '#9a3412',
@@ -51,74 +66,130 @@ export const theme = {
       950: '#431407'
     },
     
-    // Grises premium - Neutros sofisticados
+    // Grises ultra premium - Neutros sofisticados
     gray: {
-      50: '#f9fafb',
-      100: '#f3f4f6',
-      200: '#e5e7eb',
-      300: '#d1d5db',
-      400: '#9ca3af',
-      500: '#6b7280',
-      600: '#4b5563',
-      700: '#374151',
-      800: '#1f2937',
-      900: '#111827',
-      950: '#030712'
+      50: '#fafafa',
+      100: '#f5f5f5',
+      200: '#e5e5e5',
+      300: '#d4d4d4',
+      400: '#a3a3a3',
+      500: '#737373',
+      600: '#525252',
+      700: '#404040',
+      800: '#262626',
+      900: '#171717',
+      950: '#0a0a0a'
     },
     
-    // Estados semánticos
+    // Colores de background premium
+    background: {
+      primary: '#ffffff',
+      secondary: '#fafafa',
+      tertiary: '#f5f5f5',
+      dark: '#0a0a0a',
+      darkSecondary: '#171717',
+      darkTertiary: '#262626'
+    },
+    
+    // Borders premium
+    border: {
+      light: '#e5e5e5',
+      medium: '#d4d4d4',
+      dark: '#a3a3a3'
+    },
+    
+    // Estados semánticos premium
     success: {
-      50: '#f0fdf4',
+      50: '#ecfdf5',
+      100: '#d1fae5',
       500: '#10b981',
       600: '#059669',
-      700: '#047857'
-    },
-    
-    warning: {
-      50: '#fffbeb',
-      500: '#f59e0b',
-      600: '#d97706',
-      700: '#b45309'
+      700: '#047857',
+      900: '#064e3b'
     },
     
     error: {
       50: '#fef2f2',
+      100: '#fee2e2',
       500: '#ef4444',
       600: '#dc2626',
-      700: '#b91c1c'
+      700: '#b91c1c',
+      900: '#7f1d1d'
     },
     
     info: {
       50: '#eff6ff',
+      100: '#dbeafe',
       500: '#3b82f6',
       600: '#2563eb',
-      700: '#1d4ed8'
+      700: '#1d4ed8',
+      900: '#1e3a8a'
+    },
+    
+    // Gradientes premium
+    gradients: {
+      primary: 'linear-gradient(135deg, #0a0a0a 0%, #262626 100%)',
+      secondary: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+      accent: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
+      warning: 'linear-gradient(135deg, #f97316 0%, #c2410c 100%)',
+      rainbow: 'linear-gradient(135deg, #3b82f6 0%, #10b981 25%, #f97316 50%, #ef4444 75%, #8b5cf6 100%)',
+      glass: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
+      dark: 'linear-gradient(135deg, #0a0a0a 0%, #171717 50%, #262626 100%)'
     }
   },
   
-  // Tipografía premium - Optimizada para legibilidad móvil
+  // Tipografía ultra premium
   typography: {
     fontFamily: {
-      sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-      mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', 'monospace'],
-      display: ['Cal Sans', 'Inter', 'system-ui', 'sans-serif'] // Para títulos principales
+      sans: [
+        'Inter',
+        '-apple-system',
+        'BlinkMacSystemFont',
+        'Segoe UI',
+        'Roboto',
+        'Oxygen',
+        'Ubuntu',
+        'Cantarell',
+        'Fira Sans',
+        'Droid Sans',
+        'Helvetica Neue',
+        'sans-serif'
+      ],
+      mono: [
+        'SF Mono',
+        'Monaco',
+        'Inconsolata',
+        'Roboto Mono',
+        'Source Code Pro',
+        'Menlo',
+        'Consolas',
+        'Liberation Mono',
+        'Courier New',
+        'monospace'
+      ],
+      display: [
+        'Inter',
+        'SF Pro Display',
+        'Helvetica Neue',
+        'Arial',
+        'sans-serif'
+      ]
     },
     
     fontSize: {
-      // Mobile-first sizes
-      xs: ['0.75rem', { lineHeight: '1rem' }],
-      sm: ['0.875rem', { lineHeight: '1.25rem' }],
-      base: ['1rem', { lineHeight: '1.5rem' }],
-      lg: ['1.125rem', { lineHeight: '1.75rem' }],
-      xl: ['1.25rem', { lineHeight: '1.75rem' }],
-      '2xl': ['1.5rem', { lineHeight: '2rem' }],
-      '3xl': ['1.875rem', { lineHeight: '2.25rem' }],
-      '4xl': ['2.25rem', { lineHeight: '2.5rem' }],
-      '5xl': ['3rem', { lineHeight: '1' }],
-      '6xl': ['3.75rem', { lineHeight: '1' }],
-      '7xl': ['4.5rem', { lineHeight: '1' }],
-      '8xl': ['6rem', { lineHeight: '1' }],
-      '9xl': ['8rem', { lineHeight: '1' }]
+      xs: ['0.75rem', { lineHeight: '1.125rem', letterSpacing: '0.01em' }],
+      sm: ['0.875rem', { lineHeight: '1.25rem', letterSpacing: '0.01em' }],
+      base: ['1rem', { lineHeight: '1.5rem', letterSpacing: '0.01em' }],
+      lg: ['1.125rem', { lineHeight: '1.75rem', letterSpacing: '0.01em' }],
+      xl: ['1.25rem', { lineHeight: '1.875rem', letterSpacing: '0.01em' }],
+      '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '0.01em' }],
+      '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.01em' }],
+      '4xl': ['2.25rem', { lineHeight: '2.5rem', letterSpacing: '-0.02em' }],
+      '5xl': ['3rem', { lineHeight: '3rem', letterSpacing: '-0.03em' }],
+      '6xl': ['3.75rem', { lineHeight: '3.75rem', letterSpacing: '-0.04em' }],
+      '7xl': ['4.5rem', { lineHeight: '4.5rem', letterSpacing: '-0.05em' }],
+      '8xl': ['6rem', { lineHeight: '6rem', letterSpacing: '-0.06em' }],
+      '9xl': ['8rem', { lineHeight: '8rem', letterSpacing: '-0.07em' }]
     },
     
     fontWeight: {
@@ -134,7 +205,7 @@ export const theme = {
     }
   },
   
-  // Espaciado premium - Sistema de 8px
+  // Espaciado premium - Sistema de 4px/8px
   spacing: {
     px: '1px',
     0: '0',
@@ -173,37 +244,43 @@ export const theme = {
     96: '24rem'      // 384px
   },
   
-  // Radios de borde premium
+  // Radios de borde ultra premium
   borderRadius: {
     none: '0',
     sm: '0.125rem',   // 2px
-    DEFAULT: '0.25rem', // 4px
-    md: '0.375rem',   // 6px
-    lg: '0.5rem',     // 8px
-    xl: '0.75rem',    // 12px
-    '2xl': '1rem',    // 16px
-    '3xl': '1.5rem',  // 24px
+    DEFAULT: '0.375rem', // 6px
+    md: '0.5rem',     // 8px
+    lg: '0.75rem',    // 12px
+    xl: '1rem',       // 16px
+    '2xl': '1.5rem',  // 24px
+    '3xl': '2rem',    // 32px
     full: '9999px'
   },
   
-  // Sombras premium - Depth y elevación
+  // Sombras ultra premium - Profundidad y elegancia
   boxShadow: {
-    sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-    DEFAULT: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
-    md: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-    lg: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-    xl: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-    '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)',
-    inner: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)',
+    xs: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+    sm: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)',
+    DEFAULT: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)',
+    md: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
+    lg: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+    xl: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '2xl': '0 50px 100px -20px rgba(0, 0, 0, 0.25)',
+    inner: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.05)',
     none: 'none',
     
-    // Sombras premium específicas
-    glow: '0 0 20px rgb(34 197 94 / 0.3)',
-    'glow-lg': '0 0 40px rgb(34 197 94 / 0.4)',
-    card: '0 4px 12px rgb(0 0 0 / 0.08)',
-    'card-hover': '0 8px 25px rgb(0 0 0 / 0.12)',
-    modal: '0 25px 50px -12px rgb(0 0 0 / 0.25)',
-    dropdown: '0 10px 25px rgb(0 0 0 / 0.15)'
+    // Sombras ultra premium específicas
+    glow: '0 0 20px rgba(59, 130, 246, 0.3)',
+    'glow-green': '0 0 20px rgba(16, 185, 129, 0.3)',
+    'glow-orange': '0 0 20px rgba(249, 115, 22, 0.3)',
+    'glow-lg': '0 0 40px rgba(59, 130, 246, 0.4)',
+    card: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)',
+    'card-hover': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+    'card-premium': '0 10px 40px -10px rgba(0, 0, 0, 0.1)',
+    modal: '0 50px 100px -20px rgba(0, 0, 0, 0.25)',
+    dropdown: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    button: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)',
+    'button-hover': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)'
   },
   
   // Breakpoints mobile-first
@@ -216,40 +293,47 @@ export const theme = {
     '2xl': '1536px'
   },
   
-  // Animaciones y transiciones premium
+  // Animaciones ultra premium
   animation: {
-    // Animaciones básicas
-    'fade-in': 'fadeIn 0.5s ease-in-out',
-    'fade-out': 'fadeOut 0.5s ease-in-out',
-    'slide-up': 'slideUp 0.4s ease-out',
-    'slide-down': 'slideDown 0.4s ease-out',
-    'slide-left': 'slideLeft 0.4s ease-out',
-    'slide-right': 'slideRight 0.4s ease-out',
+    // Animaciones básicas mejoradas
+    'fade-in': 'fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+    'fade-out': 'fadeOut 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+    'slide-up': 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+    'slide-down': 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+    'slide-left': 'slideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+    'slide-right': 'slideRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
     
     // Animaciones premium
-    'bounce-gentle': 'bounceGentle 0.6s ease-in-out',
-    'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
-    'float': 'float 3s ease-in-out infinite',
+    'scale-in': 'scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+    'scale-out': 'scaleOut 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+    'bounce-gentle': 'bounceGentle 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
+    'pulse-glow': 'pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+    'float': 'float 6s ease-in-out infinite',
     'shimmer': 'shimmer 2s linear infinite',
+    'gradient-shift': 'gradientShift 3s ease-in-out infinite',
     
-    // Loading states
+    // Loading states premium
     'spinner': 'spin 1s linear infinite',
     'dots': 'dots 1.4s ease-in-out infinite',
-    'skeleton': 'skeleton 1.5s ease-in-out infinite alternate',
+    'skeleton': 'skeleton 2s ease-in-out infinite alternate',
+    'pulse-slow': 'pulse 3s ease-in-out infinite',
     
-    // Micro-interactions
-    'tap': 'tap 0.1s ease-in-out',
-    'wiggle': 'wiggle 0.5s ease-in-out',
-    'rubber-band': 'rubberBand 0.8s ease-in-out'
+    // Micro-interactions premium
+    'tap': 'tap 0.1s cubic-bezier(0.16, 1, 0.3, 1)',
+    'wiggle': 'wiggle 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97)',
+    'rubber-band': 'rubberBand 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+    'heart-beat': 'heartBeat 1s ease-in-out infinite',
+    'jello': 'jello 0.9s ease-in-out'
   },
   
-  // Transiciones suaves
+  // Transiciones ultra suaves
   transitionDuration: {
     75: '75ms',
     100: '100ms',
     150: '150ms',
     200: '200ms',
     300: '300ms',
+    400: '400ms',
     500: '500ms',
     700: '700ms',
     1000: '1000ms'
@@ -262,10 +346,13 @@ export const theme = {
     out: 'cubic-bezier(0, 0, 0.2, 1)',
     'in-out': 'cubic-bezier(0.4, 0, 0.2, 1)',
     
-    // Easing premium
+    // Easing ultra premium
+    'ease-premium': 'cubic-bezier(0.16, 1, 0.3, 1)',
     'ease-smooth': 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
     'ease-bounce': 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
-    'ease-elastic': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+    'ease-elastic': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+    'ease-back': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+    'ease-anticipate': 'cubic-bezier(0.22, 1, 0.36, 1)'
   }
 } as const;
 

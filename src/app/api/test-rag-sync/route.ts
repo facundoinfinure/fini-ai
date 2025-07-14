@@ -182,7 +182,21 @@ export async function POST(): Promise<NextResponse> {
         console.log(`[TEST-RAG] Triggering sync for store: ${store.name} (${store.id})`);
         
         // This is async fire-and-forget, so we trigger it and move on
-        StoreService.syncStoreDataToRAGAsync(store.id);
+        try {
+          const { getUnifiedRAGEngine } = await import('@/lib/rag');
+          const ragEngine = getUnifiedRAGEngine();
+          setTimeout(async () => {
+            try {
+              await ragEngine.initializeStoreNamespaces(store.id);
+              await ragEngine.indexStoreData(store.id, store.access_token);
+              console.log(`[INFO] Test RAG sync completed for store: ${store.id}`);
+            } catch (error) {
+              console.error(`[ERROR] Test RAG sync failed for store ${store.id}:`, error);
+            }
+          }, 200);
+        } catch (error) {
+          console.warn(`[WARN] Failed to initialize RAG sync for store ${store.id}:`, error);
+        }
         
         syncResults.push({
           storeId: store.id,

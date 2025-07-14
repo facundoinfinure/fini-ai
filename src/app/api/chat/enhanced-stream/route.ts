@@ -35,7 +35,8 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         try {
           // Import enhanced RAG engine
-          const { enhancedRAGEngine } = await import('@/lib/rag/enhanced-rag-engine');
+          const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+    const ragEngine = getUnifiedRAGEngine();
 
           // Prepare RAG query
           const ragQuery = {
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
           })}\n\n`));
 
           // Get response (for now non-streaming until we fix the async generator)
-          const result = await enhancedRAGEngine.search(ragQuery);
+                      const result = await ragEngine.search(ragQuery);
           
           // Simulate streaming by sending chunks
           const words = result.answer.split(' ');

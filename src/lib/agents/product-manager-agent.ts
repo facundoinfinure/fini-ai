@@ -370,7 +370,8 @@ Análisis de precios completado con datos específicos de tu tienda.`;
       console.warn(`[PRODUCT-MANAGER] Attempting enhanced LangChain RAG for: "${query}"`);
       
       // Try the enhanced RAG system first
-      const { enhancedRAGEngine } = await import('@/lib/rag/enhanced-rag-engine');
+      const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+      const ragEngine = getUnifiedRAGEngine();
       
       const ragQuery = {
         query,
@@ -386,7 +387,7 @@ Análisis de precios completado con datos específicos de tu tienda.`;
         },
       };
 
-      const result = await enhancedRAGEngine.search(ragQuery);
+              const result = await ragEngine.search(ragQuery);
       
       if (result.sources.length > 0) {
         console.warn(`[PRODUCT-MANAGER] ✅ Enhanced RAG found ${result.sources.length} sources with confidence: ${result.confidence.toFixed(3)}`);

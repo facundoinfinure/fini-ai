@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { StoreService } from '@/lib/database/client';
+import { getUnifiedRAGEngine } from '@/lib/rag';
 
 /**
  * Force RAG data sync for a specific store
  * POST /api/stores/[id]/sync-rag
- * 🔄 Fixed deployment import issue + Added internal auth support
+ * 🔄 Updated to use unified RAG system
  */
 export async function POST(
   request: NextRequest,
@@ -85,8 +86,24 @@ export async function POST(
 
     console.log(`[INFO] ${isInternalCall ? 'Internal' : 'User'} RAG sync triggered for store: ${storeId} (${store.name})`);
 
-    // Trigger async sync (fire-and-forget)
-    StoreService.syncStoreDataToRAGAsync(storeId);
+    // Trigger async sync using unified RAG engine (fire-and-forget)
+    try {
+      const ragEngine = getUnifiedRAGEngine();
+      
+      // Initialize namespaces if needed
+      setTimeout(async () => {
+        try {
+          await ragEngine.initializeStoreNamespaces(storeId);
+          await ragEngine.indexStoreData(storeId, store.access_token);
+          console.log(`[INFO] RAG sync completed for store: ${storeId}`);
+        } catch (error) {
+          console.error(`[ERROR] RAG sync failed for store ${storeId}:`, error);
+        }
+      }, 200); // Fire and forget with minimal delay
+
+    } catch (error) {
+      console.warn('[WARN] RAG sync initialization failed, continuing anyway:', error);
+    }
 
     return NextResponse.json({
       success: true,

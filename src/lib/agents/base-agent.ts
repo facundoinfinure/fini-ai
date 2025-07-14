@@ -100,8 +100,9 @@ export abstract class BaseAgent implements Agent {
         return '';
       }
 
-      // 🚀 ENHANCED: Try enhanced RAG first, fallback to legacy
-      const { enhancedRAGEngine } = await import('@/lib/rag/enhanced-rag-engine');
+      // 🚀 UNIFIED: Use unified RAG engine for all operations
+      const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+      const ragEngine = getUnifiedRAGEngine();
       
       // Map AgentType to enhanced RAG agent types
       const agentTypeMapping: Record<string, string> = {
@@ -131,7 +132,7 @@ export abstract class BaseAgent implements Agent {
         },
       };
 
-      const _ragResult = await enhancedRAGEngine.search(_ragQuery);
+      const _ragResult = await ragEngine.search(_ragQuery);
       const _executionTime = Date.now() - _startTime;
 
       if (_ragResult.sources && _ragResult.sources.length > 0) {
@@ -145,13 +146,13 @@ export abstract class BaseAgent implements Agent {
         return 'No hay datos disponibles. Se está sincronizando la información.';
       }
 
-      // Filter and process sources
+      // Filter and process documents based on score in metadata
       const highQualityDocs = _ragResult.sources.filter(doc =>
-        (doc.score || 0) >= 0.4
+        (doc.metadata?.score || 0) >= 0.4
       );
 
       const mediumQualityDocs = _ragResult.sources.filter(doc =>
-        (doc.score || 0) >= 0.25 && (doc.score || 0) < 0.4
+        (doc.metadata?.score || 0) >= 0.25 && (doc.metadata?.score || 0) < 0.4
       );
 
       console.warn(`[AGENT:${this.type}] Context quality - High: ${highQualityDocs.length}, Medium: ${mediumQualityDocs.length}`);
@@ -433,15 +434,16 @@ export abstract class BaseAgent implements Agent {
 
   protected async hasRelevantData(query: string, context: AgentContext): Promise<boolean> {
     try {
-      const { enhancedRAGEngine } = await import('@/lib/rag/enhanced-rag-engine');
+      const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+      const ragEngine = getUnifiedRAGEngine();
       
-      const result = await enhancedRAGEngine.search({
+      const result = await ragEngine.search({
         query,
         context: {
           storeId: context.storeId,
           userId: context.userId,
           conversationId: context.conversationId,
-          agentType: 'general' as any,
+          agentType: 'orchestrator',
         },
         options: { topK: 1, scoreThreshold: 0.3 },
       });

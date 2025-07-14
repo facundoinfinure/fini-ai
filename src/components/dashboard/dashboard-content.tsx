@@ -53,14 +53,6 @@ interface Notification {
   solution?: string;
 }
 
-interface DashboardStats {
-  totalStores: number;
-  activeStores: number;
-  connectedStores: number;
-  totalRevenue: number;
-  totalOrders: number;
-}
-
 export function DashboardContent() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
@@ -87,9 +79,7 @@ export function DashboardContent() {
   
   // State management
   const [stores, setStores] = useState<StoreType[]>([]);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [notification, setNotification] = useState<Notification | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -169,11 +159,8 @@ export function DashboardContent() {
     try {
       logger.info('Fetching dashboard data', { userId: user?.id });
       
-      // Fetch stores and stats in parallel
-      const [storesResponse, statsResponse] = await Promise.all([
-        fetch('/api/stores'),
-        fetch('/api/dashboard/stats')
-      ]);
+      // Fetch stores
+      const storesResponse = await fetch('/api/stores');
 
       // Handle stores
       if (storesResponse.ok) {
@@ -194,20 +181,6 @@ export function DashboardContent() {
       } else {
         logger.error('Stores API call failed', { status: storesResponse.status });
         setError('Error al conectar con el servidor');
-      }
-
-      // Handle stats
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        if (statsData.success) {
-          setStats({
-            totalStores: statsData.data.totalStores || 0,
-            activeStores: statsData.data.activeStores || 0,
-            connectedStores: statsData.data.activeStores || 0,
-            totalRevenue: statsData.data.totalRevenue || 0,
-            totalOrders: statsData.data.totalOrders || 0,
-          });
-        }
       }
 
     } catch (err) {
@@ -600,15 +573,6 @@ export function DashboardContent() {
     }
   }, [activeTab, user]);
 
-  // 🔥 FORCE REFRESH ON MOUNT - Only once to ensure fresh data
-  useEffect(() => {
-    const hasRefreshed = sessionStorage.getItem('dashboard_refreshed');
-    if (!hasRefreshed) {
-      sessionStorage.setItem('dashboard_refreshed', 'true');
-      window.location.reload();
-    }
-  }, []);
-
   // Show loading while checking auth
   if (loading) {
     return <DashboardSkeleton />;
@@ -710,14 +674,15 @@ export function DashboardContent() {
         )}
 
         {/* Success Alert */}
-        {success && (
+        {/* This state was removed, so this block will not render */}
+        {/* {success && (
           <Alert className="mb-6 border-green-200 bg-green-50">
             <CheckCircle className="h-4 w-4" />
             <AlertDescription className="text-green-800">
               {success}
             </AlertDescription>
           </Alert>
-        )}
+        )} */}
 
         {/* Tab Content */}
         <div className="space-y-6">

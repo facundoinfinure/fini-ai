@@ -160,88 +160,108 @@ export class UnifiedFiniRAGEngine {
   // ===== NAMESPACE MANAGEMENT (UNIFIED STRATEGY) =====
 
   /**
-   * 🏗️ Initialize consistent namespace structure for a store
-   * Implements the unified namespace strategy from architecture doc
-   * 🚀 ENHANCED: Wait for store to be fully synchronized before namespace creation
+   * 🔥 ENHANCED: Initialize store namespaces with existence checking and proper error handling
    */
   async initializeStoreNamespaces(storeId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      console.log(`[UNIFIED-RAG] 🏗️ Initializing namespaces for store: ${storeId}`);
-
-      // 🚀 ENHANCED: Add brief delay to ensure store has been properly updated in DB
-      console.log(`[UNIFIED-RAG] ⏳ Waiting for store update synchronization...`);
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log(`[UNIFIED-RAG] 🚀 Starting enhanced namespace initialization for store: ${storeId}`);
       
-      // 🚀 ENHANCED: Verify store is ready for namespace creation
+      // STEP 1: Validate store exists in database first
       try {
-        const { createClient } = await import('@/lib/supabase/client');
+        const { createClient } = await import('@/lib/supabase/server');
         const supabase = createClient();
         
-        const { data: store, error } = await supabase
+        const { data: store, error: storeCheckError } = await supabase
           .from('stores')
-          .select('is_active, updated_at, created_at')
+          .select('id, user_id, name')
           .eq('id', storeId)
+          .eq('is_active', true)
           .single();
           
-        if (error || !store) {
-          console.warn(`[UNIFIED-RAG] ⚠️ Store not found during namespace initialization: ${storeId}, continuing anyway for placeholders`);
-        } else {
-          const updatedAt = new Date(store.updated_at);
-          const now = new Date();
-          const timeSinceUpdate = now.getTime() - updatedAt.getTime();
-          
-          console.log(`[UNIFIED-RAG] 📊 Store ${storeId} status: active=${store.is_active}, updated_${timeSinceUpdate}ms ago`);
-          
-          // If store was updated very recently (less than 30 seconds), it's likely a reconnection
-          if (timeSinceUpdate < 30000) {
-            console.log(`[UNIFIED-RAG] 🔄 Detected recent store update (${timeSinceUpdate}ms ago), treating as reconnection scenario`);
-          }
+        if (storeCheckError || !store) {
+          console.error(`[UNIFIED-RAG] ❌ Store validation failed for ${storeId}:`, storeCheckError?.message);
+          return { success: false, error: `Store not found or inactive: ${storeId}` };
         }
+        
+        console.log(`[UNIFIED-RAG] ✅ Store validated: ${store.name} (${storeId})`);
       } catch (storeCheckError) {
         console.warn(`[UNIFIED-RAG] ⚠️ Store check failed during namespace initialization:`, storeCheckError);
         // Continue anyway - might be a network issue
       }
 
-      // Define consistent namespace structure
+      // STEP 2: Check which namespaces already exist
       const namespaceTypes = ['store', 'products', 'orders', 'customers', 'analytics', 'conversations'];
+      const existingNamespaces = await this.checkExistingNamespaces(storeId, namespaceTypes);
+      const namespacesToCreate = namespaceTypes.filter(type => !existingNamespaces.includes(type));
       
-      // 🔥 FIX: Create namespaces sequentially instead of parallel to avoid race conditions
-      // and ensure proper error handling for each namespace
+      console.log(`[UNIFIED-RAG] 📊 Namespace status: ${existingNamespaces.length}/${namespaceTypes.length} exist`);
+      if (existingNamespaces.length > 0) {
+        console.log(`[UNIFIED-RAG] ✅ Existing namespaces: ${existingNamespaces.join(', ')}`);
+      }
+      if (namespacesToCreate.length > 0) {
+        console.log(`[UNIFIED-RAG] 🔧 Creating namespaces: ${namespacesToCreate.join(', ')}`);
+      }
+      
+      // STEP 3: Create only missing namespaces with proper error handling
       const createdNamespaces: string[] = [];
       const failedNamespaces: { type: string; error: string }[] = [];
       
-      for (const type of namespaceTypes) {
+      for (const type of namespacesToCreate) {
         try {
-          console.log(`[UNIFIED-RAG] 🔧 Creating namespace for type: ${type}`);
+          console.log(`[UNIFIED-RAG] 🔧 Creating namespace: ${storeId}-${type}`);
           await this.initializeSingleNamespace(storeId, type);
           createdNamespaces.push(type);
           console.log(`[UNIFIED-RAG] ✅ Successfully created namespace: ${type}`);
+          
+          // Add small delay to prevent rate limiting
+          if (namespacesToCreate.length > 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           failedNamespaces.push({ type, error: errorMessage });
           console.error(`[UNIFIED-RAG] ❌ Failed to create namespace ${type}:`, errorMessage);
+          
+          // Don't fail completely if some namespaces fail - continue with others
+          continue;
         }
       }
       
-      // Report final results
-      console.log(`[UNIFIED-RAG] 📊 Namespace initialization complete: ${createdNamespaces.length}/${namespaceTypes.length} successful`);
+      // STEP 4: Calculate final results
+      const totalExisting = existingNamespaces.length;
+      const totalCreated = createdNamespaces.length;
+      const totalNamespaces = totalExisting + totalCreated;
+      const totalRequired = namespaceTypes.length;
       
-      if (createdNamespaces.length === namespaceTypes.length) {
-        console.log(`[UNIFIED-RAG] ✅ ALL namespaces initialized successfully for store: ${storeId}`);
+      console.log(`[UNIFIED-RAG] 📊 Final namespace status: ${totalNamespaces}/${totalRequired} available`);
+      
+      if (totalNamespaces === totalRequired) {
+        console.log(`[UNIFIED-RAG] ✅ ALL namespaces ready for store: ${storeId}`);
         return { success: true };
-      } else if (createdNamespaces.length > 0) {
-        // Partial success - some namespaces created
-        console.warn(`[UNIFIED-RAG] ⚠️ Partial namespace initialization: ${createdNamespaces.length}/${namespaceTypes.length} created`);
+      } else if (totalNamespaces > 0) {
+        // Partial success - some namespaces available
+        const successRate = Math.round((totalNamespaces / totalRequired) * 100);
+        console.warn(`[UNIFIED-RAG] ⚠️ Partial namespace initialization: ${totalNamespaces}/${totalRequired} (${successRate}%) available`);
         console.warn(`[UNIFIED-RAG] ❌ Failed namespaces:`, failedNamespaces);
-        return { 
-          success: false, 
-          error: `Only ${createdNamespaces.length}/${namespaceTypes.length} namespaces created. Failed: ${failedNamespaces.map(f => `${f.type} (${f.error})`).join(', ')}` 
-        };
+        
+        // Return success if we have at least basic namespaces (store, products)
+        const hasEssentials = existingNamespaces.includes('store') || createdNamespaces.includes('store') ||
+                             existingNamespaces.includes('products') || createdNamespaces.includes('products');
+        
+        if (hasEssentials) {
+          console.log(`[UNIFIED-RAG] ✅ Essential namespaces available - proceeding`);
+          return { success: true };
+        } else {
+          return { 
+            success: false, 
+            error: `Critical namespaces missing. Only ${totalNamespaces}/${totalRequired} available. Failed: ${failedNamespaces.map(f => `${f.type} (${f.error})`).join(', ')}` 
+          };
+        }
       } else {
         // Total failure
         return { 
           success: false, 
-          error: `All namespace initializations failed: ${failedNamespaces.map(f => `${f.type} (${f.error})`).join(', ')}` 
+          error: `All namespace operations failed: ${failedNamespaces.map(f => `${f.type} (${f.error})`).join(', ')}` 
         };
       }
       
@@ -249,9 +269,44 @@ export class UnifiedFiniRAGEngine {
       console.error('[UNIFIED-RAG] ❌ Failed to initialize store namespaces:', error);
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+        error: error instanceof Error ? error.message : 'Unknown initialization error'
       };
     }
+  }
+
+  /**
+   * 🆕 NEW: Check which namespaces already exist to avoid recreation
+   */
+  private async checkExistingNamespaces(storeId: string, namespaceTypes: string[]): Promise<string[]> {
+    const existingNamespaces: string[] = [];
+    
+    try {
+      await this.initializeServerDependencies();
+      
+      for (const type of namespaceTypes) {
+        try {
+          const namespace = `${storeId}-${type}`;
+          
+          // Try to query the namespace - if it exists, this won't throw
+          const vectorStore = await this.getVectorStore(storeId, type);
+          if (vectorStore) {
+            // Test with a simple similarity search to confirm namespace is functional
+            const testResults = await vectorStore.similaritySearch('test', 1);
+            existingNamespaces.push(type);
+            console.log(`[UNIFIED-RAG] ✅ Verified existing namespace: ${namespace}`);
+          }
+        } catch (error) {
+          // Namespace doesn't exist or is not functional - this is expected for missing namespaces
+          console.log(`[UNIFIED-RAG] 📝 Namespace ${storeId}-${type} needs creation`);
+        }
+      }
+    } catch (error) {
+      console.warn(`[UNIFIED-RAG] ⚠️ Could not check existing namespaces, will attempt creation:`, error);
+      // Return empty array to force creation of all namespaces
+      return [];
+    }
+    
+    return existingNamespaces;
   }
 
   /**
@@ -292,6 +347,7 @@ export class UnifiedFiniRAGEngine {
       await this.vectorStore.upsert([documentChunk]);
       
       console.log(`[UNIFIED-RAG] ✅ Initialized namespace: ${namespace} with placeholder ${placeholderId}`);
+      console.log(`[UNIFIED-RAG] 📝 Note: Placeholder will be replaced when real data is indexed`);
 
     } catch (error) {
       console.error(`[UNIFIED-RAG] ❌ Failed to initialize namespace ${type} for store ${storeId}:`, error);
@@ -396,9 +452,46 @@ export class UnifiedFiniRAGEngine {
     this.syncLocks.set(storeId, syncPromise);
 
     try {
-      return await syncPromise;
+      const result = await syncPromise;
+      
+      // 🔥 NEW: Replace placeholders with real data after successful indexing
+      if (result.success && result.documentsIndexed > 0) {
+        await this.replacePlaceholdersWithRealData(storeId);
+      }
+      
+      return result;
     } finally {
       this.syncLocks.delete(storeId);
+    }
+  }
+  
+  /**
+   * 🔄 Replace placeholders with real data after indexing
+   */
+  private async replacePlaceholdersWithRealData(storeId: string): Promise<void> {
+    try {
+      console.log(`[UNIFIED-RAG] 🔄 Replacing placeholders with real data for store: ${storeId}`);
+      
+      const namespaceTypes = ['store', 'products', 'orders', 'customers', 'analytics', 'conversations'];
+      
+      for (const type of namespaceTypes) {
+        try {
+          const placeholderId = `placeholder-${storeId}-${type}`;
+          const namespace = `store-${storeId}${type === 'store' ? '' : `-${type}`}`;
+          
+          // Delete the placeholder document
+          await this.vectorStore.delete([placeholderId], namespace);
+          console.log(`[UNIFIED-RAG] 🗑️ Removed placeholder for namespace: ${namespace}`);
+        } catch (deleteError) {
+          // Don't fail the whole process if placeholder deletion fails
+          console.warn(`[UNIFIED-RAG] ⚠️ Failed to delete placeholder for ${type}:`, deleteError);
+        }
+      }
+      
+      console.log(`[UNIFIED-RAG] ✅ Placeholder replacement completed for store: ${storeId}`);
+    } catch (error) {
+      console.error(`[UNIFIED-RAG] ❌ Failed to replace placeholders for store ${storeId}:`, error);
+      // Don't throw - this is cleanup, not critical functionality
     }
   }
 

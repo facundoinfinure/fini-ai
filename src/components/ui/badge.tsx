@@ -4,25 +4,35 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-lg px-3 py-1 text-xs font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 select-none",
   {
     variants: {
       variant: {
         default:
-          "bg-[#1a1a1a] text-white shadow-sm hover:bg-[#333333]",
+          "bg-gray-900 text-white shadow-sm hover:bg-gray-800",
         secondary:
-          "bg-[#f8f9fa] text-[#1a1a1a] border border-[#e5e7eb] hover:bg-[#f3f4f6]",
+          "bg-gray-100 text-gray-900 border border-gray-200 hover:bg-gray-200",
         destructive:
-          "bg-[#fef2f2] text-[#ef4444] border border-[#fecaca] hover:bg-[#fee2e2]",
+          "bg-red-100 text-red-800 border border-red-200 hover:bg-red-200",
         success:
-          "bg-[#d1fae5] text-[#10b981] border border-[#a7f3d0] hover:bg-[#ecfdf5]",
+          "bg-green-100 text-green-800 border border-green-200 hover:bg-green-200",
         warning:
-          "bg-[#fef3c7] text-[#f59e0b] border border-[#fde68a] hover:bg-[#fffbeb]",
-        outline: "text-[#1a1a1a] border border-[#e5e7eb] hover:bg-[#f3f4f6]",
+          "bg-orange-100 text-orange-800 border border-orange-200 hover:bg-orange-200",
+        info:
+          "bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200",
+        outline: "text-gray-900 border border-gray-200 hover:bg-gray-100",
+        premium:
+          "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-sm hover:from-blue-700 hover:to-purple-700",
+      },
+      size: {
+        default: "px-3 py-1.5 text-xs",
+        sm: "px-2 py-1 text-xs",
+        lg: "px-4 py-2 text-sm",
       },
     },
     defaultVariants: {
       variant: "default",
+      size: "default",
     },
   }
 )
@@ -31,9 +41,9 @@ export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {}
 
-function Badge({ className, variant, ...props }: BadgeProps) {
+function Badge({ className, variant, size, ...props }: BadgeProps) {
   return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
+    <div className={cn(badgeVariants({ variant, size }), className)} {...props} />
   )
 }
 

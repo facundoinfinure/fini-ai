@@ -247,9 +247,9 @@ export async function GET(request: NextRequest) {
       
       if (storeWithToken) {
         // Import TiendaNubeTokenManager dynamically
-        const { TiendaNubeTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
+        const { UniversalTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
         
-        const tokenValidation = await TiendaNubeTokenManager.validateStoreTokens(storeWithToken.id);
+        const tokenValidation = await UniversalTokenManager.validateStoreTokens(storeWithToken.id);
         
         diagnosis.checks.tokenValidation = {
           storeId: storeWithToken.id,

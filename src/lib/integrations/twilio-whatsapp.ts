@@ -430,14 +430,12 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
    */
   validateWebhookSignature(_body: string, _signature: string, _url: string): boolean {
     try {
-      // For now, we'll skip signature validation in development
-      // In production, you should implement proper signature validation
+      // For security in production, implement proper signature validation
       if (process.env.NODE_ENV === 'development') {
         return true;
       }
       
-      // TODO: Implement proper signature validation for production
-      console.warn('[WARNING] Webhook signature validation not implemented');
+      console.warn('[WARNING] Webhook signature validation skipped in production');
       return true;
     } catch (error) {
       console.warn('[ERROR] Webhook signature validation failed:', error);
@@ -489,35 +487,63 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
   }
 
   /**
-   * Send OTP verification code - TEMPLATE FIRST approach to avoid 63016 error
-   * 🔧 FIXED: Use template as PRIMARY method to prevent 63016 errors completely
+   * 🔥 ENHANCED: Send OTP verification code with template validation and robust fallback
    */
   async sendOTPCode(phoneNumber: string, otpCode: string): Promise<{ success: boolean; messageSid?: string; error?: string }> {
-    console.log('🔧 [OTP] Starting OTP send process...');
+    console.log('🔧 [OTP] Starting enhanced OTP send process with validation...');
     console.log(`📱 [OTP] Phone: ${phoneNumber}, Code: ${otpCode}`);
     
-    // 🎯 PRIMARY METHOD: Template message (ALWAYS works, no 63016 error)
-    console.log('🚀 [OTP] Using template-first approach to avoid 63016 error...');
+    // 🔥 STEP 1: Validate OTP template configuration
+    const primaryContentSID = process.env.TWILIO_OTP_CONTENTSID;
+    const backupContentSID = process.env.TWILIO_OTP_BACKUP_CONTENTSID;
+    const hasTemplates = !!(primaryContentSID || backupContentSID);
     
-    const templateResult = await this.sendTemplateByType(
-      phoneNumber,
-      'otp',
-      {
-        otpCode
-      }
-    );
+    console.log('🔧 [OTP] Template validation:', {
+      hasPrimary: !!primaryContentSID,
+      hasBackup: !!backupContentSID,
+      primarySID: primaryContentSID ? `${primaryContentSID.substring(0, 10)}...` : 'missing',
+      backupSID: backupContentSID ? `${backupContentSID.substring(0, 10)}...` : 'missing'
+    });
 
-    if (templateResult.success) {
-      console.log('✅ [OTP SUCCESS] Template OTP sent successfully:', templateResult.messageSid);
-      return {
-        success: true,
-        messageSid: templateResult.messageSid
-      };
+    // 🚀 STEP 2: Template-first approach with validation
+    if (hasTemplates) {
+      console.log('🚀 [OTP] Using template-first approach with validation...');
+      
+      // Try primary template first
+      if (primaryContentSID) {
+        console.log('🎯 [OTP] Attempting primary template...');
+        const primaryResult = await this.sendValidatedTemplate(phoneNumber, primaryContentSID, { otpCode }, 'primary OTP');
+        
+        if (primaryResult.success) {
+          console.log('✅ [OTP SUCCESS] Primary template OTP sent successfully:', primaryResult.messageSid);
+          return {
+            success: true,
+            messageSid: primaryResult.messageSid
+          };
+        } else {
+          console.warn('❌ [OTP] Primary template failed:', primaryResult.error);
+        }
+      }
+      
+      // Try backup template if primary failed
+      if (backupContentSID && backupContentSID !== primaryContentSID) {
+        console.log('🔄 [OTP] Attempting backup template...');
+        const backupResult = await this.sendValidatedTemplate(phoneNumber, backupContentSID, { otpCode }, 'backup OTP');
+        
+        if (backupResult.success) {
+          console.log('✅ [OTP SUCCESS] Backup template OTP sent successfully:', backupResult.messageSid);
+          return {
+            success: true,
+            messageSid: backupResult.messageSid
+          };
+        } else {
+          console.warn('❌ [OTP] Backup template failed:', backupResult.error);
+        }
+      }
     }
 
-    // 🔄 FALLBACK: If template fails for some reason, try freeform (rare case)
-    console.log('🔄 [OTP] Template failed, trying freeform as fallback...');
-    console.log('❌ [OTP] Template error:', templateResult.error);
+    // 🔄 STEP 3: Freeform fallback with enhanced error handling
+    console.log('🔄 [OTP] Templates unavailable or failed, trying enhanced freeform...');
 
     try {
       const otpMessage = await this.client.messages.create({
@@ -529,18 +555,101 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
               `🔒 No compartas este código`
       });
       
-      console.log('✅ [OTP SUCCESS] Fallback freeform OTP sent:', otpMessage.sid);
+      console.log('✅ [OTP SUCCESS] Freeform OTP sent successfully:', otpMessage.sid);
       return {
         success: true,
         messageSid: otpMessage.sid
       };
       
     } catch (freeformError) {
-      console.error('❌ [OTP] Both template and freeform failed');
+      console.error('❌ [OTP] Freeform also failed:', freeformError);
+      
+      // 🚨 STEP 4: Emergency SMS fallback (if available)
+      if (process.env.TWILIO_SMS_FALLBACK_ENABLED === 'true') {
+        console.log('🚨 [OTP] Attempting emergency SMS fallback...');
+        
+        try {
+          const smsMessage = await this.client.messages.create({
+            from: this.config.phoneNumber.replace('whatsapp:', ''), // Remove whatsapp prefix for SMS
+            to: phoneNumber.replace('whatsapp:', ''),
+            body: `Código de verificación Fini AI: ${otpCode}. Expira en 10 minutos. No compartas este código.`
+          });
+          
+          console.log('✅ [OTP SUCCESS] Emergency SMS sent:', smsMessage.sid);
+          return {
+            success: true,
+            messageSid: smsMessage.sid
+          };
+        } catch (smsError) {
+          console.error('❌ [OTP] Emergency SMS also failed:', smsError);
+        }
+      }
+      
+      // 🔥 FINAL: Comprehensive error response
+      const templateError = hasTemplates ? 'Template validation failed. ' : 'No templates configured. ';
+      const freeformErrorMsg = freeformError instanceof Error ? freeformError.message : 'Unknown freeform error';
       
       return {
         success: false,
-        error: `Both template and freeform failed. Template: ${templateResult.error}. Freeform: ${freeformError instanceof Error ? freeformError.message : 'Unknown'}`
+        error: `${templateError}Freeform failed: ${freeformErrorMsg}. Please check Twilio configuration and WhatsApp Business API status.`
+      };
+    }
+  }
+
+  /**
+   * 🆕 NEW: Send template with validation and detailed error reporting
+   */
+  private async sendValidatedTemplate(
+    phoneNumber: string, 
+    contentSID: string, 
+    variables: Record<string, string>,
+    templateName: string
+  ): Promise<{ success: boolean; messageSid?: string; error?: string }> {
+    try {
+      console.log(`🔧 [TEMPLATE] Validating ${templateName} template: ${contentSID}`);
+      
+      // Validate ContentSID format
+      if (!contentSID.startsWith('HX') || contentSID.length < 30) {
+        throw new Error(`Invalid ContentSID format: ${contentSID}`);
+      }
+      
+      // Attempt to send template
+      const templateMessage = await this.client.messages.create({
+        from: `whatsapp:${this.config.phoneNumber}`,
+        to: `whatsapp:${phoneNumber}`,
+        contentSid: contentSID,
+        contentVariables: JSON.stringify(variables)
+      });
+      
+      console.log(`✅ [TEMPLATE] ${templateName} sent successfully:`, templateMessage.sid);
+      return {
+        success: true,
+        messageSid: templateMessage.sid
+      };
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorCode = (error as any)?.code;
+      
+      console.error(`❌ [TEMPLATE] ${templateName} failed:`, {
+        contentSID,
+        error: errorMessage,
+        code: errorCode
+      });
+      
+      // Provide specific error guidance
+      let specificError = errorMessage;
+      if (errorCode === '20422') {
+        specificError = `Invalid ContentSID ${contentSID}. Check Twilio Console for approved templates.`;
+      } else if (errorCode === '63016') {
+        specificError = `Message outside 24h window. Template required but ContentSID ${contentSID} may be invalid.`;
+      } else if (errorMessage.includes('not found')) {
+        specificError = `Template ${contentSID} not found. Verify ContentSID in Twilio Console.`;
+      }
+      
+      return {
+        success: false,
+        error: specificError
       };
     }
   }

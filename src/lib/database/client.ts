@@ -5,10 +5,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-import type { 
+import { 
   User, 
   Store, 
-  WhatsAppConfig, 
   Conversation, 
   Message, 
   AnalyticsCache, 
@@ -507,28 +506,36 @@ export class StoreService {
         const result = await ragEngine.initializeStoreNamespaces(storeId);
         
         if (result.success) {
-          console.log(`[STORE-SERVICE] ✅ Lock-aware RAG namespaces initialized for store: ${storeId}`);
+          console.log(`[STORE-SERVICE] ✅ Namespace initialization completed for store: ${storeId}`);
+          
+          // STEP 4: Update last sync timestamp after successful namespace creation
+          await this.updateStore(storeId, { 
+            last_sync_at: new Date().toISOString() 
+          });
         } else {
-          console.warn(`[STORE-SERVICE] ⚠️ RAG namespace initialization failed for store ${storeId}:`, result.error);
-          // Note: This is expected if RAG isn't configured yet - not a critical error
+          console.warn(`[STORE-SERVICE] ⚠️ Namespace initialization failed for store: ${storeId} - ${result.error}`);
         }
+        
       } catch (error) {
-        console.warn(`[STORE-SERVICE] ⚠️ Lock-aware async namespace initialization failed for store ${storeId}:`, error);
+        console.warn(`[STORE-SERVICE] ⚠️ Lock-aware namespace initialization failed for store ${storeId}:`, error);
         // 🛡️ CRITICAL: Never throw errors that could break store operations
-        // RAG initialization is a nice-to-have optimization, not a requirement
+        // Namespace initialization is enhancement, not a requirement for basic functionality
       } finally {
-        // 🔒 ALWAYS release the lock, even if initialization failed
+        // 🔒 STEP 5: Release lock if we acquired it
         if (lockProcessId) {
           try {
             const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
             await BackgroundSyncLocks.release(storeId, lockProcessId);
             console.log(`[STORE-SERVICE] 🔓 Lock released for namespace init: ${lockProcessId}`);
-          } catch (unlockError) {
-            console.warn(`[STORE-SERVICE] ⚠️ Failed to release namespace init lock ${lockProcessId}:`, unlockError);
+          } catch (lockError) {
+            console.warn(`[STORE-SERVICE] ⚠️ Failed to release lock ${lockProcessId}:`, lockError);
           }
         }
       }
-    })();
+    })().catch(error => {
+      // Final catch for any unhandled errors in the async IIFE
+      console.warn(`[STORE-SERVICE] ⚠️ Unhandled error in namespace initialization for store ${storeId}:`, error);
+    });
   }
 
   /**
@@ -547,222 +554,6 @@ export class StoreService {
       return { success: true, store: data };
     } catch (error) {
       console.warn('[ERROR] Get store failed:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
-  }
-
-  /**
-   * Sync complete store data to RAG/Pinecone asynchronously  
-   * 🚀 NEW: Full data synchronization for agent context
-   * 🛡️ FAIL-SAFE: Never breaks store operations
-   */
-    /**
-   * Immediate RAG sync for instant Product Manager access
-   * 🚀 CRITICAL: This ensures agents have data immediately after store connection
-   */
-  static async syncStoreDataToRAGImmediate(storeId: string): Promise<void> {
-    console.log(`[STORE-SERVICE] Starting immediate RAG sync for store: ${storeId}`);
-    
-    try {
-      // Get store with access token
-      const store = await this.getStore(storeId);
-      if (!store.success || !store.store?.access_token) {
-        throw new Error(`Store not found or missing access token: ${storeId}`);
-      }
-
-      // Dynamic import to avoid build issues
-      const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
-      const ragEngine = getUnifiedRAGEngine();
-      
-      // 1. Initialize namespaces with timeout
-      console.log(`[STORE-SERVICE] Initializing namespaces for: ${storeId}`);
-      const namespaceResult = await Promise.race<{ success: boolean; error?: string }>([
-        ragEngine.initializeStoreNamespaces(storeId),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Namespace timeout')), 30000))
-      ]);
-      
-      if (!namespaceResult.success) {
-        throw new Error(`Namespace initialization failed: ${namespaceResult.error}`);
-      }
-
-      // 2. Index store data with timeout
-      console.log(`[STORE-SERVICE] Indexing store data for: ${storeId}`);
-      const indexResult = await Promise.race<any>([
-        ragEngine.indexStoreData(storeId, store.store.access_token),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Indexing timeout')), 60000))
-      ]);
-      
-      if (!indexResult.success) {
-        console.warn(`[STORE-SERVICE] ⚠️ Partial indexing failure: ${indexResult.error}`);
-      }
-      
-      // 3. Update last sync timestamp
-      await this.updateStore(storeId, { 
-        last_sync_at: new Date().toISOString() 
-      });
-      
-      console.log(`[STORE-SERVICE] ✅ Immediate RAG sync completed for store: ${storeId}`);
-    } catch (error) {
-      console.error(`[STORE-SERVICE] ❌ Immediate RAG sync failed for ${storeId}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * 🔒 ENHANCED: Lock-aware async RAG sync for fire-and-forget operations
-   * Respects global lock system to prevent race conditions during sync
-   */
-  static syncStoreDataToRAGAsync(storeId: string): void {
-    // Fire-and-forget async operation with lock awareness
-    (async () => {
-      let lockProcessId: string | null = null;
-      
-      try {
-        console.log(`[STORE-SERVICE] 🔒 Starting lock-aware async RAG sync for store: ${storeId}`);
-        
-        // 🔒 STEP 1: Check for lock conflicts before starting
-        const { checkRAGLockConflicts, RAGLockType, BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
-        
-        const conflictCheck = await checkRAGLockConflicts(storeId, RAGLockType.BACKGROUND_SYNC);
-        
-        if (!conflictCheck.canProceed) {
-          console.warn(`[STORE-SERVICE] ⏳ Skipping async sync for store ${storeId} - ${conflictCheck.reason}`);
-          return; // Exit early - another operation is handling this store
-        }
-
-        // 🔒 STEP 2: Acquire background sync lock
-        const lockResult = await BackgroundSyncLocks.acquire(storeId, 'StoreService async RAG sync');
-        
-        if (!lockResult.success) {
-          console.warn(`[STORE-SERVICE] ⏳ Cannot acquire lock for async sync ${storeId}: ${lockResult.error}`);
-          return; // Exit early - lock not available
-        }
-        
-        lockProcessId = lockResult.processId!;
-        console.log(`[STORE-SERVICE] 🔒 Lock acquired for async sync: ${lockProcessId}`);
-        
-        // STEP 3: Get store with access token for API calls
-        const store = await this.getStore(storeId);
-        if (!store.success || !store.store) {
-          console.warn(`[STORE-SERVICE] ⚠️ Cannot sync RAG data - store not found: ${storeId}`);
-          return;
-        }
-
-        const storeData = store.store;
-        if (!storeData.access_token) {
-          console.warn(`[STORE-SERVICE] ⚠️ Cannot sync RAG data - no access token for store: ${storeId}`);
-          return;
-        }
-
-        // STEP 4: Initialize namespaces first
-        const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
-        const ragEngine = getUnifiedRAGEngine();
-        
-        console.log(`[STORE-SERVICE] 🏗️ Initializing RAG namespaces for store: ${storeId}`);
-        const namespaceResult = await ragEngine.initializeStoreNamespaces(storeId);
-        
-        if (!namespaceResult.success) {
-          console.warn(`[STORE-SERVICE] ⚠️ RAG namespaces failed for store ${storeId}:`, namespaceResult.error);
-          return; // Skip data sync if namespaces failed
-        }
-
-        // STEP 5: Sync complete store data
-        console.log(`[STORE-SERVICE] 📊 Starting full data indexing for store: ${storeId}`);
-        const indexResult = await ragEngine.indexStoreData(storeId, storeData.access_token);
-        
-        if (!indexResult.success) {
-          console.warn(`[STORE-SERVICE] ⚠️ Partial indexing failure for store ${storeId}:`, indexResult.error);
-        }
-        
-        console.log(`[STORE-SERVICE] ✅ Lock-aware RAG data sync completed for store: ${storeId}`);
-        
-        // STEP 6: Update last sync timestamp
-        await this.updateStore(storeId, { 
-          last_sync_at: new Date().toISOString() 
-        });
-        
-      } catch (error) {
-        console.warn(`[STORE-SERVICE] ⚠️ Lock-aware async RAG sync failed for store ${storeId}:`, error);
-        // 🛡️ CRITICAL: Never throw errors that could break store operations
-        // RAG sync is enhancement, not a requirement for basic functionality
-      } finally {
-        // 🔒 ALWAYS release the lock, even if sync failed
-        if (lockProcessId) {
-          try {
-            const { BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
-            await BackgroundSyncLocks.release(storeId, lockProcessId);
-            console.log(`[STORE-SERVICE] 🔓 Lock released for async sync: ${lockProcessId}`);
-          } catch (unlockError) {
-            console.warn(`[STORE-SERVICE] ⚠️ Failed to release async sync lock ${lockProcessId}:`, unlockError);
-          }
-        }
-      }
-    })();
-  }
-}
-
-/**
- * WhatsApp Configuration Operations
- */
-export class WhatsAppConfigService {
-  static async createConfig(configData: Partial<WhatsAppConfig>): Promise<{ success: boolean; config?: WhatsAppConfig; error?: string }> {
-    try {
-      const { data, error } = await _supabaseAdmin
-        .from('whatsapp_configs')
-        .insert([configData])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      return { success: true, config: data };
-    } catch (error) {
-      console.warn('[ERROR] Create WhatsApp config failed:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
-  }
-
-  static async getConfigByUserId(userId: string): Promise<{ success: boolean; config?: WhatsAppConfig; error?: string }> {
-    try {
-      const { data, error } = await _supabaseAdmin
-        .from('whatsapp_configs')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('is_active', true)
-        .single();
-
-      if (error) throw error;
-
-      return { success: true, config: data };
-    } catch (error) {
-      console.warn('[ERROR] Get WhatsApp config failed:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
-  }
-
-  static async updateConfig(configId: string, updates: Partial<WhatsAppConfig>): Promise<{ success: boolean; config?: WhatsAppConfig; error?: string }> {
-    try {
-      const { data, error } = await _supabaseAdmin
-        .from('whatsapp_configs')
-        .update(updates)
-        .eq('id', configId)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      return { success: true, config: data };
-    } catch (error) {
-      console.warn('[ERROR] Update WhatsApp config failed:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 

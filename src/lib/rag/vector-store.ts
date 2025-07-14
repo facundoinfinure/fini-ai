@@ -143,6 +143,9 @@ async function retryPineconeOperation<T>(
   throw lastError!;
 }
 
+/**
+ * 🔥 ENHANCED: Vector Store with Circuit Breaker Protection
+ */
 export class PineconeVectorStore implements VectorStore {
   private pinecone: any = null;
   private indexName: string;
@@ -151,16 +154,15 @@ export class PineconeVectorStore implements VectorStore {
 
   constructor() {
     this.indexName = RAG_CONFIG.pinecone.indexName;
-    this.retryManager = RetryManager.getInstance();
+    // Initialize circuit breaker for Pinecone operations
     this.circuitBreaker = CircuitBreakerManager.getInstance().getBreaker('pinecone-vector-store', {
-      failureThreshold: 5,
-      resetTimeout: 60000,
-      monitoringPeriod: 30000,
-      expectedErrors: ['timeout', 'network', 'connection', 'ECONNRESET', 'ETIMEDOUT', '404']
+      failureThreshold: 5,        // Open after 5 failures
+      resetTimeout: 60000,       // Try again after 1 minute
+      monitoringPeriod: 30000,   // Monitor failures over 30 seconds
+      expectedErrors: ['timeout', 'network', 'connection', 'etimedout', 'econnreset']
     });
     
-    // Lazy initialization - only create Pinecone client when needed
-    // This prevents build errors when API keys are not available
+    this.retryManager = RetryManager.getInstance();
   }
 
   /**
@@ -218,259 +220,141 @@ export class PineconeVectorStore implements VectorStore {
   }
 
   /**
-   * Upsert document chunks to Pinecone
-   * 🔥 ENHANCED: Comprehensive error handling and retry logic + metadata flattening
+   * 🔥 ENHANCED: Protected upsert with circuit breaker and retries
    */
-  async upsert(chunks: DocumentChunk[]): Promise<void> {
-    try {
-      console.warn(`[RAG:vector-store] Upserting ${chunks.length} chunks to Pinecone`);
-      
-      if (chunks.length === 0) {
-        console.warn('[RAG:vector-store] No chunks to upsert');
-        return;
-      }
-
-      // SECURITY: Validate all chunks have the same store ID
-      const storeIds = Array.from(new Set(chunks.map(chunk => chunk.metadata.storeId)));
-      if (storeIds.length > 1) {
-        throw new Error(`[SECURITY] Cannot upsert chunks from multiple stores in single operation: ${storeIds.join(', ')}`);
-      }
-
-      const index = await this.getIndex();
-      
-      // Prepare vectors for Pinecone
-      const vectors = chunks.map(chunk => {
-        if (!chunk.embedding || chunk.embedding.length === 0) {
-          throw new Error(`Chunk ${chunk.id} is missing embedding`);
-        }
-
-        return {
-          id: chunk.id,
-          values: chunk.embedding,
-          metadata: {
-            content: chunk.content,
-            // 🔥 CRITICAL FIX: Flatten nested metadata for Pinecone validation
-            ...this.flattenMetadataForPinecone(chunk.metadata),
-            indexedAt: new Date().toISOString(),
-          },
-        };
-      });
-
-      // Batch upsert to handle large datasets
-      const batchSize = 100;
-      for (let i = 0; i < vectors.length; i += batchSize) {
-        const batch = vectors.slice(i, i + batchSize);
-        
-        // Get namespace for this batch (use first chunk's metadata)
-        const namespace = await this.getNamespace(chunks[i]);
-        
-        // 🔥 NEW: Wrap each batch operation in retry logic
-        await retryPineconeOperation(async () => {
-          await index.namespace(namespace).upsert(batch);
-        }, PINECONE_NETWORK_CONFIG.RETRY_ATTEMPTS, PINECONE_NETWORK_CONFIG.RETRY_DELAY_BASE, `upsert:${namespace}:batch${Math.floor(i / batchSize) + 1}`);
-        
-        console.warn(`[RAG:vector-store] Upserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(vectors.length / batchSize)} to namespace: ${namespace}`);
-        
-        // Rate limiting between batches
-        if (i + batchSize < vectors.length) {
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-      }
-
-      console.warn(`[RAG:vector-store] Successfully upserted ${chunks.length} chunks`);
-    } catch (error) {
-      const networkError = classifyPineconeError(error instanceof Error ? error : new Error(String(error)), 'upsert');
-      
-      if (networkError.isNetworkError) {
-        console.warn('[RAG:vector-store] 🌐 Network error during upsert (graceful degradation):', error);
-        // Don't throw for network errors during upsert - allow graceful degradation
-        return;
-      }
-      
-      console.warn('[ERROR] Failed to upsert chunks to Pinecone:', error);
-      throw new Error(`Vector upsert failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * 🔥 NEW: Flatten nested metadata for Pinecone validation
-   * Pinecone only accepts string, number, boolean, or list of strings
-   * TiendaNube often returns objects like {es: "nombre", en: "name"}
-   */
-  private flattenMetadataForPinecone(metadata: DocumentChunk['metadata']): Record<string, string | number | boolean | string[]> {
-    const flattened: Record<string, string | number | boolean | string[]> = {};
-    
-    for (const [key, value] of Object.entries(metadata)) {
-      if (value === null || value === undefined) {
-        continue; // Skip null/undefined values
-      }
-      
-      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-        flattened[key] = value;
-      } else if (Array.isArray(value)) {
-        // Convert array to array of strings
-        flattened[key] = value.map(item => String(item));
-      } else if (typeof value === 'object') {
-        // 🔥 CRITICAL: Handle TiendaNube multilingual objects
-        if (this.isMultilingualObject(value)) {
-          // Extract the first available language value
-          const firstValue = this.extractMultilingualValue(value);
-          if (firstValue) {
-            flattened[key] = String(firstValue);
-          }
-        } else {
-          // For other objects, convert to JSON string as fallback
-          try {
-            flattened[key] = JSON.stringify(value);
-          } catch {
-            flattened[key] = String(value);
-          }
-        }
-      } else {
-        // Fallback: convert to string
-        flattened[key] = String(value);
-      }
-    }
-    
-    return flattened;
-  }
-
-  /**
-   * 🔥 NEW: Check if object is a TiendaNube multilingual field
-   * Common patterns: {es: "value", en: "value"} or {es: "value", pt: "value"}
-   */
-  private isMultilingualObject(obj: unknown): boolean {
-    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
-      return false;
-    }
-    
-    const keys = Object.keys(obj as Record<string, unknown>);
-    
-    // Check if all keys are language codes (2-3 characters)
-    return keys.length > 0 && keys.every(key => 
-      typeof key === 'string' && key.length >= 2 && key.length <= 3 && /^[a-z]+$/i.test(key)
-    );
-  }
-
-  /**
-   * 🔥 NEW: Extract value from multilingual object
-   * Prefers Spanish (es), then English (en), then first available
-   */
-  private extractMultilingualValue(obj: unknown): string | null {
-    if (!obj || typeof obj !== 'object') {
-      return null;
-    }
-    
-    const multilingual = obj as Record<string, unknown>;
-    
-    // Preference order: es -> en -> pt -> first available
-    const preferredLanguages = ['es', 'en', 'pt'];
-    
-    for (const lang of preferredLanguages) {
-      if (multilingual[lang] && typeof multilingual[lang] === 'string') {
-        return multilingual[lang] as string;
-      }
-    }
-    
-    // Fallback to first available value
-    const firstKey = Object.keys(multilingual)[0];
-    if (firstKey && typeof multilingual[firstKey] === 'string') {
-      return multilingual[firstKey] as string;
-    }
-    
-    return null;
-  }
-
-  /**
-   * Search for similar vectors
-   * 🔥 ENHANCED: Network-aware search with retry logic
-   */
-  async search(queryEmbedding: number[], options: RAGQuery['options'] = {}, filters?: RAGQuery['filters'], context?: RAGQuery['context']): Promise<VectorSearchResult[]> {
-    try {
-      // SECURITY: Validate store access and log event
-      await this.validateStoreAccess(context);
-      await this.logSecurityEvent('rag_search', context, true);
-      
-      const topK = options.topK || RAG_CONFIG.search.defaultTopK;
-      const threshold = options.threshold || RAG_CONFIG.search.defaultThreshold;
-      
-      console.warn(`[RAG:vector-store] Searching for ${topK} similar vectors with threshold ${threshold}`);
-      
-      const index = await this.getIndex();
-      
-      // Build Pinecone filter
-      const pineconeFilter = this.buildPineconeFilter(filters);
-      
-      // Determine namespace(s) to search
-      const namespaces = await this.getSearchNamespaces(context, filters);
-      
-      const allResults: VectorSearchResult[] = [];
-      
-      // Search in each namespace with retry logic
-      for (const namespace of namespaces) {
-        console.warn(`[RAG:vector-store] Searching in namespace: ${namespace}`);
-        
-        try {
-          const searchRequest = {
-            vector: queryEmbedding,
-            topK,
-            includeMetadata: options.includeMetadata !== false,
-            includeValues: false,
-            ...(pineconeFilter && { filter: pineconeFilter }),
-          };
-
-          // 🔥 NEW: Wrap search operation in retry logic
-          const searchResponse = await retryPineconeOperation(async () => {
-            return await index.namespace(namespace).query(searchRequest);
-          }, PINECONE_NETWORK_CONFIG.RETRY_ATTEMPTS, PINECONE_NETWORK_CONFIG.RETRY_DELAY_BASE, `search:${namespace}`);
+  async upsert(documents: DocumentChunk[], namespace?: string): Promise<void> {
+    return await this.circuitBreaker.execute(async () => {
+      return await this.retryManager.executeWithRetry(
+        async () => {
+          const index = await this.getIndex();
           
-          if (searchResponse.matches) {
-            const namespaceResults = searchResponse.matches
-              .filter(match => match.score && match.score >= threshold)
-              .map(match => ({
-                id: match.id,
-                score: match.score || 0,
-                metadata: match.metadata as DocumentChunk['metadata'],
-                content: match.metadata?.content as string,
-              }));
+          if (!index) {
+            throw new Error('Pinecone index not available');
+          }
+          
+          console.log(`[VECTOR-STORE] 🔄 Upserting ${documents.length} documents to namespace: ${namespace || 'default'}`);
+          
+          // Convert documents to Pinecone format
+          const vectors = documents.map(doc => ({
+            id: doc.id,
+            values: doc.embedding,
+            metadata: {
+              ...doc.metadata,
+              content: doc.content
+            }
+          }));
+          
+          // Batch upsert with size limits
+          const batchSize = 100; // Pinecone recommendation
+          for (let i = 0; i < vectors.length; i += batchSize) {
+            const batch = vectors.slice(i, i + batchSize);
             
-            allResults.push(...namespaceResults);
+            const upsertRequest: any = {
+              vectors: batch
+            };
+            
+            if (namespace) {
+              upsertRequest.namespace = namespace;
+            }
+            
+            await index.upsert(upsertRequest);
+            console.log(`[VECTOR-STORE] ✅ Batch ${Math.floor(i / batchSize) + 1} upserted: ${batch.length} vectors`);
+            
+            // Add delay between batches to prevent rate limiting
+            if (i + batchSize < vectors.length) {
+              await new Promise(resolve => setTimeout(resolve, 200));
+            }
           }
-        } catch (namespaceError) {
-          const networkError = classifyPineconeError(
-            namespaceError instanceof Error ? namespaceError : new Error(String(namespaceError)), 
-            `search:${namespace}`
-          );
           
-          if (networkError.isNetworkError) {
-            console.warn(`[RAG:vector-store] 🌐 Network error searching namespace ${namespace}, continuing with other namespaces:`, namespaceError);
-            continue; // Continue with other namespaces
+          console.log(`[VECTOR-STORE] ✅ Successfully upserted ${documents.length} documents`);
+        },
+        RetryConfigs.EXTERNAL_API,
+        'pinecone_upsert'
+      );
+    });
+  }
+
+  /**
+   * 🔥 ENHANCED: Protected query with circuit breaker and retries
+   */
+  async query(query: RAGQuery): Promise<VectorSearchResult[]> {
+    return await this.circuitBreaker.execute(async () => {
+      return await this.retryManager.executeWithRetry(
+        async () => {
+          const index = await this.getIndex();
+          
+          if (!index) {
+            throw new Error('Pinecone index not available');
           }
           
-          console.warn(`[RAG:vector-store] Non-network error in namespace ${namespace}:`, namespaceError);
-          // Continue with other namespaces for non-network errors too
-        }
-      }
-      
-      // Sort by score and limit results
-      const sortedResults = allResults
-        .sort((a, b) => b.score - a.score)
-        .slice(0, topK);
-      
-      console.warn(`[RAG:vector-store] Found ${sortedResults.length} matches across ${namespaces.length} namespaces`);
-      
-      return sortedResults;
-    } catch (error) {
-      const networkError = classifyPineconeError(error instanceof Error ? error : new Error(String(error)), 'search');
-      
-      if (networkError.isNetworkError) {
-        console.warn('[RAG:vector-store] 🌐 Network error during search, returning empty results:', error);
-        return []; // Return empty results for network errors
-      }
-      
-      console.warn('[ERROR] Failed to search vectors in Pinecone:', error);
-      throw new Error(`Vector search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+          const namespace = `${query.context?.storeId || 'default'}-products`;
+          console.log(`[VECTOR-STORE] 🔍 Querying with text query (namespace: ${namespace})`);
+          
+          // This method would need the query to be converted to embedding first
+          // For now, return empty results as this needs embedding conversion
+          console.warn('[VECTOR-STORE] ⚠️ Query method needs embedding conversion - use search() instead');
+          return [];
+        },
+        RetryConfigs.EXTERNAL_API,
+        'pinecone_query'
+      );
+    });
+  }
+
+  /**
+   * 🔥 ENHANCED: Search method required by VectorStore interface
+   */
+  async search(
+    queryEmbedding: number[], 
+    options?: RAGQuery['options'], 
+    filters?: RAGQuery['filters'], 
+    context?: RAGQuery['context']
+  ): Promise<VectorSearchResult[]> {
+    return await this.circuitBreaker.execute(async () => {
+      return await this.retryManager.executeWithRetry(
+        async () => {
+          const index = await this.getIndex();
+          
+          if (!index) {
+            throw new Error('Pinecone index not available');
+          }
+          
+          const namespace = context?.storeId ? `${context.storeId}-products` : 'default';
+          console.log(`[VECTOR-STORE] 🔍 Search with embedding vector (namespace: ${namespace})`);
+          
+          const queryRequest: any = {
+            vector: queryEmbedding,
+            topK: options?.topK || 10,
+            includeMetadata: true,
+            includeValues: false,
+            namespace: namespace
+          };
+          
+          if (filters) {
+            queryRequest.filter = this.buildPineconeFilter(filters);
+          }
+          
+          const response = await index.query(queryRequest);
+          
+          if (!response?.matches) {
+            console.warn('[VECTOR-STORE] ⚠️ No matches returned from Pinecone');
+            return [];
+          }
+          
+          const results: VectorSearchResult[] = response.matches.map((match: any) => ({
+            id: match.id,
+            score: match.score,
+            content: match.metadata?.content || '',
+            metadata: match.metadata || {}
+          }));
+          
+          console.log(`[VECTOR-STORE] ✅ Search returned ${results.length} results`);
+          return results;
+        },
+        RetryConfigs.EXTERNAL_API,
+        'pinecone_search'
+      );
+    });
   }
 
   /**

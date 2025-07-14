@@ -275,118 +275,229 @@ export class BulletproofTiendaNube {
   }
 
   /**
-   * 🔒 ENHANCED: Lock-aware background operations trigger (FIRE-AND-FORGET)
-   * ======================================================================
-   * Dispara todas las operaciones pesadas de forma asíncrona con locks
+   * 🔥 ENHANCED: Background operations with monitoring and error recovery
    */
   private static triggerBackgroundOperations(storeId: string, accessToken: string, userId: string, isReconnection = false): void {
-    // NO usar await - fire and forget
-    this.executeAsyncBackgroundOperations(storeId, accessToken, userId, isReconnection).catch(error => {
-      console.warn('🚀 [BULLETPROOF] Lock-aware background operations failed (non-blocking):', error);
-    });
+    console.log(`[BULLETPROOF] 🚀 Triggering monitored background operations for store: ${storeId}`);
+    
+    // Create a unique operation ID for tracking
+    const operationId = `bg_${storeId}_${Date.now()}`;
+    
+    // Start background operations with proper monitoring
+    setTimeout(async () => {
+      try {
+        console.log(`[BULLETPROOF] 🔄 Starting background operation: ${operationId}`);
+        await this.executeMonitoredBackgroundOperations(storeId, accessToken, userId, isReconnection, operationId);
+        console.log(`[BULLETPROOF] ✅ Background operation completed: ${operationId}`);
+      } catch (error) {
+        console.error(`[BULLETPROOF] ❌ Background operation failed: ${operationId}`, error);
+        // Log to external monitoring if needed
+        await this.logBackgroundError(operationId, storeId, error);
+      }
+    }, 200);
+    
+    // Set up timeout monitoring
+    setTimeout(() => {
+      console.warn(`[BULLETPROOF] ⏰ Background operation timeout check: ${operationId}`);
+      // Could implement timeout handling here if needed
+    }, 300000); // 5 minutes timeout
   }
 
   /**
-   * 🔒 ENHANCED: Lock-aware async background operations
-   * ==================================================
-   * Todas las operaciones pesadas se ejecutan aquí con protección de locks
+   * 🆕 NEW: Execute background operations with comprehensive monitoring
    */
-  private static async executeAsyncBackgroundOperations(storeId: string, accessToken: string, userId: string, isReconnection = false): Promise<void> {
-    let lockProcessId: string | null = null;
+  private static async executeMonitoredBackgroundOperations(
+    storeId: string, 
+    accessToken: string, 
+    userId: string, 
+    isReconnection = false,
+    operationId: string
+  ): Promise<void> {
+    const startTime = Date.now();
+    const operations: { 
+      name: string; 
+      status: 'pending' | 'success' | 'failed'; 
+      duration?: number; 
+      error?: string 
+    }[] = [];
+    
+    console.log(`[BULLETPROOF] 📊 Starting monitored background operations: ${operationId}`);
     
     try {
-      console.log(`🔄 [BULLETPROOF] Starting lock-aware background operations for store: ${storeId} (reconnection: ${isReconnection})`);
-
-      // 🔒 STEP 1: Determine lock type based on operation
-      const lockType = isReconnection ? 'RECONNECTION' : 'BACKGROUND_SYNC';
-      console.log(`🔒 [BULLETPROOF] Using lock type: ${lockType}`);
-
-      // STEP 2: Delay and then trigger lock-aware background sync
-      setTimeout(async () => {
-        try {
-          // 🔒 Check for lock conflicts before triggering sync
-          const { checkRAGLockConflicts, RAGLockType, StoreReconnectionLocks, BackgroundSyncLocks } = await import('@/lib/rag/global-locks');
-          
-          const targetLockType = isReconnection ? RAGLockType.RECONNECTION : RAGLockType.BACKGROUND_SYNC;
-          const conflictCheck = await checkRAGLockConflicts(storeId, targetLockType);
-          
-          if (!conflictCheck.canProceed) {
-            console.warn(`🔒 [BULLETPROOF] ⏳ Skipping background ops for store ${storeId} - ${conflictCheck.reason}`);
-            return; // Exit early - another operation is handling this store
-          }
-
-          // 🔒 Acquire appropriate lock
-          const LockManager = isReconnection ? StoreReconnectionLocks : BackgroundSyncLocks;
-          const lockResult = await LockManager.acquire(storeId, `TiendaNube OAuth ${isReconnection ? 'reconnection' : 'connection'} background ops`);
-          
-          if (!lockResult.success) {
-            console.warn(`🔒 [BULLETPROOF] ⏳ Cannot acquire ${lockType} lock for ${storeId}: ${lockResult.error}`);
-            
-            // Fallback to direct HTTP call if lock unavailable
-            console.log(`🔒 [BULLETPROOF] 🔄 Falling back to direct background sync call`);
-            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-            
-            fetch(`${baseUrl}/api/stores/background-sync`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                storeId,
-                accessToken,
-                userId,
-                operation: isReconnection ? 'reconnection_full_sync' : 'full_initialization',
-                priority: isReconnection ? 'high' : 'normal',
-                jobId: `oauth-${isReconnection ? 'reconnect' : 'connect'}-${storeId}-${Date.now()}`
-              })
-            }).catch(e => console.warn('Fallback background sync HTTP call failed:', e));
-            
-            return;
-          }
-          
-          lockProcessId = lockResult.processId!;
-          console.log(`🔒 [BULLETPROOF] Lock acquired for background ops: ${lockProcessId}`);
-          
-          // Trigger lock-aware background sync
-          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-          
-          const syncResponse = await fetch(`${baseUrl}/api/stores/background-sync`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              storeId,
-              accessToken,
-              userId,
-              operation: isReconnection ? 'reconnection_full_sync' : 'full_initialization',
-              priority: isReconnection ? 'high' : 'normal',
-              lockProcessId, // Include the lock process ID
-              jobId: `oauth-${isReconnection ? 'reconnect' : 'connect'}-${storeId}-${Date.now()}`
-            })
-          });
-          
-          if (!syncResponse.ok) {
-            throw new Error(`Background sync HTTP failed: ${syncResponse.status}`);
-          }
-          
-          console.log('✅ [BULLETPROOF] Lock-aware background sync triggered successfully');
-          
-        } catch (error) {
-          console.warn('🔄 [BULLETPROOF] Lock-aware background operations failed:', error);
-        } finally {
-          // 🔒 Release lock if we acquired it (fire-and-forget)
-          if (lockProcessId) {
-            import('@/lib/rag/global-locks').then(({ StoreReconnectionLocks, BackgroundSyncLocks }) => {
-              const LockManager = isReconnection ? StoreReconnectionLocks : BackgroundSyncLocks;
-              LockManager.release(storeId, lockProcessId!).catch(unlockError => {
-                console.warn(`🔒 [BULLETPROOF] ⚠️ Failed to release ${lockType} lock ${lockProcessId}:`, unlockError);
-              });
-            });
-          }
-        }
-      }, 2000); // 2 segundos de delay
-
-      console.log('✅ [BULLETPROOF] Lock-aware background operations setup completed');
+      // OPERATION 1: RAG Namespace Initialization
+      let operation: { 
+        name: string; 
+        status: 'pending' | 'success' | 'failed'; 
+        duration?: number; 
+        error?: string 
+      } = { name: 'rag_namespace_init', status: 'pending' };
+      operations.push(operation);
       
-    } catch (error) {
-      console.error('🔄 [BULLETPROOF] Lock-aware background operations setup failed:', error);
+      try {
+        const opStart = Date.now();
+        console.log(`[BULLETPROOF] 🔧 ${operationId}: Initializing RAG namespaces...`);
+        
+        const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+        const ragEngine = getUnifiedRAGEngine();
+        
+        const namespaceResult = await ragEngine.initializeStoreNamespaces(storeId);
+        operation.duration = Date.now() - opStart;
+        
+        if (namespaceResult.success) {
+          operation.status = 'success';
+          console.log(`[BULLETPROOF] ✅ ${operationId}: RAG namespaces initialized (${operation.duration}ms)`);
+        } else {
+          operation.status = 'failed';
+          operation.error = namespaceResult.error;
+          console.warn(`[BULLETPROOF] ⚠️ ${operationId}: RAG namespace init partial failure: ${namespaceResult.error}`);
+        }
+      } catch (error) {
+        operation.duration = Date.now() - Date.now();
+        operation.status = 'failed';
+        operation.error = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`[BULLETPROOF] ❌ ${operationId}: RAG namespace init failed:`, error);
+      }
+
+      // OPERATION 2: Store Data Sync (only if not a simple reconnection)
+      if (!isReconnection) {
+        operation = { name: 'store_data_sync', status: 'pending' };
+        operations.push(operation);
+        
+        try {
+          const opStart = Date.now();
+          console.log(`[BULLETPROOF] 🔄 ${operationId}: Starting store data sync...`);
+          
+          const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+          const ragEngine = getUnifiedRAGEngine();
+          
+          // Sync with timeout
+          const syncPromise = ragEngine.indexStoreData(storeId, accessToken);
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Sync timeout after 4 minutes')), 240000)
+          );
+          
+          const syncResult = await Promise.race([syncPromise, timeoutPromise]) as any;
+          operation.duration = Date.now() - opStart;
+          
+          if (syncResult.success) {
+            operation.status = 'success';
+            console.log(`[BULLETPROOF] ✅ ${operationId}: Store data synced (${syncResult.documentsIndexed} docs, ${operation.duration}ms)`);
+          } else {
+            operation.status = 'failed';
+            operation.error = syncResult.error;
+            console.warn(`[BULLETPROOF] ⚠️ ${operationId}: Store sync partial failure: ${syncResult.error}`);
+          }
+        } catch (error) {
+          operation.duration = Date.now() - Date.now();
+          operation.status = 'failed';
+          operation.error = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`[BULLETPROOF] ❌ ${operationId}: Store data sync failed:`, error);
+        }
+      } else {
+        console.log(`[BULLETPROOF] ⏭️ ${operationId}: Skipping data sync for reconnection`);
+      }
+
+      // OPERATION 3: Update Store Status
+      operation = { name: 'store_status_update', status: 'pending' };
+      operations.push(operation);
+      
+      try {
+        const opStart = Date.now();
+        console.log(`[BULLETPROOF] 🔄 ${operationId}: Updating store status...`);
+        
+        const { createClient } = await import('@/lib/supabase/server');
+        const supabase = createClient();
+        
+        const { error: updateError } = await supabase
+          .from('stores')
+          .update({
+            last_sync_at: new Date().toISOString(),
+            sync_status: 'completed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', storeId);
+          
+        operation.duration = Date.now() - opStart;
+        
+        if (!updateError) {
+          operation.status = 'success';
+          console.log(`[BULLETPROOF] ✅ ${operationId}: Store status updated (${operation.duration}ms)`);
+        } else {
+          operation.status = 'failed';
+          operation.error = updateError.message;
+          console.error(`[BULLETPROOF] ❌ ${operationId}: Store status update failed:`, updateError);
+        }
+      } catch (error) {
+        operation.duration = Date.now() - Date.now();
+        operation.status = 'failed';
+        operation.error = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`[BULLETPROOF] ❌ ${operationId}: Store status update failed:`, error);
+      }
+
+      // Final Summary
+      const totalDuration = Date.now() - startTime;
+      const successCount = operations.filter(op => op.status === 'success').length;
+      const failedCount = operations.filter(op => op.status === 'failed').length;
+      
+      console.log(`[BULLETPROOF] 📊 ${operationId}: Background operations summary:`);
+      console.log(`[BULLETPROOF] 📊 Total time: ${totalDuration}ms | Success: ${successCount} | Failed: ${failedCount}`);
+      
+      operations.forEach(op => {
+        const status = op.status === 'success' ? '✅' : (op.status === 'failed' ? '❌' : '⏳');
+        console.log(`[BULLETPROOF] ${status} ${op.name}: ${op.duration || 0}ms${op.error ? ` (${op.error})` : ''}`);
+      });
+      
+      // Update operation tracking if needed
+      await this.logOperationResults(operationId, storeId, operations, totalDuration);
+
+    } catch (globalError) {
+      const totalDuration = Date.now() - startTime;
+      console.error(`[BULLETPROOF] ❌ ${operationId}: Global background operation failure (${totalDuration}ms):`, globalError);
+      throw globalError;
+    }
+  }
+
+  /**
+   * 🆕 NEW: Log background operation errors for monitoring
+   */
+  private static async logBackgroundError(operationId: string, storeId: string, error: any): Promise<void> {
+    try {
+      console.error(`[BULLETPROOF] 🚨 Logging background error for ${operationId}:`, {
+        operationId,
+        storeId,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      });
+      
+      // Could integrate with external error tracking here (Sentry, etc.)
+      
+    } catch (logError) {
+      console.error(`[BULLETPROOF] ❌ Failed to log background error:`, logError);
+    }
+  }
+
+  /**
+   * 🆕 NEW: Log operation results for monitoring
+   */
+  private static async logOperationResults(
+    operationId: string, 
+    storeId: string, 
+    operations: any[], 
+    totalDuration: number
+  ): Promise<void> {
+    try {
+      console.log(`[BULLETPROOF] 📊 Logging operation results for ${operationId}:`, {
+        operationId,
+        storeId,
+        operations,
+        totalDuration,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Could store in database for admin monitoring if needed
+      
+    } catch (logError) {
+      console.error(`[BULLETPROOF] ❌ Failed to log operation results:`, logError);
     }
   }
 

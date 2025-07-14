@@ -1,8 +1,13 @@
 /**
- * 🔄 TIENDANUBE TOKEN MANAGER - VALIDATION-ONLY SYSTEM
- * ==================================================
+ * 🔄 UNIVERSAL TOKEN MANAGER - MULTI-PLATFORM SYSTEM
+ * =================================================
  * 
- * Sistema para validar tokens de TiendaNube siguiendo sus mejores prácticas oficiales.
+ * Sistema unificado para validar tokens de TODAS las plataformas siguiendo mejores prácticas.
+ * 
+ * PLATFORMS SUPPORTED:
+ * - TiendaNube (tokens long-lived, no refresh tokens)
+ * - Shopify (coming soon)
+ * - WooCommerce (coming soon)
  * 
  * IMPORTANTE: TiendaNube tokens NO usan refresh tokens y son long-lived.
  * Se invalidan solo cuando:
@@ -15,26 +20,47 @@
  * - NO refresh tokens (no están soportados por TiendaNube)
  * - Validación mediante API calls ligeros
  * - Re-autorización OAuth cuando token es inválido
+ * - Universal support para futuras plataformas
  */
 
 import { createServiceClient } from '@/lib/supabase/server';
 import { TiendaNubeAPI } from './tiendanube';
 import { StoreService } from '@/lib/database/client';
 
+export type Platform = 'tiendanube' | 'shopify' | 'woocommerce' | 'other';
+
 interface TokenValidationResult {
   isValid: boolean;
   needsReconnection: boolean;
   error?: string;
-  errorType?: 'auth' | 'network' | 'api' | 'unknown';
+  errorType?: 'auth' | 'network' | 'api' | 'platform_specific' | 'unknown';
+  platformSpecific?: any;
 }
 
 interface StoreReconnectionData {
   storeId: string;
   storeName: string;
+  platform: Platform;
   platformStoreId: string;
   userId: string;
   lastValidation: string;
   reconnectionRequired: boolean;
+}
+
+export interface StoreWithToken {
+  id: string;
+  user_id: string;
+  platform: Platform;
+  platform_store_id: string;
+  name: string;
+  domain?: string;
+  access_token: string;
+  refresh_token?: string;
+  token_expires_at?: string;
+  is_active: boolean;
+  platform_specific_data?: any;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -99,169 +125,116 @@ function classifyError(error: Error): NetworkErrorInfo {
 }
 
 /**
- * TiendaNube Token Manager
- * 🔥 ENHANCED: Network-aware validation with proper error classification
+ * 🌐 Universal Token Manager para todas las plataformas
  */
-export class TiendaNubeTokenManager {
-  private static instance: TiendaNubeTokenManager;
+export class UniversalTokenManager {
+  private static instance: UniversalTokenManager;
   private validationCache = new Map<string, { isValid: boolean; lastChecked: number }>();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 
-  static getInstance(): TiendaNubeTokenManager {
-    if (!TiendaNubeTokenManager.instance) {
-      TiendaNubeTokenManager.instance = new TiendaNubeTokenManager();
+  static getInstance(): UniversalTokenManager {
+    if (!UniversalTokenManager.instance) {
+      UniversalTokenManager.instance = new UniversalTokenManager();
     }
-    return TiendaNubeTokenManager.instance;
+    return UniversalTokenManager.instance;
   }
 
   /**
-   * Get valid access token for a store (VALIDATION-ONLY approach)
-   * 🔥 ENHANCED: Network-aware error handling with proper retry logic
+   * 🎯 Obtener token válido para cualquier plataforma
    */
   static async getValidToken(storeId: string): Promise<string | null> {
-    const result = await this.getValidTokenWithStoreData(storeId);
-    return result?.token || null;
-  }
-
-  /**
-   * 🔥 NEW: Get valid token AND platform store ID to fix ID mismatch bugs
-   * Returns both token and platform_store_id for proper TiendaNube API calls
-   */
-  static async getValidTokenWithStoreData(storeId: string): Promise<{
-    token: string;
-    platformStoreId: string;
-    storeId: string;
-    storeName: string;
-  } | null> {
     try {
-      console.log(`[TOKEN] Getting valid token and store data for store: ${storeId}`);
+      console.log(`[UNIVERSAL-TOKEN] Getting valid token for store: ${storeId}`);
       
       const supabase = createServiceClient(); // Use service client to bypass RLS
       
-      // 🔥 FIX: Determine if storeId is a UUID (our internal ID) or platform store ID (Tienda Nube ID)
+      // Buscar store por ID (UUID interno) o platform_store_id
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(storeId);
-      
-      // 🔥 FIX: Search by the appropriate field based on ID format
       const searchField = isUUID ? 'id' : 'platform_store_id';
-      console.log(`[TOKEN] Searching by ${searchField} for store: ${storeId}`);
+      
+      console.log(`[UNIVERSAL-TOKEN] Searching by ${searchField} for: ${storeId}`);
       
       const { data: store, error } = await supabase
         .from('stores')
-        .select('id, access_token, platform_store_id, name')
+        .select('*')
         .eq(searchField, storeId)
-        .eq('platform', 'tiendanube')
+        .eq('is_active', true) // Solo stores activas
         .single();
 
       if (error) {
-        console.warn(`[TOKEN] Store not found: ${storeId} (searched by ${searchField})`, error.message);
+        console.warn(`[UNIVERSAL-TOKEN] Store not found: ${storeId}`, error.message);
         return null;
       }
 
-      if (!store?.access_token || !store?.platform_store_id) {
-        console.warn(`[TOKEN] Store ${storeId} missing credentials:`, {
-          hasToken: !!store?.access_token,
-          hasPlatformId: !!store?.platform_store_id
-        });
+      if (!store?.access_token) {
+        console.warn(`[UNIVERSAL-TOKEN] Store ${storeId} missing access_token`);
         return null;
       }
 
-      console.log(`[TOKEN] Found store: ${store.id} (platform_store_id: ${store.platform_store_id})`);
+      console.log(`[UNIVERSAL-TOKEN] Found ${store.platform} store: ${store.name}`);
 
-      // 🔥 ENHANCED: Network-aware token validation with retry logic
-      const maxAttempts = 2; // Reduced attempts for token validation
-      let lastError: Error | null = null;
-      
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          const api = new TiendaNubeAPI(store.access_token, store.platform_store_id);
-          
-          // Test the token with a lightweight API call
-          await api.getStore();
-          
-          console.log(`[TOKEN] ✅ Token validated successfully for store: ${storeId} (attempt ${attempt})`);
-          
-          return {
-            token: store.access_token,
-            platformStoreId: store.platform_store_id,
-            storeId: store.id,
-            storeName: store.name || 'Tienda sin nombre'
-          };
-          
-        } catch (validationError) {
-          lastError = validationError instanceof Error ? validationError : new Error(String(validationError));
-          
-          const errorInfo = classifyError(lastError);
-          
-          console.error(`[TOKEN] Validation attempt ${attempt}/${maxAttempts} failed for store ${storeId}:`, {
-            message: lastError.message,
-            isNetwork: errorInfo.isNetworkError,
-            isTimeout: errorInfo.isTimeoutError,
-            isAuth: errorInfo.isAuthError,
-            willRetry: errorInfo.shouldRetry && attempt < maxAttempts
-          });
-          
-          // If it's a network error and we have more attempts, retry
-          if (errorInfo.shouldRetry && attempt < maxAttempts) {
-            const delay = 1000 * attempt; // Progressive delay
-            console.warn(`[TOKEN] 🔄 Retrying token validation in ${delay}ms due to network error`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            continue;
-          }
-          
-          // If it's an authentication error, mark for reconnection
-          if (errorInfo.shouldMarkForReconnection) {
-            console.error(`[TOKEN] 🚫 Authentication failed - token invalid or revoked for store: ${storeId}`);
-            
-            await TiendaNubeTokenManager.getInstance().markStoreForReconnection(
-              store.id, 
-              'Token validation failed - authentication error'
-            );
-            
-            return null;
-          }
-          
-          // For network errors that couldn't be retried, return token anyway
-          // The calling system can handle the network error appropriately
-          if (errorInfo.isNetworkError) {
-            console.warn(`[TOKEN] ⚠️ Network error persists, but returning store data for ${storeId}. Error: ${lastError.message}`);
-            
-            return {
-              token: store.access_token,
-              platformStoreId: store.platform_store_id,
-              storeId: store.id,
-              storeName: store.name || 'Tienda sin nombre'
-            };
-          }
-          
-          // For other errors, break out of retry loop
-          break;
-        }
-      }
-      
-      // If we get here, validation failed
-      if (lastError) {
-        const errorInfo = classifyError(lastError);
+      // Validar token según la plataforma
+      const manager = UniversalTokenManager.getInstance();
+      const validation = await manager.validateTokenByPlatform(store);
+
+      if (!validation.isValid) {
+        console.error(`[UNIVERSAL-TOKEN] Token invalid for ${store.platform} store: ${storeId}`);
         
-        if (errorInfo.isNetworkError) {
-          console.warn(`[TOKEN] ⚠️ Non-auth error during validation, returning store data anyway: ${lastError.message}`);
-          
-          return {
-            token: store.access_token,
-            platformStoreId: store.platform_store_id,
-            storeId: store.id,
-            storeName: store.name || 'Tienda sin nombre'
-          };
-        } else {
-          console.error(`[TOKEN] ❌ Token validation failed definitively for store ${storeId}: ${lastError.message}`);
-          return null;
+        if (validation.needsReconnection) {
+          await manager.markStoreForReconnection(
+            store.id, 
+            `Token validation failed: ${validation.error}`
+          );
         }
+        
+        return null;
       }
-      
-      console.error(`[TOKEN] ❌ Unexpected validation failure for store ${storeId}`);
-      return null;
-      
+
+      console.log(`[UNIVERSAL-TOKEN] ✅ Token validated for ${store.platform} store: ${storeId}`);
+      return store.access_token;
+
     } catch (error) {
-      console.error(`[TOKEN] Unexpected error getting store data for ${storeId}:`, error);
+      console.error(`[UNIVERSAL-TOKEN] Error getting token for ${storeId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * 🎯 Obtener datos completos de store con token validado
+   */
+  static async getValidStoreData(storeId: string): Promise<StoreWithToken | null> {
+    try {
+      console.log(`[UNIVERSAL-TOKEN] Getting complete store data for: ${storeId}`);
+      
+      const supabase = createServiceClient(); // Use service client to bypass RLS
+      
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(storeId);
+      const searchField = isUUID ? 'id' : 'platform_store_id';
+      
+      const { data: store, error } = await supabase
+        .from('stores')
+        .select('*')
+        .eq(searchField, storeId)
+        .single();
+
+      if (error || !store) {
+        console.warn(`[UNIVERSAL-TOKEN] Store not found: ${storeId}`);
+        return null;
+      }
+
+      // Validar token según la plataforma
+      const manager = UniversalTokenManager.getInstance();
+      const validation = await manager.validateTokenByPlatform(store);
+
+      if (!validation.isValid) {
+        console.error(`[UNIVERSAL-TOKEN] Store ${storeId} has invalid token`);
+        return null;
+      }
+
+      return store as StoreWithToken;
+
+    } catch (error) {
+      console.error(`[UNIVERSAL-TOKEN] Error getting store data for ${storeId}:`, error);
       return null;
     }
   }
@@ -284,6 +257,64 @@ export class TiendaNubeTokenManager {
         isValid: false,
         needsRefresh: false, // TiendaNube doesn't use refresh tokens
         error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * 🎯 Validar token según la plataforma
+   */
+  async validateTokenByPlatform(store: StoreWithToken): Promise<TokenValidationResult> {
+    try {
+      switch (store.platform) {
+        case 'tiendanube':
+          return await this.validateTiendaNubeToken(store);
+        case 'shopify':
+          // TODO: Implement Shopify validation
+          throw new Error('Shopify validation not implemented yet');
+        case 'woocommerce':
+          // TODO: Implement WooCommerce validation  
+          throw new Error('WooCommerce validation not implemented yet');
+        default:
+          return {
+            isValid: false,
+            needsReconnection: true,
+            error: `Unsupported platform: ${store.platform}`,
+            errorType: 'platform_specific'
+          };
+      }
+    } catch (error) {
+      console.error(`[UNIVERSAL-TOKEN] Platform validation error for ${store.platform}:`, error);
+      return {
+        isValid: false,
+        needsReconnection: true,
+        error: error instanceof Error ? error.message : 'Unknown validation error',
+        errorType: 'unknown'
+      };
+    }
+  }
+
+  /**
+   * 🔥 PRIVATE: Validate TiendaNube token with network-aware error handling
+   */
+  private async validateTiendaNubeToken(store: StoreWithToken): Promise<TokenValidationResult> {
+    try {
+      const api = new TiendaNubeAPI(store.access_token, store.platform_store_id);
+      await api.getStore();
+      
+      return {
+        isValid: true,
+        needsReconnection: false
+      };
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      const errorInfo = classifyError(err);
+      
+      return {
+        isValid: false,
+        needsReconnection: errorInfo.shouldMarkForReconnection,
+        error: err.message,
+        errorType: errorInfo.isAuthError ? 'auth' : errorInfo.isNetworkError ? 'network' : 'api'
       };
     }
   }
@@ -410,6 +441,7 @@ export class TiendaNubeTokenManager {
         return {
           storeId: store.id,
           storeName: store.name || 'Tienda sin nombre',
+          platform: store.platform,
           platformStoreId: store.platform_store_id,
           userId: store.user_id,
           lastValidation: new Date().toISOString(),
@@ -553,6 +585,7 @@ export class TiendaNubeTokenManager {
             reconnectionRequired.push({
               storeId: store.id,
               storeName: store.name || 'Tienda sin nombre',
+              platform: store.platform,
               platformStoreId: store.platform_store_id,
               userId: store.user_id,
               lastValidation: new Date().toISOString(),
@@ -597,7 +630,7 @@ export class TiendaNubeTokenManager {
 }
 
 // Export singleton instance
-export const tiendaNubeTokenManager = TiendaNubeTokenManager.getInstance();
+export const tiendaNubeTokenManager = UniversalTokenManager.getInstance();
 
 // Export helper functions
 export async function validateTiendaNubeToken(

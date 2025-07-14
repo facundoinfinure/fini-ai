@@ -3,9 +3,13 @@
  * Verifica Tienda Nube, Supabase, Pinecone y otros servicios críticos
  */
 
-import { createServiceClient } from '@/lib/supabase/server';
 import { TiendaNubeTokenManager } from '@/lib/integrations/tiendanube-token-manager';
-import { FiniRAGEngine } from '@/lib/rag/rag-engine';
+import { TiendaNubeAPI } from '@/lib/integrations/tiendanube';
+import { Pinecone } from '@pinecone-database/pinecone';
+import { OpenAI } from 'openai';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { createLogger } from '@/lib/logger';
+import { getUnifiedRAGEngine } from '@/lib/rag/unified-rag-engine';
 
 export interface HealthCheckResult {
   service: string;
@@ -243,7 +247,7 @@ export class ConnectionHealthChecker {
       }
 
       // Test con RAG engine
-      const ragEngine = new FiniRAGEngine();
+      const ragEngine = getUnifiedRAGEngine();
       
       // Test básico de conexión usando getStats()
       let connectionTest = false;
@@ -256,7 +260,7 @@ export class ConnectionHealthChecker {
       
       // Test de namespace (si existe alguno)
       const supabase = createServiceClient();
-      const { data: testStore } = await supabase
+      const { data: store } = await supabase
         .from('stores')
         .select('id')
         .eq('status', 'active')
@@ -264,14 +268,18 @@ export class ConnectionHealthChecker {
         .single();
 
       let namespaceTest = 'NO_STORE_TO_TEST';
-      if (testStore) {
+      if (store) {
         try {
-          // Usar search para verificar si el namespace existe
-          const searchResult = await ragEngine.search({
-            query: 'test connection',
-            context: { storeId: testStore.id, userId: 'health-check' },
-            options: { topK: 1 }
-          });
+          // Test RAG query simple
+          const testQuery = {
+            query: 'Test query',
+            context: {
+              storeId: store.id,
+              userId: 'health-check',
+              agentType: 'analytics' as const
+            }
+          };
+          const searchResult = await ragEngine.search(testQuery);
           namespaceTest = 'OK';
         } catch (error) {
           namespaceTest = 'ERROR';

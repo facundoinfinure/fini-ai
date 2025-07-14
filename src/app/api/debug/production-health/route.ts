@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { TiendaNubeAPI } from '@/lib/integrations/tiendanube';
-import { TiendaNubeTokenManager } from '@/lib/integrations/tiendanube-token-manager';
+import { UniversalTokenManager } from '@/lib/integrations/tiendanube-token-manager';
 import { getUnifiedRAGEngine } from '@/lib/rag/unified-rag-engine';
 
 // Force dynamic rendering to prevent static build errors
@@ -207,7 +207,7 @@ async function checkStoreHealth(storeId: string): Promise<StoreHealthStatus> {
   const tokenTest = async (): Promise<HealthCheckResult> => {
     const startTime = Date.now();
     try {
-      const validToken = await TiendaNubeTokenManager.getValidToken(storeId);
+      const validToken = await UniversalTokenManager.getValidToken(storeId);
       
       return {
         service: 'token_validation',

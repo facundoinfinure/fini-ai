@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { FiniMultiAgentSystem } from '@/lib/agents/multi-agent-system';
 import type { AgentContext } from '@/lib/agents/types';
-import { WhatsAppConfigService, StoreService, ConversationService, MessageService } from '@/lib/database/client';
+import { StoreService, ConversationService, MessageService } from '@/lib/database/client';
 import { createTwilioWhatsAppService } from '@/lib/integrations/twilio-whatsapp';
 
 const _twilioService = createTwilioWhatsAppService();
@@ -60,22 +60,17 @@ export async function POST(request: NextRequest) {
       const _phoneNumber = _messageData.from.replace('whatsapp:', '');
 
       // 1. Lookup WhatsApp config and store by phone number
-      const _configRes = await WhatsAppConfigService.getConfigByUserId(_phoneNumber);
+      const _configRes = await StoreService.getStoresByUserId(_phoneNumber);
       let userId: string | undefined = undefined;
       let storeId: string | undefined = undefined;
       let storeName = 'Tienda Nube';
       
-      if (_configRes.success && _configRes.config) {
-        userId = _configRes.config.user_id;
-        storeId = _configRes.config.store_id || undefined;
-        
-        // Lookup store name
-        if (storeId) {
-          const _storeRes = await StoreService.getStoresByUserId(userId);
-          if (_storeRes.success && _storeRes.stores && _storeRes.stores.length > 0) {
-            const _store = _storeRes.stores.find(s => s.id === storeId);
-            if (_store) storeName = _store.name;
-          }
+      if (_configRes.success && _configRes.stores && _configRes.stores.length > 0) {
+        const _store = _configRes.stores.find(s => s.id === _phoneNumber);
+        if (_store) {
+          userId = _store.user_id;
+          storeId = _store.id;
+          storeName = _store.name;
         }
       } else {
         // Fallback: no config found

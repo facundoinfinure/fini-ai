@@ -98,21 +98,55 @@ ${_decision.reasoning}
     this.log('debug', `Routing message: "${userMessage}"`);
 
     try {
-      // First try intelligent routing with OpenAI
-      const intelligentDecision = await this.analyzeIntentWithOpenAI(userMessage);
+      // 🔥 ENHANCED: Check if OpenAI is configured and available
+      const hasOpenAI = !!process.env.OPENAI_API_KEY;
       
-      if (intelligentDecision.confidence >= 0.7) {
-        this.log('info', `Intelligent routing: ${intelligentDecision.selectedAgent} (${Math.round(intelligentDecision.confidence * 100)}%)`);
-        return intelligentDecision;
+      if (hasOpenAI) {
+        try {
+          // First try intelligent routing with OpenAI
+          const intelligentDecision = await this.analyzeIntentWithOpenAI(userMessage);
+          
+          if (intelligentDecision.confidence >= 0.7) {
+            this.log('info', `✅ Intelligent routing successful: ${intelligentDecision.selectedAgent} (${Math.round(intelligentDecision.confidence * 100)}%)`);
+            return intelligentDecision;
+          } else {
+            this.log('debug', `⚠️ Intelligent routing confidence too low (${Math.round(intelligentDecision.confidence * 100)}%), falling back to keyword-based routing`);
+          }
+        } catch (openaiError) {
+          this.log('error', `🔄 OpenAI routing failed, gracefully falling back to keyword-based routing:`, openaiError);
+          // Continue to fallback - don't throw
+        }
+      } else {
+        this.log('info', '🔧 OpenAI not configured, using keyword-based routing (still effective!)');
       }
       
-      this.log('debug', 'Intelligent routing confidence too low, falling back to keyword-based routing');
-    } catch (error) {
-      this.log('error', 'Intelligent routing failed, using keyword fallback:', error);
-    }
+      // Fallback to keyword-based routing (always works)
+      this.log('debug', '🎯 Using enhanced keyword-based routing with improved patterns');
+      return await this.enhancedKeywordBasedRouting(userMessage);
 
-    // Fallback to keyword-based routing
-    return await this.keywordBasedRouting(userMessage);
+    } catch (error) {
+      this.log('error', '❌ All routing methods failed, using emergency fallback:', error);
+      
+      // Emergency fallback - provide helpful general response
+      return {
+        selectedAgent: null,
+        confidence: 0.3,
+        reasoning: 'Sistema de routing en mantenimiento - proporcionando respuesta general',
+        routingRules: {
+          analyticsScore: 0,
+          customerServiceScore: 0,
+          marketingScore: 0,
+          stockManagerScore: 0,
+          financialAdvisorScore: 0,
+          businessConsultantScore: 0,
+          productManagerScore: 0,
+          operationsManagerScore: 0,
+          salesCoachScore: 0,
+          generalScore: 0
+        },
+        fallbackMessage: '🤖 Estoy experimentando dificultades técnicas temporales con mi sistema de routing, pero puedo ayudarte con información general sobre tu tienda. ¿Podrías ser más específico sobre lo que necesitas? Por ejemplo: ventas, productos, clientes, marketing, etc.'
+      };
+    }
   }
 
   /**
@@ -273,6 +307,82 @@ Confidence: 0.9+ (muy seguro), 0.7+ (seguro), 0.5+ (moderado), <0.5 (inseguro)`;
     };
 
     this.log('info', `Keyword routing: ${selectedAgent || 'fallback'} (confidence: ${Math.round(_confidence * 100)}%)`);
+    return decision;
+  }
+
+  /**
+   * 🔥 ENHANCED: Improved keyword-based routing with better patterns and confidence calculation
+   */
+  private async enhancedKeywordBasedRouting(userMessage: string): Promise<OrchestratorDecision> {
+    const _lowerMessage = userMessage.toLowerCase();
+
+    // 🎯 Enhanced scoring using existing methods with boosters
+    const _routingRules = {
+      analyticsScore: this.calculateAnalyticsScore(_lowerMessage),
+      customerServiceScore: this.calculateCustomerServiceScore(_lowerMessage),
+      marketingScore: this.calculateMarketingScore(_lowerMessage),
+      stockManagerScore: this.calculateStockManagerScore(_lowerMessage),
+      financialAdvisorScore: this.calculateFinancialAdvisorScore(_lowerMessage),
+      businessConsultantScore: this.calculateBusinessConsultantScore(_lowerMessage),
+      productManagerScore: this.calculateProductManagerScore(_lowerMessage),
+      operationsManagerScore: this.calculateOperationsManagerScore(_lowerMessage),
+      salesCoachScore: this.calculateSalesCoachScore(_lowerMessage),
+      generalScore: this.calculateGeneralScore(_lowerMessage)
+    };
+
+    // Sort by score descending
+    const _scores = Object.entries(_routingRules)
+      .map(([key, score]) => ({
+        agent: key.replace('Score', '').replace(/([A-Z])/g, '_$1').toLowerCase().substring(1),
+        score
+      }))
+      .filter(item => item.agent !== 'general') // Exclude general score
+      .sort((a, b) => b.score - a.score)
+      .map(item => ({
+        agent: item.agent as AgentType,
+        score: item.score
+      }));
+
+    const _bestScore = _scores[0];
+    const _secondBestScore = _scores[1]?.score || 0;
+
+    // 🔥 ENHANCED: Better confidence calculation
+    let confidence = _bestScore.score;
+    
+    // Boost confidence if there's a clear winner (significant gap)
+    const gap = _bestScore.score - _secondBestScore;
+    if (gap > 0.3) {
+      confidence = Math.min(confidence + 0.1, 1.0);
+    }
+
+    // Determine routing decision with enhanced thresholds
+    let selectedAgent = null;
+    let reasoning = '';
+
+    if (confidence >= 0.8) {
+      selectedAgent = _bestScore.agent;
+      reasoning = `✨ Alta confianza (${Math.round(confidence * 100)}%) - Routing directo a especialista en ${this.getAgentDisplayName(_bestScore.agent)}`;
+    } else if (confidence >= 0.6) {
+      selectedAgent = _bestScore.agent;
+      reasoning = `🎯 Confianza buena (${Math.round(confidence * 100)}%) - Routing a ${this.getAgentDisplayName(_bestScore.agent)} con contexto adicional`;
+    } else if (confidence >= 0.4) {
+      selectedAgent = _bestScore.agent;
+      reasoning = `🤔 Confianza moderada (${Math.round(confidence * 100)}%) - Mejor opción disponible: ${this.getAgentDisplayName(_bestScore.agent)}`;
+    } else {
+      reasoning = `❓ Consulta poco clara (${Math.round(confidence * 100)}%) - Necesita más contexto`;
+    }
+
+    const decision: OrchestratorDecision = {
+      selectedAgent,
+      confidence,
+      reasoning,
+      routingRules: _routingRules,
+      fallbackMessage: confidence < 0.4 ? 
+        '🤖 No estoy seguro de cómo ayudarte mejor. ¿Podrías reformular tu consulta? Puedo ayudarte con:\n\n📊 **Analytics**: ventas, métricas, reportes\n🛒 **Productos**: catálogo, inventario, precios\n👥 **Clientes**: atención, consultas, soporte\n📈 **Marketing**: estrategias, promociones, campañas\n💰 **Finanzas**: ingresos, gastos, rentabilidad\n🏢 **Consultoría**: estrategia, crecimiento, optimización' : 
+        undefined
+    };
+
+    this.log('info', `🎯 Enhanced keyword routing: ${selectedAgent || 'fallback'} (confidence: ${Math.round(confidence * 100)}%)`);
     return decision;
   }
 

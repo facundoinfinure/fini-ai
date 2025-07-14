@@ -158,71 +158,39 @@ export class StoreDataManager {
       // No need to call storeToken method as it doesn't exist
       operations.push('token_stored');
 
-      // PASO 5: 🔥 NEW - Execute immediate REAL data sync using SimpleStoreSync
+      // PASO 5: 🚀 SIMPLE UNIFIED SYNC - Create namespaces and index real data immediately
       try {
-        console.log(`[SYNC:INFO] 🎯 NEW STORE: Ensuring all 6 namespaces + real data sync for ${store.id}`);
+        console.log(`[SYNC:INFO] 🎯 NEW STORE: Simple sync for ${store.id}`);
         
-        // Import RAG engine dynamically
+        // Import RAG engine
         const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
         const ragEngine = getUnifiedRAGEngine();
         
-        // STEP 1: Force immediate namespace initialization
+        // Step 1: Initialize namespaces (creates placeholders)
         const namespaceResult = await ragEngine.initializeStoreNamespaces(store.id);
         
         if (namespaceResult.success) {
-          operations.push('immediate_namespaces_initialized');
-          console.log(`[SYNC:INFO] ✅ Immediate namespace initialization successful for ${store.id}`);
+          operations.push('namespaces_created');
+          console.log(`[SYNC:INFO] ✅ Namespaces created for ${store.id}`);
           
-          // STEP 2: Execute immediate REAL data sync using SimpleStoreSync
-          try {
-            console.log(`[SYNC:INFO] 🚀 Executing IMMEDIATE real data sync for new store ${store.id}`);
-            
-            const { syncStoreNow } = await import('@/lib/services/simple-store-sync');
-            
-            // Execute sync with progress tracking
-            const syncResult = await syncStoreNow(store.id, (progress) => {
-              console.log(`[SYNC:PROGRESS] ${progress.progress}% - ${progress.message}`);
-            });
-            
-            if (syncResult.success) {
-              const stats = syncResult.stats!;
-              operations.push(`immediate_real_data_sync_${stats.totalDocuments}_documents`);
-              console.log(`[SYNC:INFO] ✅ NEW STORE REAL DATA synchronized immediately: ${stats.products} products, ${stats.orders} orders, ${stats.customers} customers`);
-              
-              // Update last_sync_at immediately to reflect real data sync
-              try {
-                const supabase = createServiceClient();
-                await supabase
-                  .from('stores')
-                  .update({ 
-                    last_sync_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString() 
-                  })
-                  .eq('id', store.id);
-                
-                operations.push('sync_timestamp_updated');
-                console.log(`[SYNC:INFO] ✅ Sync timestamp updated for new store ${store.id}`);
-              } catch (timestampError) {
-                console.warn(`[SYNC:WARN] Failed to update sync timestamp: ${timestampError}`);
-              }
-              
-            } else {
-              console.warn(`[SYNC:WARN] ⚠️ Real data sync failed for new store, but namespaces created: ${syncResult.error}`);
-              operations.push('immediate_real_data_sync_failed_namespaces_ok');
-            }
-          } catch (syncError) {
-            console.warn(`[SYNC:WARN] ⚠️ Real data sync failed for new store, but namespaces created: ${syncError instanceof Error ? syncError.message : 'Unknown error'}`);
-            operations.push('immediate_real_data_sync_failed_namespaces_ok');
+          // Step 2: Index real data (replaces placeholders automatically)
+          const indexResult = await ragEngine.indexStoreData(store.id, oauthData.accessToken);
+          
+          if (indexResult.success) {
+            operations.push('real_data_indexed');
+            console.log(`[SYNC:INFO] ✅ Real data indexed: ${indexResult.documentsIndexed} documents`);
+          } else {
+            operations.push('data_indexing_failed');
+            console.warn(`[SYNC:WARN] ⚠️ Data indexing failed: ${indexResult.error}`);
           }
-          
         } else {
-          console.error(`[SYNC:ERROR] ❌ Immediate namespace initialization failed for new store: ${namespaceResult.error}`);
-          operations.push('immediate_namespaces_failed');
+          operations.push('namespace_creation_failed');
+          console.error(`[SYNC:ERROR] ❌ Namespace creation failed: ${namespaceResult.error}`);
         }
         
       } catch (ragError) {
-        console.error(`[SYNC:ERROR] ❌ New store sync failed: ${ragError instanceof Error ? ragError.message : 'Unknown error'}`);
-        operations.push('new_store_sync_failed');
+        console.error(`[SYNC:ERROR] ❌ Sync failed: ${ragError instanceof Error ? ragError.message : 'Unknown error'}`);
+        operations.push('sync_failed');
       }
       
       console.log(`[SYNC:INFO] ✅ New store created successfully: ${store.id}`);
@@ -384,86 +352,40 @@ export class StoreDataManager {
       // No need to call storeToken method as it doesn't exist
       operations.push('token_updated');
 
-      // PASO 5: 🔥 DEPRECATED - Old background cleanup system removed
-      // Now using immediate sync with SimpleStoreSync above
-      operations.push('old_background_system_deprecated');
-      
-      // PASO 5: 🔥 NEW APPROACH: ULTRA-FAST RECONNECTION (< 2 SECONDS)
-      // Heavy operations moved to true background processing to prevent timeouts
+      // PASO 5: 🚀 SIMPLE UNIFIED SYNC - Create namespaces and index real data immediately
       try {
-        console.log(`[SYNC:INFO] ⚡ ULTRA-FAST RECONNECTION: Store token updated, scheduling background sync for ${storeId}`);
+        console.log(`[SYNC:INFO] 🎯 NEW STORE: Simple sync for ${storeId}`);
         
-        // Step 1: Mark reconnection as completed (immediate)
-        operations.push('reconnection_completed_fast');
-        operations.push('background_sync_scheduled');
+        // Import RAG engine
+        const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+        const ragEngine = getUnifiedRAGEngine();
         
-        // Step 2: Schedule background namespace creation + sync (fire-and-forget)
-        // This will happen AFTER the OAuth callback returns success to user
-        setTimeout(async () => {
-          try {
-            console.log(`[BACKGROUND] 🚀 Starting background sync for reconnected store: ${storeId}`);
-            
-            // Import modules only when needed (in background)
-            const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
-            const { syncStoreNow } = await import('@/lib/services/simple-store-sync');
-            
-            // Step 2a: Initialize namespaces (background)
-            console.log(`[BACKGROUND] 📦 Creating 6 namespaces for ${storeId}...`);
-            const ragEngine = getUnifiedRAGEngine();
-            const namespaceResult = await ragEngine.initializeStoreNamespaces(storeId);
-            
-            if (namespaceResult.success) {
-              const created = "6 namespaces"; // Fixed: avoid details property
-              console.log(`[BACKGROUND] ✅ Namespaces created for ${storeId}: ${created}/6 namespaces`);
-              
-              // Step 2b: Sync real data (background)
-              console.log(`[BACKGROUND] 🔄 Syncing real store data for ${storeId}...`);
-              const syncResult = await syncStoreNow(storeId, (progress) => {
-                console.log(`[BACKGROUND] Progress ${storeId}: ${progress.progress}% - ${progress.message}`);
-              });
-              
-              if (syncResult.success) {
-                const stats = syncResult.stats!;
-                console.log(`[BACKGROUND] ✅ Full sync completed for ${storeId}: ${stats.products} products, ${stats.orders} orders, ${stats.customers} customers, ${stats.totalDocuments} total documents`);
-                
-                // Update sync timestamp (background)
-                try {
-                  const { createServiceClient } = await import('@/lib/supabase/server');
-                  const supabase = createServiceClient();
-                  await supabase
-                    .from('stores')
-                    .update({ 
-                      last_sync_at: new Date().toISOString(),
-                      updated_at: new Date().toISOString() 
-                    })
-                    .eq('id', storeId);
-                    
-                  console.log(`[BACKGROUND] 🎉 Background reconnection sync completed successfully for ${storeId}`);
-                } catch (timestampError) {
-                  console.warn(`[BACKGROUND] ⚠️ Failed to update sync timestamp for ${storeId}:`, timestampError);
-                }
-              } else {
-                console.warn(`[BACKGROUND] ⚠️ Data sync failed for ${storeId}: ${syncResult.error}`);
-              }
-            } else {
-              console.error(`[BACKGROUND] ❌ Namespace initialization failed for ${storeId}: ${namespaceResult.error}`);
-            }
-          } catch (bgError) {
-            console.error(`[BACKGROUND] ❌ Background sync failed for ${storeId}:`, bgError);
+        // Step 1: Initialize namespaces (creates placeholders)
+        const namespaceResult = await ragEngine.initializeStoreNamespaces(storeId);
+        
+        if (namespaceResult.success) {
+          operations.push('namespaces_created');
+          console.log(`[SYNC:INFO] ✅ Namespaces created for ${storeId}`);
+          
+          // Step 2: Index real data (replaces placeholders automatically)
+          const indexResult = await ragEngine.indexStoreData(storeId, oauthData.accessToken);
+          
+          if (indexResult.success) {
+            operations.push('real_data_indexed');
+            console.log(`[SYNC:INFO] ✅ Real data indexed: ${indexResult.documentsIndexed} documents`);
+          } else {
+            operations.push('data_indexing_failed');
+            console.warn(`[SYNC:WARN] ⚠️ Data indexing failed: ${indexResult.error}`);
           }
-        }, 200); // Start after 200ms (ensures response is sent first)
+        } else {
+          operations.push('namespace_creation_failed');
+          console.error(`[SYNC:ERROR] ❌ Namespace creation failed: ${namespaceResult.error}`);
+        }
         
-        console.log(`[SYNC:INFO] ⚡ Fast reconnection completed in <2s, background sync scheduled for ${storeId}`);
-        
-      } catch (schedulingError) {
-        console.warn(`[SYNC:WARN] ⚠️ Background sync scheduling failed: ${schedulingError instanceof Error ? schedulingError.message : 'Unknown error'}`);
-        operations.push('background_sync_scheduling_failed');
-        // Don't fail the reconnection - store is already reconnected successfully
+      } catch (ragError) {
+        console.error(`[SYNC:ERROR] ❌ Sync failed: ${ragError instanceof Error ? ragError.message : 'Unknown error'}`);
+        operations.push('sync_failed');
       }
-      
-      // 🔥 DEPRECATED: Remove old background job system that was failing silently
-      // OLD CODE REMOVED: triggerBackgroundCleanupAndSync, syncStoreDataToRAGAsync
-      // OLD CODE REMOVED: triggerBackgroundCleanupAndSync, syncStoreDataToRAGAsync
       
       console.log(`[SYNC:INFO] ✅ Store reconnected successfully: ${storeId}`);
 
@@ -676,17 +598,19 @@ export class StoreDataManager {
       
       operations.push('store_reactivated');
       
-      // 🔥 NEW: Immediate validation sync with SimpleStoreSync
+      // 🔥 NEW: Immediate validation sync with UnifiedRAGEngine
       try {
-        const { syncStoreNow } = await import('@/lib/services/simple-store-sync');
-        const syncResult = await syncStoreNow(storeId);
+        const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+        const ragEngine = getUnifiedRAGEngine();
         
-        if (syncResult.success) {
+        const indexResult = await ragEngine.indexStoreData(storeId, store.access_token);
+        
+        if (indexResult.success) {
           operations.push('immediate_validation_sync_completed');
           console.log(`[STORE-MANAGER] ✅ Immediate validation sync completed for reactivated store: ${storeId}`);
         } else {
           operations.push('immediate_validation_sync_failed');
-          console.warn(`[STORE-MANAGER] ⚠️ Immediate validation sync failed: ${syncResult.error}`);
+          console.warn(`[STORE-MANAGER] ⚠️ Immediate validation sync failed: ${indexResult.error}`);
         }
       } catch (syncError) {
         operations.push('immediate_validation_sync_error');
@@ -782,12 +706,14 @@ export class StoreDataManager {
         throw new Error('Store not found, unauthorized, or inactive');
       }
       
-      // 🔥 NEW: Immediate full sync with SimpleStoreSync
+      // 🔥 NEW: Immediate full sync with UnifiedRAGEngine
       try {
-        const { syncStoreNow } = await import('@/lib/services/simple-store-sync');
-        const syncResult = await syncStoreNow(storeId);
+        const { getUnifiedRAGEngine } = await import('@/lib/rag/unified-rag-engine');
+        const ragEngine = getUnifiedRAGEngine();
         
-        if (syncResult.success) {
+        const indexResult = await ragEngine.indexStoreData(storeId, statusResult.store!.access_token);
+        
+        if (indexResult.success) {
           return {
             success: true,
             store: statusResult.store,
@@ -800,7 +726,7 @@ export class StoreDataManager {
             success: false,
             store: statusResult.store,
             operations: ['immediate_force_sync_failed'],
-            error: `Force sync failed: ${syncResult.error}`,
+            error: `Force sync failed: ${indexResult.error}`,
             syncStatus: 'failed'
           };
         }

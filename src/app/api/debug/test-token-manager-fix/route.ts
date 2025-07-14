@@ -34,9 +34,9 @@ export async function POST() {
     };
 
     try {
-      const { UniversalTokenManager } = await import('@/lib/integrations/universal-token-manager');
-      
-      const storeData = await UniversalTokenManager.getValidStoreData(storeId);
+          const { UniversalTokenManager } = await import('@/lib/integrations/tiendanube-token-manager');
+
+    const storeData = await UniversalTokenManager.getValidStoreData(storeId);
       
       if (storeData) {
         tokenTest.success = true;
