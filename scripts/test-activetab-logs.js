@@ -1,0 +1,41 @@
+#!/usr/bin/env node
+
+console.log('🔍 TEST: ActiveTab Debug Logs en Producción');
+console.log('==========================================\n');
+
+console.log('✅ Los logs de debug de activeTab se han desplegado exitosamente.');
+console.log('💻 INSTRUCCIONES ESPECÍFICAS:');
+console.log('');
+console.log('1. Ir a: https://fini-tn.vercel.app/dashboard');
+console.log('2. Hacer login si es necesario');
+console.log('3. Abrir Developer Tools (F12)');
+console.log('4. Ir a la tab "Console"');
+console.log('5. Limpiar el console (botón 🗑️ o Ctrl+L)');
+console.log('6. Hacer clic en la tab "Configuración" en el sidebar');
+console.log('');
+console.log('🔍 BUSCAR ESTOS LOGS EN EL CONSOLE:');
+console.log('');
+console.log('   🔴🔴🔴 DASHBOARD CONTENT - ACTIVE TAB: [valor]');
+console.log('   🔴 Type of activeTab: [tipo]');
+console.log('   🔴 activeTab === "configuracion": [true/false]');
+console.log('   🔴 activeTab === "Configuration": [true/false]');
+console.log('   🔴 activeTab === "Configuración": [true/false]');
+console.log('');
+console.log('🎯 DIAGNÓSTICO SEGÚN LOS LOGS:');
+console.log('');
+console.log('   ✅ Si ves "activeTab === \\"configuracion\\": true":');
+console.log('      → El routing funciona, hay otro problema');
+console.log('');
+console.log('   ❌ Si ves "activeTab === \\"configuracion\\": false":');
+console.log('      → El valor que llega NO es "configuracion"');
+console.log('      → Revisar qué valor real está llegando');
+console.log('');
+console.log('   ❌ Si NO ves NINGÚN log rojo:');
+console.log('      → DashboardContent no se está ejecutando');
+console.log('      → Problema más profundo en el componente padre');
+console.log('');
+console.log('📝 REPORTE REQUERIDO:');
+console.log('   Por favor, copiar EXACTAMENTE lo que aparece en console');
+console.log('   O tomar screenshot del console después de hacer clic');
+console.log('');
+console.log('🚀 URL Dashboard: https://fini-tn.vercel.app/dashboard'); 
