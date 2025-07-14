@@ -13,9 +13,9 @@ import { DashboardSkeleton, AnalyticsSkeleton, StoreManagementSkeleton, WhatsApp
 import { createLogger, PerformanceTimer } from '@/lib/logger';
 import { 
   AnalyticsOverview,
-  ConfigurationManagement,
   SubscriptionManagement
 } from '@/lib/lazy-imports';
+import { ConfigurationManagement } from '@/components/dashboard/configuration-management';
 import { PremiumChatInterface } from '@/components/chat/premium-chat-interface';
 import { DashboardSummary } from '@/components/dashboard/dashboard-summary';
 import { ProfileManagement } from '@/components/dashboard/profile-management';
@@ -759,12 +759,10 @@ export function DashboardContent() {
 
           {activeTab === "configuracion" && (
             <DashboardErrorBoundary>
-              <Suspense fallback={<StoreManagementSkeleton />}>
-                <ConfigurationManagement 
-                  stores={stores} 
-                  onStoreUpdate={fetchDashboardData}
-                />
-              </Suspense>
+              <ConfigurationManagement 
+                stores={stores} 
+                onStoreUpdate={fetchDashboardData}
+              />
             </DashboardErrorBoundary>
           )}
 
