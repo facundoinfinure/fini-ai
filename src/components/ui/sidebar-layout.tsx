@@ -316,15 +316,18 @@ export function SidebarLayout({
           </button>
           
           <button
-            onClick={() => onTabChange?.('config')}
+            onClick={() => {
+              console.log('🔴 SIDEBAR - Configuración clicked, sending: configuracion');
+              onTabChange?.('configuracion');
+            }}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 hover:bg-gray-100 group",
-              activeTab === 'config' ? 'bg-gray-900 text-white shadow-lg hover:bg-gray-800' : 'text-gray-600 hover:text-gray-900'
+              activeTab === 'configuracion' ? 'bg-gray-900 text-white shadow-lg hover:bg-gray-800' : 'text-gray-600 hover:text-gray-900'
             )}
           >
             <Settings className={cn(
               "h-5 w-5 transition-transform duration-200 group-hover:scale-110",
-              activeTab === 'config' ? 'text-white' : 'text-gray-400'
+              activeTab === 'configuracion' ? 'text-white' : 'text-gray-400'
             )} />
             <span>Configuración</span>
           </button>
