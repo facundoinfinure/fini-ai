@@ -18,6 +18,16 @@ interface ConfigurationManagementProps {
 }
 
 export function ConfigurationManagement({ stores, onStoreUpdate }: ConfigurationManagementProps) {
+  // Enhanced debugging
+  console.log('[CONFIG-DEBUG] Component initialized', {
+    timestamp: new Date().toISOString(),
+    storesCount: stores?.length || 0,
+    storesData: stores,
+    onStoreUpdateType: typeof onStoreUpdate
+  });
+  
+  // Component lifecycle debug
+  console.log('[CONFIG-DEBUG] Rendering ConfigurationManagement');
   // Simplified debugging - only essential logs
   console.log('[CONFIG] Component rendering with', stores?.length || 0, 'stores');
   
