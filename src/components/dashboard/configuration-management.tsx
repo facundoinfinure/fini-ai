@@ -37,6 +37,7 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
     setError(null);
 
     try {
+      // Primero intentar con el endpoint de la API
       const response = await fetch('/api/tiendanube/store-info', {
         method: 'POST',
         headers: {
@@ -45,15 +46,32 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
         body: JSON.stringify({ storeUrl: url.trim() })
       });
 
-      const data = await response.json();
-
-      if (data.success && data.data?.name) {
-        setStoreName(data.data.name);
-        console.log(`[INFO] Auto-detected store name: "${data.data.name}" from ${data.data.source}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data?.name) {
+          setStoreName(data.data.name);
+          console.log(`[INFO] Auto-detected store name: "${data.data.name}" from ${data.data.source}`);
+          return;
+        }
       }
     } catch (error) {
-      console.error('[ERROR] Failed to fetch store name:', error);
-      // No mostrar error al usuario, simplemente no auto-completar
+      console.log('[DEBUG] API endpoint not available, using fallback');
+    }
+
+    // Fallback: extraer nombre de la URL
+    try {
+      const urlParts = url.replace(/^https?:\/\//, '').split('.');
+      if (urlParts.length >= 2) {
+        const extractedName = urlParts[0]
+          .split('-')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+        
+        setStoreName(extractedName);
+        console.log(`[INFO] Extracted store name from URL: "${extractedName}"`);
+      }
+    } catch (error) {
+      console.log('[DEBUG] Could not extract store name from URL');
     } finally {
       setIsFetchingStoreName(false);
     }
