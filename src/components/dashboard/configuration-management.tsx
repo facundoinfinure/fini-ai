@@ -4,9 +4,9 @@ import { Store } from '@/types/db';
 import { StoreManagement } from './store-management';
 import { WhatsAppManagement } from './whatsapp-management';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Settings, Store as StoreIcon, MessageSquare, Plus, AlertCircle } from 'lucide-react';
+import { Settings, Store as StoreIcon, MessageSquare, Plus, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -23,7 +23,65 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
   const [storeUrl, setStoreUrl] = useState('');
   const [storeName, setStoreName] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isFetchingStoreName, setIsFetchingStoreName] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Función para obtener automáticamente el nombre de la tienda
+  const fetchStoreName = async (url: string) => {
+    if (!url.trim() || (!url.includes('tiendanube.com') && !url.includes('mitiendanube.com'))) {
+      return;
+    }
+
+    setIsFetchingStoreName(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/tiendanube/store-info', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ storeUrl: url.trim() })
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.data?.name) {
+        setStoreName(data.data.name);
+        console.log(`[INFO] Auto-detected store name: "${data.data.name}" from ${data.data.source}`);
+      }
+    } catch (error) {
+      console.error('[ERROR] Failed to fetch store name:', error);
+      // No mostrar error al usuario, simplemente no auto-completar
+    } finally {
+      setIsFetchingStoreName(false);
+    }
+  };
+
+  // Handler para cambios en URL con debounce
+  const handleUrlChange = useCallback((url: string) => {
+    setStoreUrl(url);
+    
+    // Limpiar timeout anterior
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    
+    // Solo auto-obtener nombre si es una URL de Tienda Nube
+    if (url.trim() && (url.includes('tiendanube.com') || url.includes('mitiendanube.com'))) {
+      // Limpiar nombre anterior si el usuario cambió la URL
+      setStoreName('');
+      
+      // Debounce de 1 segundo después de que el usuario pare de escribir
+      debounceTimeoutRef.current = setTimeout(() => {
+        fetchStoreName(url);
+      }, 1000);
+    } else {
+      // Limpiar nombre si la URL no es válida
+      setStoreName('');
+    }
+  }, []);
 
   // Simplified handlers
   const handleConnectStore = async () => {
@@ -62,6 +120,12 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
     setStoreUrl('');
     setStoreName('');
     setError(null);
+    setIsFetchingStoreName(false);
+    
+    // Limpiar timeout de debounce
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
   };
 
   const handleAddStore = () => {
@@ -146,20 +210,33 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
                 type="url"
                 placeholder="https://tutienda.mitiendanube.com"
                 value={storeUrl}
-                onChange={(e) => setStoreUrl(e.target.value)}
+                onChange={(e) => handleUrlChange(e.target.value)}
                 className="mt-1"
+                disabled={isConnecting}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                El nombre se detectará automáticamente
+              </p>
             </div>
             
             <div>
-              <label className="text-sm font-medium">Nombre de la tienda (opcional)</label>
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium">Nombre de la tienda</label>
+                {isFetchingStoreName && (
+                  <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                )}
+              </div>
               <Input
                 type="text"
-                placeholder="Mi tienda"
+                placeholder={isFetchingStoreName ? "Detectando nombre..." : "Mi tienda"}
                 value={storeName}
                 onChange={(e) => setStoreName(e.target.value)}
                 className="mt-1"
+                disabled={isConnecting || isFetchingStoreName}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                {storeName && !isFetchingStoreName ? "✓ Nombre detectado automáticamente" : "Puedes editar el nombre si lo deseas"}
+              </p>
             </div>
             
             <div className="flex space-x-2 pt-4">
