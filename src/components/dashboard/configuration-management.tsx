@@ -36,7 +36,7 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
     setError(null);
 
     try {
-      const response = await fetchPostWithAuth('/api/tiendanube/oauth/initiate', {
+      const response = await fetchPostWithAuth('/api/tiendanube/oauth/connect', {
         storeUrl: storeUrl.trim(),
         storeName: storeName.trim() || undefined,
         context: 'configuration'
@@ -44,8 +44,8 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
 
       const data = await response.json();
 
-      if (data.success && data.authUrl) {
-        window.location.href = data.authUrl;
+      if (data.success && data.data?.authUrl) {
+        window.location.href = data.data.authUrl;
       } else {
         setError(data.error || 'Error al iniciar conexión con Tienda Nube');
       }
