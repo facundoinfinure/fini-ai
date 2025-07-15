@@ -60,11 +60,11 @@ export default function DesignSystemPage() {
                   <Rocket className="h-4 w-4 mr-2" />
                   Default
                 </Button>
-                <Button variant="premium" className="w-full">
+                <Button variant="secondary" className="w-full">
                   <Star className="h-4 w-4 mr-2" />
                   Premium
                 </Button>
-                <Button variant="success" className="w-full">
+                <Button variant="outline" className="w-full">
                   <Shield className="h-4 w-4 mr-2" />
                   Success
                 </Button>
@@ -92,7 +92,7 @@ export default function DesignSystemPage() {
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Sizes</h3>
               <div className="space-y-3">
-                <Button size="xs" className="w-full">Extra Small</Button>
+                <Button size="sm" className="w-full">Extra Small</Button>
                 <Button size="sm" className="w-full">Small</Button>
                 <Button size="default" className="w-full">Default</Button>
                 <Button size="lg" className="w-full">Large</Button>
@@ -103,7 +103,7 @@ export default function DesignSystemPage() {
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">States</h3>
               <div className="space-y-3">
-                <Button variant="warning" className="w-full">
+                <Button variant="destructive" className="w-full">
                   <Zap className="h-4 w-4 mr-2" />
                   Warning
                 </Button>

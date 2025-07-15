@@ -145,7 +145,7 @@ export default function HomePage() {
                         
                         <div className="bg-secondary-500 text-white rounded-lg p-3 max-w-xs ml-auto">
                           <p className="text-sm">
-                            📊 <strong>Today's sales:</strong><br/>
+                            📊 <strong>Today&apos;s sales:</strong><br/>
                             • Total: $127,450<br/>
                             • Orders: 23<br/>
                             • Top product: Nike Shoes<br/>
@@ -183,7 +183,7 @@ export default function HomePage() {
               Information across your business
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Unlike ChatGPT, you don't need to upload your data to power your answers. Connect directly to your store and get insights instantly.
+              Unlike ChatGPT, you don&apos;t need to upload your data to power your answers. Connect directly to your store and get insights instantly.
             </p>
           </div>
 
