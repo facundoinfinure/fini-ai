@@ -1552,7 +1552,7 @@ export default function OnboardingPage() {
                       Verificando...
                     </>
                   ) : (
-                    'Verificar Código'
+                    'Verify Code'
                   )}
                 </Button>
               </div>

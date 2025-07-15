@@ -23,7 +23,7 @@ import {
   Database
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 
 interface ChatMessage {
   id: string;
@@ -488,7 +488,7 @@ export function UnifiedChat({
                 {/* Message Footer */}
                 <div className="flex items-center justify-between mt-2 text-xs opacity-75">
                   <span>
-                    {format(new Date(message.timestamp), 'HH:mm', { locale: es })}
+                    {format(new Date(message.timestamp), 'HH:mm', { locale: enUS })}
                   </span>
                   <div className="flex items-center space-x-2">
                     {message.processingTime && (

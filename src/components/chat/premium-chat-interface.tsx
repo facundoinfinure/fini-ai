@@ -14,7 +14,7 @@ import {
   Square
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 
 interface PremiumMessage {
   id: string;
@@ -307,8 +307,8 @@ export function PremiumChatInterface({ selectedStore, className = '' }: PremiumC
                 ¡Hola! Soy tu asistente premium
               </h3>
               <p className="text-gray-600 max-w-md">
-                Sistema RAG de última generación con memoria conversacional y respuestas en tiempo real. 
-                Puedo analizar tu tienda y responder preguntas específicas sobre tus datos.
+                                  Next-generation RAG system with conversational memory and real-time responses. 
+                 I can analyze your store and answer specific questions about your data.
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-2xl">
@@ -357,7 +357,7 @@ export function PremiumChatInterface({ selectedStore, className = '' }: PremiumC
                             </div>
                           )}
                         </div>
-                        <span>{format(message.timestamp, 'HH:mm', { locale: es })}</span>
+                        <span>{format(message.timestamp, 'HH:mm', { locale: enUS })}</span>
                       </div>
 
                       {/* Sources */}
@@ -410,8 +410,8 @@ export function PremiumChatInterface({ selectedStore, className = '' }: PremiumC
                 isStreaming 
                   ? "Esperando respuesta..." 
                   : selectedStore 
-                    ? "Pregúntame sobre tu tienda..."
-                    : "Conecta una tienda para comenzar..."
+                                  ? "Ask me about your store..."
+              : "Connect a store to get started..."
               }
               disabled={isLoading || isStreaming || !selectedStore}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"

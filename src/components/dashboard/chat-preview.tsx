@@ -41,7 +41,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { fetchGetWithAuth } from '@/lib/fetch-with-auth';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 
 interface Message {
   id: string;
@@ -870,7 +870,7 @@ export function ChatPreview({
                     message.direction === 'inbound' ? 'justify-end' : 'justify-start'
                   }`}>
                     <span>
-                      {format(new Date(message.timestamp), 'HH:mm', { locale: es })}
+                      {format(new Date(message.timestamp), 'HH:mm', { locale: enUS })}
                     </span>
                     {message.confidence && (
                       <span>

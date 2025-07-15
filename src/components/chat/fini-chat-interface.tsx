@@ -31,7 +31,7 @@ import {
   Zap
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -398,14 +398,14 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
   };
 
   const quickSuggestions = [
-    "¿Qué productos tengo en mi tienda?",
-    "Mostrar ventas de hoy",
-    "Ideas de marketing para aumentar ventas",
-    "¿Cuál es mi producto más vendido?",
-    "Estado del inventario",
-    "Análisis de mis clientes",
-    "Estrategias para mejorar conversiones",
-    "Resumen financiero del mes"
+    "What products do I have in my store?",
+    "Show today's sales",
+    "Marketing ideas to increase sales",
+    "What is my best-selling product?",
+    "Inventory status",
+    "Analysis of my customers",
+    "Strategies to improve conversions",
+    "Monthly financial summary"
   ];
 
   // Empty state when no conversation is selected
@@ -469,7 +469,7 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
             </h3>
             
             <p className="text-gray-600 mb-8 max-w-2xl leading-relaxed">
-              Sistema multi-agente inteligente para tu tienda. Tengo 10 especialistas listos para ayudarte con analytics, marketing, soporte, inventario, finanzas y más.
+              Intelligent multi-agent system for your store. I have 10 specialists ready to help you with analytics, marketing, support, inventory, finances and more.
             </p>
 
             {/* Agent Showcase */}
@@ -511,7 +511,7 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Pregúntame sobre tu tienda, ventas, productos, marketing..."
+                  placeholder="Ask me about your store, sales, products, marketing..."
                   className="flex-1 resize-none border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent max-h-[120px]"
                   rows={1}
                   disabled={isLoading}
@@ -754,7 +754,7 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
                 <div className={`flex items-center gap-3 text-xs text-gray-500 px-1 ${
                   message.direction === 'inbound' ? 'justify-end' : 'justify-start'
                 }`}>
-                  <span>{format(new Date(message.timestamp), 'HH:mm', { locale: es })}</span>
+                  <span>{format(new Date(message.timestamp), 'HH:mm', { locale: enUS })}</span>
                   
                   {message.confidence && (
                     <div className="flex items-center gap-1">

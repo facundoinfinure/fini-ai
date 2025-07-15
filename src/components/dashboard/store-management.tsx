@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from '@/components/ui/badge';
 import { Store as StoreIcon, Plus, Edit, Trash2, ExternalLink, RefreshCw, AlertCircle, Clock, CheckCircle, XCircle, Zap, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Store } from '@/types/db';
 import { fetchPostWithAuth } from '@/lib/fetch-with-auth';
@@ -316,7 +316,7 @@ export function StoreManagement({ stores, onStoreUpdate }: StoreManagementProps)
                           <div className="flex items-center space-x-2 mt-2">
                             <Clock className="h-4 w-4 text-gray-400" />
                             <p className="text-sm text-gray-500">
-                              Última sincronización: {format(new Date(store.last_sync_at), 'PPp', { locale: es })}
+                              Last sync: {format(new Date(store.last_sync_at), 'PPp', { locale: enUS })}
                             </p>
                           </div>
                         )}

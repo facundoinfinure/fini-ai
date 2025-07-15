@@ -939,7 +939,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
           <DialogHeader className="space-y-3">
             <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center">
               <MessageSquare className="mr-3 h-6 w-6 text-emerald-600" />
-              Verificar Número de WhatsApp
+              Verify WhatsApp Number
             </DialogTitle>
             <DialogDescription className="text-slate-600 leading-relaxed">
               Hemos enviado un código de 6 dígitos a tu WhatsApp. Ingresa el código para completar la verificación.
@@ -1035,7 +1035,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                   Verificando...
                 </>
               ) : (
-                'Verificar Código'
+                                  'Verify Code'
               )}
             </Button>
           </div>

@@ -26,7 +26,7 @@ import {
   Cog
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 
 interface Message {
   id: string;
@@ -263,8 +263,8 @@ export function ModernChatInterface({ selectedStore, onStoreUpdate }: ModernChat
           </div>
           <h3 className="empty-state-title">¡Hola! Soy Fini AI</h3>
           <p className="empty-state-description">
-            Tu asistente inteligente multi-agente para tu tienda. Tengo 10 especialistas listos para ayudarte:
-            Analytics, Marketing, Atención al Cliente, Inventario, Finanzas, Consultoría, Productos, Operaciones, Ventas y más.
+            Your intelligent multi-agent assistant for your store. I have 10 specialists ready to help you:
+                          Analytics, Marketing, Customer Service, Inventory, Finance, Consulting, Products, Operations, Sales and more.
           </p>
           
           {/* Agent Showcase */}
@@ -316,7 +316,7 @@ export function ModernChatInterface({ selectedStore, onStoreUpdate }: ModernChat
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Pregúntame sobre tu tienda, ventas, productos, marketing, finanzas..."
+              placeholder="Ask me about your store, sales, products, marketing, finances..."
               className="chat-input"
               rows={1}
               disabled={isLoading}
@@ -386,7 +386,7 @@ export function ModernChatInterface({ selectedStore, onStoreUpdate }: ModernChat
               {message.direction === 'outbound' && message.agent && getAgentBadge(message.agent)}
               <div className="message-text">{message.content}</div>
               <div className="message-time">
-                {format(new Date(message.timestamp), 'HH:mm', { locale: es })}
+                                  {format(new Date(message.timestamp), 'HH:mm', { locale: enUS })}
                 {message.confidence && (
                   <span className="ml-2 text-xs opacity-60">
                     Confianza: {Math.round(message.confidence * 100)}%

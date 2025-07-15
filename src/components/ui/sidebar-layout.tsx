@@ -326,7 +326,7 @@ export function SidebarLayout({
               "h-5 w-5 transition-transform duration-200 group-hover:scale-110",
               activeTab === 'configuracion' ? 'text-white' : 'text-gray-400'
             )} />
-            <span>Configuración</span>
+                            <span>Settings</span>
           </button>
         </nav>
 
@@ -446,8 +446,8 @@ function getPageTitle(activeTab: string): string {
   const titles: Record<string, string> = {
     chat: 'Chat Preview',
     analytics: 'Analytics',
-    suscripcion: 'Suscripción',
-    configuracion: 'Configuración',
+    suscripcion: 'Subscription',
+    configuracion: 'Settings',
   };
   
   return titles[activeTab] || 'Dashboard';

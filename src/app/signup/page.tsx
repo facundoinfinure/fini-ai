@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { Bot, Mail, Eye, EyeOff, CheckCircle, X, ArrowLeft, ArrowRight, Loader2, Store, ShoppingBag, BarChart3, MessageSquare, Users, TrendingUp } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
+import { Loader2, Mail, Bot, Store, CheckCircle, Eye, EyeOff, ShoppingBag, BarChart3, MessageSquare, Users, TrendingUp, Zap } from "lucide-react";
+
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface PasswordRequirement {
@@ -33,11 +33,11 @@ export default function SignUpPage() {
 
   // Password validation
   const [passwordRequirements, setPasswordRequirements] = useState<PasswordRequirement[]>([
-    { text: "Entre 8 y 64 caracteres", met: false },
-    { text: "Al menos una letra mayúscula", met: false },
-    { text: "Al menos una letra minúscula", met: false },
-    { text: "Al menos un número", met: false },
-    { text: "Al menos un carácter especial", met: false },
+    { text: "Between 8 and 64 characters", met: false },
+    { text: "At least one uppercase letter", met: false },
+    { text: "At least one lowercase letter", met: false },
+    { text: "At least one number", met: false },
+    { text: "At least one special character", met: false },
   ]);
 
   // Redirect if user is already signed in
@@ -50,11 +50,11 @@ export default function SignUpPage() {
   // Password validation
   useEffect(() => {
     const requirements = [
-      { text: "Entre 8 y 64 caracteres", met: password.length >= 8 && password.length <= 64 },
-      { text: "Al menos una letra mayúscula", met: /[A-Z]/.test(password) },
-      { text: "Al menos una letra minúscula", met: /[a-z]/.test(password) },
-      { text: "Al menos un número", met: /\d/.test(password) },
-      { text: "Al menos un carácter especial", met: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
+      { text: "Between 8 and 64 characters", met: password.length >= 8 && password.length <= 64 },
+      { text: "At least one uppercase letter", met: /[A-Z]/.test(password) },
+      { text: "At least one lowercase letter", met: /[a-z]/.test(password) },
+      { text: "At least one number", met: /\d/.test(password) },
+      { text: "At least one special character", met: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
     ];
     setPasswordRequirements(requirements);
   }, [password]);
@@ -62,78 +62,18 @@ export default function SignUpPage() {
   const isPasswordValid = passwordRequirements.every(req => req.met);
   const passwordStrength = passwordRequirements.filter(req => req.met).length;
 
-  const handleGoogleSignUp = async () => {
-    setIsLoading(true);
-    setError("");
-    
-    const result = await signInWithGoogle();
-    
-    if (!result.success) {
-      setError(result.error || "Error al registrarse con Google");
-      setIsLoading(false);
-    }
-    // If successful, the auth hook will handle the redirect
+  const getPasswordStrengthColor = () => {
+    if (passwordStrength <= 2) return 'bg-red-500';
+    if (passwordStrength <= 3) return 'bg-yellow-500';
+    if (passwordStrength <= 4) return 'bg-blue-500';
+    return 'bg-green-500';
   };
 
-  const handleTiendaNubeSignUp = () => {
-    // TODO: Implementar la lógica de conexión de Tienda Nube
-    console.log('[INFO] Tienda Nube connection will be implemented soon');
-    setError("Función próximamente disponible");
-  };
-
-  const handleNextStep = () => {
-    if (currentStep === 1) {
-      // Validate email
-      if (!email || !email.includes('@')) {
-        setError("Por favor ingresa un email válido");
-        return;
-      }
-      setError("");
-      setCurrentStep(2);
-    } else if (currentStep === 2) {
-      // Validate all fields
-      if (!fullName.trim()) {
-        setError("Por favor ingresa tu nombre completo");
-        return;
-      }
-      if (!isPasswordValid) {
-        setError("La contraseña no cumple con todos los requisitos");
-        return;
-      }
-      setError("");
-      setCurrentStep(3);
-    }
-  };
-
-  const handlePreviousStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-      setError("");
-    }
-  };
-
-  const handleCreateAccount = async () => {
-    setIsLoading(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      // For now, we'll use the email signin flow
-      // In a real implementation, you'd create the account with email/password
-      const result = await signInWithEmail(email);
-
-      if (result.success) {
-        setSuccess("¡Cuenta creada! Revisa tu email para verificar tu cuenta.");
-        // Store user data for later use
-        sessionStorage.setItem('pendingUserName', fullName);
-      } else {
-        setError(result.error || "Error al crear la cuenta");
-      }
-    } catch (error) {
-      setError("Error al crear la cuenta. Intenta nuevamente.");
-    } finally {
-      setIsLoading(false);
-    }
+  const getPasswordStrengthText = () => {
+    if (passwordStrength <= 2) return 'Weak';
+    if (passwordStrength <= 3) return 'Fair';
+    if (passwordStrength <= 4) return 'Good';
+    return 'Strong';
   };
 
   // Show loading while checking auth state
@@ -142,11 +82,70 @@ export default function SignUpPage() {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Verificando sesión...</p>
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     );
   }
+
+  const handleGoogleSignUp = async () => {
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
+    
+    const result = await signInWithGoogle();
+    
+    if (!result.success) {
+      setError(result.error || "Error signing up with Google");
+      setIsLoading(false);
+    }
+    // If successful, the auth hook will handle the redirect
+  };
+
+  const handleTiendaNubeSignUp = () => {
+    // TODO: Implement Tienda Nube connection logic
+    console.log('[INFO] Tienda Nube connection will be implemented soon');
+    setError("Feature coming soon");
+  };
+
+  const handleNextStep = () => {
+    if (currentStep === 1 && email) {
+      setCurrentStep(2);
+      setError("");
+    }
+  };
+
+  const handleBackStep = () => {
+    if (currentStep === 2) {
+      setCurrentStep(1);
+      setError("");
+    }
+  };
+
+  const handleEmailSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+    setSuccess("");
+
+    if (!email) {
+      setError("Please enter your email");
+      setIsLoading(false);
+      return;
+    }
+
+    const result = await signInWithEmail(email);
+
+    if (result.success) {
+      setSuccess("Email sent! Check your inbox to complete your registration.");
+      setEmail("");
+      setCurrentStep(1);
+    } else {
+      setError(result.error || "Error sending email");
+    }
+    
+    setIsLoading(false);
+  };
 
   return (
     <div className="min-h-screen bg-white flex">
@@ -154,20 +153,22 @@ export default function SignUpPage() {
       <div className="w-full lg:w-1/2 flex flex-col justify-center px-4 sm:px-6 lg:px-12 xl:px-16">
         {/* Header */}
         <div className="flex items-center mb-8">
-          <div className="p-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg">
-            <Bot className="h-6 w-6 text-white" />
+          <div className="p-2 bg-gray-900 rounded-lg">
+            <Bot className="h-5 w-5 text-white" />
           </div>
-          <h1 className="ml-3 text-xl font-bold text-gray-900">Fini AI</h1>
+          <div className="ml-3">
+            <h1 className="text-lg font-semibold text-gray-900">Fini AI</h1>
+          </div>
         </div>
 
         <div className="max-w-sm w-full mx-auto lg:mx-0">
           {/* Main title */}
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Comenzar con Fini AI
+              Create your account
             </h2>
             <p className="text-gray-600">
-              Prueba Fini AI gratis
+              Start with Fini AI for free
             </p>
           </div>
 
@@ -201,7 +202,7 @@ export default function SignUpPage() {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              CONTINUAR CON GOOGLE
+              Continue with Google
             </Button>
 
             {/* Tienda Nube Sign Up */}
@@ -212,7 +213,7 @@ export default function SignUpPage() {
               className="w-full h-12 text-left justify-start font-medium border-gray-300 hover:bg-gray-50"
             >
               <Store className="w-5 h-5 mr-3" />
-              CONTINUAR CON TIENDA NUBE
+              Continue with Tienda Nube
             </Button>
           </div>
 
@@ -222,7 +223,7 @@ export default function SignUpPage() {
               <span className="w-full border-t border-gray-300" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="bg-white px-2 text-gray-500">O</span>
+              <span className="bg-white px-2 text-gray-500">or</span>
             </div>
           </div>
 
@@ -231,12 +232,12 @@ export default function SignUpPage() {
             <div className="space-y-4">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  E-mail
+                  Email address
                 </label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="samlee.mobbin@gmail.com"
+                  placeholder="your.email@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="h-12"
@@ -248,192 +249,135 @@ export default function SignUpPage() {
                 className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium"
                 disabled={!email}
               >
-                SIGUIENTE
+                Continue
               </Button>
             </div>
           )}
 
           {currentStep === 2 && (
-            <div className="space-y-4">
-              <Button
-                onClick={handlePreviousStep}
-                variant="ghost"
-                className="p-0 h-auto text-blue-600 hover:text-blue-700 mb-2"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Volver
-              </Button>
-              
+            <form onSubmit={handleEmailSignUp} className="space-y-4">
               <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre completo
+                <label htmlFor="email-step2" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email address
                 </label>
                 <Input
-                  id="fullName"
-                  type="text"
-                  placeholder="Tu nombre completo"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="h-12"
-                  autoComplete="name"
+                  id="email-step2"
+                  type="email"
+                  value={email}
+                  disabled
+                  className="h-12 bg-gray-50"
                 />
               </div>
 
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                  Contraseña
-                </label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Crea una contraseña segura"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="h-12 pr-10"
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Password requirements */}
-              {password && (
-                <div className="mt-4 space-y-2">
-                  <div className="text-sm text-gray-600">Requisitos de contraseña:</div>
-                  {passwordRequirements.map((req, index) => (
-                    <div key={index} className="flex items-center text-sm">
-                      {req.met ? (
-                        <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                      ) : (
-                        <X className="h-4 w-4 text-red-500 mr-2" />
-                      )}
-                      <span className={req.met ? "text-green-700" : "text-red-600"}>
-                        {req.text}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
               <Button
-                onClick={handleNextStep}
+                type="submit"
+                disabled={isLoading}
                 className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium"
-                disabled={!fullName || !isPasswordValid}
               >
-                CREAR CUENTA
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Mail className="mr-2 h-4 w-4" />
+                )}
+                Send verification email
               </Button>
-            </div>
-          )}
-
-          {currentStep === 3 && (
-            <div className="text-center space-y-4">
-              <div className="p-4 bg-green-50 rounded-lg">
-                <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  ¡Cuenta creada exitosamente!
-                </h3>
-                <p className="text-gray-600 text-sm">
-                  Te hemos enviado un email de verificación. Revisa tu bandeja de entrada.
-                </p>
-              </div>
               
               <Button
-                onClick={() => router.push('/auth/signin')}
-                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                type="button"
+                variant="outline"
+                onClick={handleBackStep}
+                className="w-full h-12"
+                disabled={isLoading}
               >
-                IR AL INICIO DE SESIÓN
+                Back
               </Button>
-            </div>
+            </form>
           )}
 
           {/* Sign in link */}
           <div className="mt-6 text-center">
-            <span className="text-gray-600">¿Ya tienes una cuenta? </span>
-            <a href="/auth/signin" className="text-blue-600 hover:text-blue-700 font-medium">
-              Inicia sesión
-            </a>
+            <span className="text-gray-600">Already have an account? </span>
+            <Link
+              href="/auth/signin"
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Sign in
+            </Link>
           </div>
         </div>
       </div>
 
-      {/* Right side - Benefits illustration (similar to Origin) */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-50 to-indigo-100 relative overflow-hidden">
+      {/* Right side - Benefits illustration */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gray-50 relative overflow-hidden">
         <div className="flex flex-col justify-center px-12 py-16 relative z-10">
           <div className="max-w-md">
             <h2 className="text-3xl font-bold text-gray-900 mb-8 leading-tight">
-              Chatea, analiza y haz crecer tu negocio, todo con Fini AI.
+              Connect your store and start getting insights instantly
             </h2>
             
             {/* Feature highlights */}
             <div className="space-y-6">
               <div className="flex items-start">
-                <div className="p-2 bg-green-500 rounded-lg mr-4 mt-1">
-                  <ShoppingBag className="h-5 w-5 text-white" />
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                  <Store className="h-4 w-4 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-1">Conecta tu tienda automáticamente</h3>
-                  <p className="text-gray-600 text-sm">Integración directa con Tienda Nube sin configuración manual</p>
+                  <h3 className="font-semibold text-gray-900 mb-1">Easy Store Connection</h3>
+                  <p className="text-gray-600 text-sm">Connect your Tienda Nube store in seconds</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start">
-                <div className="p-2 bg-blue-500 rounded-lg mr-4 mt-1">
-                  <BarChart3 className="h-5 w-5 text-white" />
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                  <MessageSquare className="h-4 w-4 text-green-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-1">Analytics en tiempo real por WhatsApp</h3>
-                  <p className="text-gray-600 text-sm">Pregunta sobre ventas, inventario y clientes desde tu móvil</p>
+                  <h3 className="font-semibold text-gray-900 mb-1">WhatsApp Integration</h3>
+                  <p className="text-gray-600 text-sm">Chat with your store data through WhatsApp</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start">
-                <div className="p-2 bg-purple-500 rounded-lg mr-4 mt-1">
-                  <MessageSquare className="h-5 w-5 text-white" />
+                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                  <BarChart3 className="h-4 w-4 text-purple-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-1">IA especializada en e-commerce</h3>
-                  <p className="text-gray-600 text-sm">Agentes inteligentes para ventas, marketing y atención al cliente</p>
+                  <h3 className="font-semibold text-gray-900 mb-1">Smart Analytics</h3>
+                  <p className="text-gray-600 text-sm">Get AI-powered insights about your business</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start">
-                <div className="p-2 bg-orange-500 rounded-lg mr-4 mt-1">
-                  <TrendingUp className="h-5 w-5 text-white" />
+                <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                  <TrendingUp className="h-4 w-4 text-orange-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-1">Forecasting con IA</h3>
-                  <p className="text-gray-600 text-sm">Predicciones de ventas y recomendaciones personalizadas</p>
+                  <h3 className="font-semibold text-gray-900 mb-1">Growth Recommendations</h3>
+                  <p className="text-gray-600 text-sm">Receive personalized suggestions to grow your business</p>
                 </div>
               </div>
-              
-              <div className="flex items-start">
-                <div className="p-2 bg-green-600 rounded-lg mr-4 mt-1">
-                  <Users className="h-5 w-5 text-white" />
+            </div>
+
+            {/* Trust indicators */}
+            <div className="mt-12 pt-6 border-t border-gray-200">
+              <p className="text-sm text-gray-500 mb-4">Join thousands of businesses</p>
+              <div className="flex items-center space-x-6">
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                  <span className="text-sm text-gray-600">Free to start</span>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-1">Entiende a tus clientes</h3>
-                  <p className="text-gray-600 text-sm">Análisis de comportamiento y segmentación inteligente</p>
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                  <span className="text-sm text-gray-600">No credit card required</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        
-        {/* Background decorative elements */}
-        <div className="absolute top-10 right-10 w-20 h-20 bg-blue-200 rounded-full opacity-50"></div>
-        <div className="absolute bottom-20 right-20 w-32 h-32 bg-purple-200 rounded-full opacity-30"></div>
-        <div className="absolute top-1/2 right-5 w-16 h-16 bg-green-200 rounded-full opacity-40"></div>
+
+        {/* Background decoration */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full blur-3xl opacity-50"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-green-100 to-blue-100 rounded-full blur-3xl opacity-50"></div>
       </div>
     </div>
   );
