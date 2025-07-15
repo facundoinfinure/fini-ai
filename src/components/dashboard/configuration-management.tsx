@@ -150,19 +150,16 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
     setShowConnectDialog(true);
   };
 
-  // Minimal UI that should always render
+  // Clean UI that should always render
   return (
-    <div className="space-y-8 p-6">
+    <div className="space-y-6">
 
-      {/* Gestión de Tiendas - Simplified */}
+      {/* Store Management - Clean */}
       <Card>
         <CardHeader>
-          <div className="flex items-center space-x-2">
-            <StoreIcon className="h-5 w-5 text-blue-600" />
-            <CardTitle>Gestión de Tiendas</CardTitle>
-          </div>
+          <CardTitle>Store Management</CardTitle>
           <CardDescription>
-            Conecta y administra tus tiendas de Tienda Nube
+            Connect and manage your Tienda Nube stores
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -170,17 +167,15 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
             {stores && stores.length > 0 ? (
               <StoreManagement stores={stores} onStoreUpdate={onStoreUpdate} />
             ) : (
-              <div className="text-center py-8">
-                <StoreIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No hay tiendas conectadas
+              <div className="text-center py-12">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  No stores connected
                 </h3>
-                <p className="text-gray-600 mb-4">
-                  Conecta tu primera tienda para comenzar a usar Fini AI
+                <p className="text-gray-600 mb-6">
+                  Connect your first store to start using Fini AI
                 </p>
                 <Button onClick={handleAddStore}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Conectar Tienda
+                  Connect Store
                 </Button>
               </div>
             )}
@@ -188,15 +183,12 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
         </CardContent>
       </Card>
 
-      {/* Gestión de WhatsApp - Simplified */}
+      {/* WhatsApp Management - Clean */}
       <Card>
         <CardHeader>
-          <div className="flex items-center space-x-2">
-            <MessageSquare className="h-5 w-5 text-green-600" />
-            <CardTitle>Gestión de WhatsApp</CardTitle>
-          </div>
+          <CardTitle>WhatsApp Configuration</CardTitle>
           <CardDescription>
-            Configura tu número de WhatsApp para recibir analytics
+            Set up your WhatsApp number to receive analytics
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -208,65 +200,64 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
       <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Conectar Tienda</DialogTitle>
+            <DialogTitle>Connect Store</DialogTitle>
             <DialogDescription>
-              Conecta tu tienda de Tienda Nube para comenzar a usar Fini AI
+              Connect your Tienda Nube store to start using Fini AI
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             {error && (
               <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
             
             <div>
-              <label className="text-sm font-medium">URL de tu tienda *</label>
+              <label className="text-sm font-medium text-gray-900">Store URL *</label>
               <Input
                 type="url"
-                placeholder="https://tutienda.mitiendanube.com"
+                placeholder="https://yourstore.mitiendanube.com"
                 value={storeUrl}
                 onChange={(e) => handleUrlChange(e.target.value)}
                 className="mt-1"
                 disabled={isConnecting}
               />
               <p className="text-xs text-gray-500 mt-1">
-                El nombre se detectará automáticamente
+                Store name will be detected automatically
               </p>
             </div>
             
             <div>
               <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium">Nombre de la tienda</label>
+                <label className="text-sm font-medium text-gray-900">Store Name</label>
                 {isFetchingStoreName && (
-                  <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                  <Loader2 className="h-3 w-3 animate-spin text-secondary-600" />
                 )}
               </div>
               <Input
                 type="text"
-                placeholder={isFetchingStoreName ? "Detectando nombre..." : "Mi tienda"}
+                placeholder={isFetchingStoreName ? "Detecting name..." : "My Store"}
                 value={storeName}
                 onChange={(e) => setStoreName(e.target.value)}
                 className="mt-1"
                 disabled={isConnecting || isFetchingStoreName}
               />
               <p className="text-xs text-gray-500 mt-1">
-                {storeName && !isFetchingStoreName ? "✓ Nombre detectado automáticamente" : "Puedes editar el nombre si lo deseas"}
+                {storeName && !isFetchingStoreName ? "✓ Name detected automatically" : "You can edit the name if desired"}
               </p>
             </div>
             
-            <div className="flex space-x-2 pt-4">
+            <div className="flex space-x-3 pt-4">
               <Button variant="outline" onClick={handleCloseDialog} className="flex-1">
-                Cancelar
+                Cancel
               </Button>
               <Button 
                 onClick={handleConnectStore} 
                 disabled={isConnecting}
                 className="flex-1"
               >
-                {isConnecting ? 'Conectando...' : 'Conectar'}
+                {isConnecting ? 'Connecting...' : 'Connect'}
               </Button>
             </div>
           </div>

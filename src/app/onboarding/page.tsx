@@ -739,22 +739,22 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto px-6">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
-                <span className="text-white font-bold text-sm">F</span>
+              <div className="w-8 h-8 bg-primary-900 rounded-lg flex items-center justify-center mr-3">
+                <span className="text-white font-semibold text-sm">F</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Fini AI</h1>
-                <p className="text-sm text-gray-500">Configuración inicial</p>
+                <h1 className="text-lg font-semibold text-gray-900">Fini AI</h1>
+                <p className="text-sm text-gray-600">Setup</p>
               </div>
             </div>
-            <div className="text-sm text-gray-500">
-              {currentStep === 0 ? "Bienvenida" : `Paso ${currentStep} de 5`}
+            <div className="text-sm text-gray-600">
+              {currentStep === 0 ? "Welcome" : `Step ${currentStep} of 5`}
             </div>
           </div>
         </div>
@@ -762,26 +762,26 @@ export default function OnboardingPage() {
 
       {/* Progress Bar - Only show after welcome step */}
       {currentStep > 0 && (
-        <div className="bg-white border-b border-gray-200">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="py-6">
-              <div className="w-full max-w-3xl mx-auto">
+        <div className="bg-gray-50 border-b border-gray-200">
+          <div className="max-w-4xl mx-auto px-6">
+            <div className="py-4">
+              <div className="w-full max-w-2xl mx-auto">
                 {/* Steps Grid */}
                 <div className="grid grid-cols-5 gap-4">
                   {[
-                    { number: 1, label: "Tienda" },
-                    { number: 2, label: "Análisis" },
-                    { number: 3, label: "Perfil" },
+                    { number: 1, label: "Store" },
+                    { number: 2, label: "Analysis" },
+                    { number: 3, label: "Profile" },
                     { number: 4, label: "WhatsApp" },
                     { number: 5, label: "Plan" }
                   ].map((step, index) => (
                     <div key={step.number} className="flex flex-col items-center relative">
                       {/* Connecting Line */}
                       {index < 4 && (
-                        <div className="absolute top-4 left-1/2 w-full h-0.5 z-0">
+                        <div className="absolute top-3 left-1/2 w-full h-px z-0">
                           <div
-                            className={`h-full ml-4 ${
-                              currentStep > step.number ? 'bg-blue-600' : 'bg-gray-200'
+                            className={`h-full ml-3 ${
+                              currentStep > step.number ? 'bg-secondary-600' : 'bg-gray-300'
                             }`}
                           />
                         </div>
@@ -789,17 +789,17 @@ export default function OnboardingPage() {
                       
                       {/* Step Circle */}
                       <div
-                        className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium mb-2 ${
+                        className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium mb-1 ${
                           currentStep >= step.number
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-200 text-gray-500'
+                            ? 'bg-secondary-600 text-white'
+                            : 'bg-gray-300 text-gray-600'
                         }`}
                       >
                         {step.number}
                       </div>
                       
                       {/* Step Label */}
-                      <span className="text-xs text-gray-600 text-center leading-tight">
+                      <span className="text-xs text-gray-700 text-center">
                         {step.label}
                       </span>
                     </div>
@@ -872,90 +872,80 @@ export default function OnboardingPage() {
           </div>
         )}
         
-        {/* Step 0: Welcome (similar to Origin) */}
+        {/* Step 0: Welcome */}
         {currentStep === 0 && (
           <div className="max-w-2xl mx-auto text-center">
             <div className="flex justify-end mb-8">
               <Button 
-                variant="outline" 
+                variant="ghost" 
                 size="sm" 
                 onClick={() => setCurrentStep(hasStores ? 2 : 1)}
                 className="text-gray-600 hover:text-gray-900"
               >
-                SALTAR
+                Skip
               </Button>
             </div>
             
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              {hasStores ? "¡Bienvenido de vuelta!" : "¡Bienvenido a Fini AI!"} ¿Por dónde te gustaría empezar?
+            <h1 className="text-3xl font-semibold text-gray-900 mb-4">
+              {hasStores ? "Welcome back!" : "Welcome to Fini AI!"} How would you like to start?
             </h1>
-            <p className="text-lg text-gray-600 mb-12">
+            <p className="text-lg text-gray-600 mb-8">
               {hasStores 
-                ? "Tu tienda ya está conectada. Terminemos de configurar tu perfil."
-                : "Selecciona lo que más te interesa en este momento"
+                ? "Your store is already connected. Let's finish setting up your profile."
+                : "Select what interests you most right now"
               }
             </p>
 
-            <div className="space-y-4 mb-12">
+            <div className="space-y-3 mb-8">
               {[
                 {
                   id: "analytics",
-                  icon: "📊",
-                  title: "Gestionar mis analytics",
-                  description: "Ver métricas de ventas, productos y clientes"
+                  title: "Manage my analytics",
+                  description: "View sales, product and customer metrics"
                 },
                 {
                   id: "sales",
-                  icon: "💰", 
-                  title: "Mejorar mis ventas",
-                  description: "Obtener insights para aumentar conversiones"
+                  title: "Improve my sales",
+                  description: "Get insights to increase conversions"
                 },
                 {
                   id: "whatsapp",
-                  icon: "📱",
-                  title: "Obtener respuestas por WhatsApp",
-                  description: "Preguntar sobre mi negocio desde WhatsApp"
+                  title: "Get answers via WhatsApp",
+                  description: "Ask about my business from WhatsApp"
                 },
                 {
                   id: "automation",
-                  icon: "🤖",
-                  title: "Automatizar tareas",
-                  description: "Reportes automáticos y análisis con IA"
+                  title: "Automate tasks",
+                  description: "Automatic reports and AI analysis"
                 },
                 {
                   id: "marketing",
-                  icon: "🎯",
-                  title: "Mejorar mi marketing",
-                  description: "Ideas y estrategias personalizadas"
+                  title: "Improve my marketing",
+                  description: "Personalized ideas and strategies"
                 },
                 {
                   id: "forecast",
-                  icon: "📈",
-                  title: "Predecir tendencias",
-                  description: "Forecasting y análisis predictivo"
+                  title: "Predict trends",
+                  description: "Forecasting and predictive analysis"
                 },
                 {
                   id: "unsure",
-                  icon: "🤔",
-                  title: "No estoy seguro",
-                  description: "Explorar todas las opciones disponibles"
+                  title: "I'm not sure",
+                  description: "Explore all available options"
                 }
               ].map((goal) => (
                 <button
                   key={goal.id}
                   onClick={() => setSelectedGoal(goal.id)}
-                  className={`w-full text-left p-4 rounded-xl border-2 transition-all hover:border-blue-300 hover:bg-blue-50 ${
+                  className={`w-full text-left p-4 rounded-lg border transition-colors ${
                     selectedGoal === goal.id 
-                      ? 'border-blue-600 bg-blue-50' 
-                      : 'border-gray-200 bg-white'
+                      ? 'border-secondary-600 bg-secondary-50' 
+                      : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
                 >
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-4">{goal.icon}</span>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 text-lg">{goal.title}</h3>
-                      <p className="text-gray-600 text-sm">{goal.description}</p>
-                    </div>
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-1">{goal.title}</h3>
+                    <p className="text-gray-600 text-sm">{goal.description}</p>
                   </div>
                 </button>
               ))}
@@ -963,10 +953,10 @@ export default function OnboardingPage() {
 
             <Button 
               onClick={handleNextStep}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 h-12 text-lg font-semibold"
+              className="w-full h-11"
               disabled={!selectedGoal}
             >
-              SIGUIENTE →
+              Next →
             </Button>
 
             <div className="mt-8">

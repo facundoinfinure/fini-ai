@@ -72,12 +72,12 @@ const navigationItems: NavigationItem[] = [
   },
   {
     id: 'suscripcion',
-    label: 'Suscripción',
+    label: 'Subscription',
     icon: CreditCard,
   },
   {
     id: 'configuracion',
-    label: 'Configuración',
+    label: 'Settings',
     icon: Settings,
   },
 ];
