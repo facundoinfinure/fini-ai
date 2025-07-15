@@ -295,40 +295,38 @@ export function ChatDashboardWrapper() {
                 </div>
                 <div>
                   <h2 className="font-semibold text-gray-900">Fini AI</h2>
-                  <p className="text-sm text-gray-600">Sistema Multi-Agente • {selectedStore.name}</p>
+                  <p className="text-sm text-gray-600">Multi-Agent System • {selectedStore.name}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 {whatsappStatus.verified ? (
                   <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-1.5 rounded-full">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    WhatsApp Activo
+                    WhatsApp Active
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-sm text-orange-700 bg-orange-50 px-3 py-1.5 rounded-full">
                     <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                    Solo Dashboard
+                    Dashboard Only
                   </div>
                 )}
               </div>
             </div>
 
-            {!whatsappStatus.verified && (
-              <div className="mx-4 mt-4">
-                <Alert className="border-orange-200 bg-orange-50">
-                  <AlertCircle className="h-4 w-4 text-orange-600" />
-                  <AlertDescription className="text-orange-800">
-                    <strong>WhatsApp no configurado</strong> - Para recibir consultas por WhatsApp, 
-                    <Button 
-                      variant="link" 
-                      className="p-0 h-auto text-orange-800 underline ml-1 font-medium"
-                      onClick={() => window.location.href = '/dashboard?tab=configuracion'}
-                    >
-                      configúralo aquí
-                    </Button>
-                  </AlertDescription>
-                </Alert>
-              </div>
+            {selectedStore && !whatsappStatus.verified && (
+              <Alert className="border-orange-200 bg-orange-50 mx-4 mt-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-orange-800">
+                  <strong>WhatsApp not configured</strong> - Chat works only in dashboard. 
+                  <Button 
+                    variant="link" 
+                    className="p-0 h-auto text-orange-800 underline ml-1"
+                    onClick={() => window.location.href = '/dashboard?tab=settings'}
+                  >
+                    Configure WhatsApp
+                  </Button>
+                </AlertDescription>
+              </Alert>
             )}
 
                          <div className="flex-1 flex flex-col">

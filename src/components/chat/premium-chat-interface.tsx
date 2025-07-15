@@ -29,6 +29,8 @@ interface PremiumMessage {
   }>;
   processingTime?: number;
   isStreaming?: boolean;
+  error?: boolean;
+  metadata?: any;
 }
 
 interface Store {
@@ -137,108 +139,109 @@ export function PremiumChatInterface({ selectedStore, className = '' }: PremiumC
       });
 
       eventSource.addEventListener('token', (event: MessageEvent) => {
-        if (abortControllerRef.current?.signal.aborted) {
-          eventSource.close();
-          return;
-        }
-
         const data = JSON.parse(event.data);
         fullContent += data.token;
         
-        setMessages(prev => prev.map(msg => 
-          msg.id === assistantMessageId 
-            ? { ...msg, content: fullContent }
-            : msg
-        ));
+        // Update the streaming message
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === assistantMessageId 
+              ? { ...msg, content: fullContent, isStreaming: true }
+              : msg
+          )
+        );
       });
 
       eventSource.addEventListener('complete', (event: MessageEvent) => {
         const data = JSON.parse(event.data);
-        metadata = data;
+        metadata = data.metadata || {};
         
-        // Update message with final metadata
-        setMessages(prev => prev.map(msg => 
-          msg.id === assistantMessageId 
-            ? { 
-                ...msg, 
-                content: fullContent,
-                isStreaming: false,
-                confidence: data.confidence,
-                reasoning: data.reasoning,
-                sources: data.sources,
-                processingTime: data.processingTime,
-              }
-            : msg
-        ));
+        console.log('[PREMIUM-CHAT] Stream completed:', {
+          finalContent: fullContent,
+          metadata
+        });
 
+        // Finalize the message
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === assistantMessageId 
+              ? { 
+                  ...msg, 
+                  content: fullContent,
+                  isStreaming: false,
+                  metadata
+                }
+              : msg
+          )
+        );
+
+        eventSource.close();
         setIsStreaming(false);
         setStreamingMessageId(null);
-        eventSource.close();
-        
-        console.log(`[PREMIUM-CHAT] Streaming completed with confidence: ${data.confidence}`);
       });
 
       eventSource.addEventListener('error', (event: MessageEvent) => {
         const data = JSON.parse(event.data);
         console.error('[PREMIUM-CHAT] Stream error:', data);
         
-        setMessages(prev => prev.map(msg => 
-          msg.id === assistantMessageId 
-            ? { 
-                ...msg, 
-                content: data.message || 'Error en el streaming',
-                isStreaming: false,
-                confidence: 0,
-              }
-            : msg
-        ));
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === assistantMessageId 
+              ? { 
+                  ...msg, 
+                  content: data.error || 'I apologize, but I encountered an error processing your request. Please try again.',
+                  isStreaming: false,
+                  error: true
+                }
+              : msg
+          )
+        );
 
+        eventSource.close();
         setIsStreaming(false);
         setStreamingMessageId(null);
-        eventSource.close();
       });
 
       eventSource.onerror = (error) => {
         console.error('[PREMIUM-CHAT] EventSource error:', error);
         
-        if (!fullContent) {
-          setMessages(prev => prev.map(msg => 
+        setMessages(prev => 
+          prev.map(msg => 
             msg.id === assistantMessageId 
               ? { 
                   ...msg, 
-                  content: 'Error de conexión con el streaming',
+                  content: 'Connection error. Please check your internet connection and try again.',
                   isStreaming: false,
-                  confidence: 0,
+                  error: true
                 }
               : msg
-          ));
-        }
+          )
+        );
 
+        eventSource.close();
         setIsStreaming(false);
         setStreamingMessageId(null);
-        eventSource.close();
       };
 
-      // Store event source reference for cleanup
-      abortControllerRef.current.signal.addEventListener('abort', () => {
-        eventSource.close();
-        setIsStreaming(false);
-        setStreamingMessageId(null);
-      });
-
-    } catch (error: any) {
-      console.error('[PREMIUM-CHAT] Error setting up streaming:', error);
+    } catch (error) {
+      console.error('[PREMIUM-CHAT] Error setting up stream:', error);
+      
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === streamingMessageId 
+            ? { 
+                ...msg, 
+                content: 'Failed to start conversation. Please try again.',
+                isStreaming: false,
+                error: true
+              }
+            : msg
+        )
+      );
+      
       setIsLoading(false);
       setIsStreaming(false);
-      
-      const errorMessage: PremiumMessage = {
-        id: `assistant-${Date.now()}`,
-        content: 'Error al configurar el streaming. Por favor intenta de nuevo.',
-        role: 'assistant',
-        timestamp: new Date(),
-        confidence: 0,
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      setStreamingMessageId(null);
     }
   };
 
@@ -249,13 +252,14 @@ export function PremiumChatInterface({ selectedStore, className = '' }: PremiumC
     }
   };
 
+  // Quick suggestions for better UX
   const quickSuggestions = [
-    "¿Cuál es mi producto más caro?",
-    "¿Cuál es mi producto más barato?", 
-    "Analiza mis ventas del último mes",
-    "¿Qué productos tengo disponibles?",
-    "Dame ideas para aumentar ventas",
-    "Estado del inventario actual"
+    "What's my best selling product?",
+    "What's my cheapest product?",
+    "Analyze last month's sales",
+    "What products do I have available?",
+    "Give me ideas to increase sales",
+    "Current inventory status"
   ];
 
   return (
@@ -272,7 +276,7 @@ export function PremiumChatInterface({ selectedStore, className = '' }: PremiumC
               <Sparkles className="w-4 h-4 ml-2 text-purple-600" />
             </h3>
             <p className="text-sm text-gray-600">
-              {isStreaming ? 'Generando respuesta...' : 'Sistema RAG con memoria conversacional'}
+              {isStreaming ? 'Generating response...' : 'System RAG with conversational memory'}
             </p>
           </div>
         </div>
@@ -285,12 +289,12 @@ export function PremiumChatInterface({ selectedStore, className = '' }: PremiumC
               className="text-red-600 border-red-200 hover:bg-red-50"
             >
               <Square className="w-3 h-3 mr-1" />
-              Detener
+              Stop
             </Button>
           )}
           <Badge variant="outline" className="text-green-600 border-green-200">
             <Zap className="w-3 h-3 mr-1" />
-            En línea
+            Online
           </Badge>
         </div>
       </div>
@@ -304,11 +308,11 @@ export function PremiumChatInterface({ selectedStore, className = '' }: PremiumC
             </div>
             <div>
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                ¡Hola! Soy tu asistente premium
+                Hello! I'm your premium AI assistant
               </h3>
               <p className="text-gray-600 max-w-md">
-                                  Next-generation RAG system with conversational memory and real-time responses. 
-                 I can analyze your store and answer specific questions about your data.
+                Next-generation RAG system with conversational memory and real-time responses. 
+                I can analyze your store and answer specific questions about your data.
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-2xl">
@@ -324,77 +328,37 @@ export function PremiumChatInterface({ selectedStore, className = '' }: PremiumC
             </div>
           </div>
         ) : (
-          messages.map((message) => (
-            <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] px-4 py-3 rounded-2xl ${
-                message.role === 'user' 
-                  ? 'bg-blue-600 text-white rounded-br-md' 
-                  : 'bg-gray-50 text-gray-900 rounded-bl-md border border-gray-200'
-              }`}>
-                <div className="space-y-2">
-                  <p className="whitespace-pre-wrap leading-relaxed">
+          <div className="space-y-4">
+            {messages.map((message) => (
+              <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                  message.role === 'user' 
+                    ? 'bg-blue-600 text-white' 
+                    : message.error
+                      ? 'bg-red-50 border border-red-200 text-red-800'
+                      : 'bg-gray-100 text-gray-900'
+                }`}>
+                  <div className="whitespace-pre-wrap break-words">
                     {message.content}
                     {message.isStreaming && (
-                      <span className="inline-block w-2 h-5 bg-blue-600 ml-1 animate-pulse rounded-sm" />
+                      <span className="inline-block w-2 h-5 bg-current opacity-75 animate-pulse ml-1" />
                     )}
-                  </p>
-                  
-                  {message.role === 'assistant' && !message.isStreaming && (
-                    <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
-                      {/* Confidence and timing */}
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <div className="flex items-center space-x-3">
-                          {message.confidence !== undefined && (
-                            <div className="flex items-center">
-                              <Target className="w-3 h-3 mr-1" />
-                              Confianza: {Math.round(message.confidence * 100)}%
-                            </div>
-                          )}
-                          {message.processingTime && (
-                            <div className="flex items-center">
-                              <Clock className="w-3 h-3 mr-1" />
-                              {message.processingTime}ms
-                            </div>
-                          )}
-                        </div>
-                        <span>{format(message.timestamp, 'HH:mm', { locale: enUS })}</span>
-                      </div>
-
-                      {/* Sources */}
-                      {message.sources && message.sources.length > 0 && (
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium text-gray-600">
-                            Fuentes consultadas ({message.sources.length}):
-                          </p>
-                          <div className="space-y-1">
-                            {message.sources.slice(0, 2).map((source, idx) => (
-                              <div key={idx} className="text-xs bg-white p-2 rounded border">
-                                <p className="text-gray-700 line-clamp-2">{source.content}</p>
-                                {source.metadata?.namespace && (
-                                  <Badge variant="outline" className="mt-1 text-xs">
-                                    {source.metadata.namespace}
-                                  </Badge>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                  </div>
+                  {message.metadata && (
+                    <div className="mt-2 text-xs opacity-75">
+                      {message.metadata.agentType && (
+                        <div>Agent: {message.metadata.agentType}</div>
                       )}
-
-                      {/* Reasoning */}
-                      {message.reasoning && (
-                        <div className="text-xs text-gray-600 italic">
-                          💭 {message.reasoning}
-                        </div>
+                      {message.metadata.confidence && (
+                        <div>Confidence: {Math.round(message.metadata.confidence * 100)}%</div>
                       )}
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
@@ -408,10 +372,10 @@ export function PremiumChatInterface({ selectedStore, className = '' }: PremiumC
               onKeyPress={handleKeyPress}
               placeholder={
                 isStreaming 
-                  ? "Esperando respuesta..." 
+                  ? "Waiting for response..." 
                   : selectedStore 
-                                  ? "Ask me about your store..."
-              : "Connect a store to get started..."
+                    ? "Ask me about your store..."
+                    : "Connect a store to get started..."
               }
               disabled={isLoading || isStreaming || !selectedStore}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -437,7 +401,7 @@ export function PremiumChatInterface({ selectedStore, className = '' }: PremiumC
         {selectedStore && (
           <div className="mt-2 text-xs text-gray-500 flex items-center">
             <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-            Conectado a: {selectedStore.name}
+            Connected to: {selectedStore.name}
           </div>
         )}
       </div>

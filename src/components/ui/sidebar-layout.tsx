@@ -446,8 +446,8 @@ function getPageTitle(activeTab: string): string {
   const titles: Record<string, string> = {
     chat: 'Chat Preview',
     analytics: 'Analytics',
-    suscripcion: 'Subscription',
-    configuracion: 'Settings',
+    subscription: 'Subscription',
+    settings: 'Settings',
   };
   
   return titles[activeTab] || 'Dashboard';

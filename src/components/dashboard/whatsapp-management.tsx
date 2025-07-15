@@ -18,19 +18,17 @@ import {
   AlertCircle,
   Settings,
   MessageSquare,
-  Zap,
   ChevronRight,
   Signal,
   Clock,
-  Users,
-  TrendingUp,
   Link2,
-  Unlink,
   Power,
   PowerOff,
 } from 'lucide-react';
 import { useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Store } from '@/types/db';
+import { format } from 'date-fns';
+import { enUS } from 'date-fns/locale';
 
 interface WhatsAppConfig {
   id: string;
@@ -58,7 +56,6 @@ interface WhatsAppManagementProps {
 
 export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   const [configs, setConfigs] = useState<WhatsAppConfig[]>([]);
-  const [stats, setStats] = useState<WhatsAppStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -160,28 +157,17 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
           setConfigs([]);
         }
 
-        // Calculate simple stats from the numbers data
-        const totalNumbers = whatsappNumbers?.length || 0;
-        const activeNumbers = whatsappNumbers?.filter(n => n.is_active)?.length || 0;
-        const totalMessages = whatsappNumbers?.reduce((sum, n) => sum + (n.total_conversations || 0), 0) || 0;
-
-        setStats({
-          totalNumbers,
-          activeNumbers,
-          totalMessages,
-          avgResponseTime: 30 // Default value until we have real metrics
-        });
+        // Stats are calculated but not currently displayed in the UI
 
       } else {
-        setError(`Error al cargar las configuraciones de WhatsApp: ${data.error}`);
+        setError(`Failed to load WhatsApp configurations: ${data.error}`);
         setConfigs([]);
-        setStats(null);
       }
+
     } catch (err) {
-      setError('Error al cargar las configuraciones de WhatsApp');
-      console.error('WhatsApp config fetch error:', err);
+      setError('Failed to connect to WhatsApp service. Please try again.');
+      console.error('[WHATSAPP-MANAGEMENT] Error fetching configs:', err);
       setConfigs([]);
-      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -196,14 +182,14 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
     
     if (!phoneValue || !formDisplayName || !selectedStoreId) {
       console.log('[DEBUG] Missing required values, aborting');
-      setPhoneError('Todos los campos son requeridos');
+      setPhoneError('All fields are required');
       return;
     }
     
     // Validate phone number
     if (!isValidPhoneNumber(phoneValue)) {
       console.log('[DEBUG] Invalid phone number:', phoneValue);
-      setPhoneError('Por favor ingresa un número válido para el país seleccionado');
+      setPhoneError('Please enter a valid number for the selected country');
       return;
     }
     
@@ -321,13 +307,13 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         
       } else {
         console.error('[ERROR] Failed to send OTP:', data.error);
-        setError(data.error || 'Error al enviar código de verificación');
+        setError(data.error || 'Error sending verification code');
         // Clear pending verification on failure
         setPendingVerification(null);
       }
     } catch (err) {
       console.error('[ERROR] Network error sending OTP:', err);
-      setError(`Error al enviar código de verificación: ${err instanceof Error ? err.message : 'Network error'}`);
+      setError(`Error sending verification code: ${err instanceof Error ? err.message : 'Network error'}`);
       // Clear pending verification on failure
       setPendingVerification(null);
     } finally {
@@ -370,10 +356,10 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         // You could add a success toast here
         console.log('[INFO] Number verified successfully!');
       } else {
-        setOtpError(data.error || 'Código de verificación incorrecto');
+        setOtpError(data.error || 'Incorrect verification code');
       }
     } catch (err) {
-      setOtpError('Error al verificar código');
+      setOtpError('Error verifying code');
       console.error('[ERROR] Failed to verify OTP:', err);
     } finally {
       setIsVerifying(false);
@@ -408,7 +394,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
         setError(data.error || 'Failed to toggle status');
       }
     } catch (err) {
-      setError('Error al cambiar el estado');
+      setError('Error changing status');
     } finally {
       setLoading(false);
     }
@@ -416,10 +402,10 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
 
   const handleDeleteConfig = async (configId: string, configName: string) => {
     showConfirmation({
-      title: 'Eliminar Configuración',
-      description: `¿Estás seguro de que quieres eliminar "${configName}"? Esta acción no se puede deshacer.`,
-      confirmText: 'Eliminar',
-      cancelText: 'Cancelar',
+      title: 'Delete Configuration',
+      description: `Are you sure you want to delete "${configName}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
       isDestructive: true,
       onConfirm: async () => {
         try {
@@ -446,10 +432,10 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
             console.log('[DEBUG] Number deleted successfully, refreshing configs');
             await fetchConfigs();
           } else {
-            setError(data.error || 'Error al eliminar la configuración');
+            setError(data.error || 'Error deleting configuration');
           }
         } catch (err) {
-          setError('Error al eliminar la configuración');
+          setError('Error deleting configuration');
         } finally {
           setLoading(false);
         }
@@ -464,9 +450,9 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
   };
 
   const getStatusText = (isActive: boolean, isVerified: boolean) => {
-    if (isActive && isVerified) return 'Verificado';
-    if (!isVerified) return 'Pendiente Verificación';
-    return 'Inactivo';
+    if (isActive && isVerified) return 'Verified';
+    if (!isVerified) return 'Pending Verification';
+    return 'Inactive';
   };
 
   const getStatusIcon = (isActive: boolean, isVerified: boolean) => {
@@ -489,10 +475,10 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
       if (data.success) {
         await fetchConfigs();
       } else {
-        setError(data.error || 'Error al conectar número a tienda');
+        setError(data.error || 'Error connecting number to store');
       }
     } catch (err) {
-      setError('Error al conectar número a tienda');
+      setError('Error connecting number to store');
     } finally {
       setLoading(false);
     }
@@ -500,10 +486,10 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
 
   const handleDisconnectFromStore = async (whatsappNumberId: string, storeId: string) => {
     showConfirmation({
-      title: 'Desconectar de Tienda',
-      description: '¿Estás seguro de que quieres desconectar este número de la tienda?',
-      confirmText: 'Desconectar',
-      cancelText: 'Cancelar',
+      title: 'Disconnect Store',
+      description: 'Are you sure you want to disconnect this number from the store?',
+      confirmText: 'Disconnect',
+      cancelText: 'Cancel',
       isDestructive: true,
       onConfirm: async () => {
         try {
@@ -519,10 +505,10 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
           if (data.success) {
             await fetchConfigs();
           } else {
-            setError(data.error || 'Error al desconectar número de tienda');
+            setError(data.error || 'Error disconnecting number from store');
           }
         } catch (err) {
-          setError('Error al desconectar número de tienda');
+          setError('Error disconnecting number from store');
         } finally {
           setLoading(false);
         }
@@ -532,23 +518,23 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
 
   if (loading && configs.length === 0) {
     return (
-      <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-white">
+      <Card className="border-0 shadow-sm bg-white">
         <CardHeader>
-          <CardTitle className="flex items-center text-slate-900">
-            <Phone className="mr-3 h-5 w-5 text-emerald-600" />
-            Gestión de WhatsApp
+          <CardTitle className="flex items-center text-gray-900">
+            <Phone className="mr-3 h-5 w-5 text-gray-600" />
+            WhatsApp Management
           </CardTitle>
-          <CardDescription className="text-slate-600">
-            Configura y administra tus números de WhatsApp Business
+          <CardDescription className="text-gray-600">
+            Configure and manage your WhatsApp Business numbers
           </CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center p-16">
           <div className="flex flex-col items-center space-y-4">
             <div className="relative">
-              <RefreshCw className="h-8 w-8 animate-spin text-emerald-600" />
-              <div className="absolute inset-0 h-8 w-8 border-2 border-emerald-200 rounded-full animate-ping"></div>
+              <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+              <div className="absolute inset-0 h-8 w-8 border-2 border-blue-200 rounded-full animate-ping"></div>
             </div>
-            <p className="text-sm text-slate-500 animate-pulse">Cargando configuraciones...</p>
+            <p className="text-sm text-gray-500 animate-pulse">Loading configurations...</p>
           </div>
         </CardContent>
       </Card>
@@ -557,22 +543,22 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
 
   if (stores.length === 0) {
     return (
-      <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-white">
+      <Card className="border-0 shadow-sm bg-white">
         <CardHeader>
-          <CardTitle className="flex items-center text-slate-900">
-            <Phone className="mr-3 h-5 w-5 text-emerald-600" />
-            Gestión de WhatsApp
+          <CardTitle className="flex items-center text-gray-900">
+            <Phone className="mr-3 h-5 w-5 text-gray-600" />
+            WhatsApp Management
           </CardTitle>
-          <CardDescription className="text-slate-600">
-            Configura y administra tus números de WhatsApp Business
+          <CardDescription className="text-gray-600">
+            Configure and manage your WhatsApp Business numbers
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Alert className="border-amber-200 bg-amber-50">
-            <AlertCircle className="h-4 w-4 text-amber-600" />
-            <AlertDescription className="text-amber-800">
-              Necesitas conectar al menos una tienda antes de configurar WhatsApp.
-              Ve a la pestaña &quot;Tiendas&quot; para conectar tu primera tienda.
+          <Alert className="border-orange-200 bg-orange-50">
+            <AlertCircle className="h-4 w-4 text-orange-600" />
+            <AlertDescription className="text-orange-800">
+              You need to connect at least one store before configuring WhatsApp.
+              Go to the &quot;Stores&quot; tab to connect your first store.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -582,26 +568,25 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
 
   return (
     <div className="space-y-6">
-      {/* Main WhatsApp Management - Origin Style */}
+      {/* Main WhatsApp Management - Clean Qatalog Style */}
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
               <Phone className="mr-3 h-5 w-5 text-gray-600" />
-              Números de WhatsApp
+              WhatsApp Numbers
             </h3>
             <p className="text-sm text-gray-600 mt-1">
-              Administra los números conectados a tus tiendas
+              Manage numbers connected to your stores
             </p>
           </div>
-          {/* Solo mostrar el botón del header si ya hay números configurados */}
           {configs && configs.length > 0 && (
             <Button 
               onClick={() => setIsDialogOpen(true)}
-              className="btn-success"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               <Plus className="mr-2 h-4 w-4" />
-              Agregar Número
+              Add Number
             </Button>
           )}
         </div>
@@ -623,7 +608,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
             </div>
           )}
 
-          {/* Configuration List - Origin Style */}
+          {/* Configuration List - Clean Style */}
           {configs && configs.length > 0 ? (
             <div className="p-6">
               <div className="space-y-3">
@@ -643,28 +628,53 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                       
                       {/* WhatsApp Logo */}
                       <div className="p-3 rounded-xl bg-green-100 text-green-600">
-                        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
-                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.484 3.687"/>
-                        </svg>
+                        <MessageSquare className="h-6 w-6" />
                       </div>
                       
-                      {/* Number Info */}
-                      <div className="number-details">
-                        <div className="flex items-center justify-between">
-                          <h4>
-                            {config.display_name || config.phone_numbers[0]}
+                      {/* Number Details */}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-semibold text-gray-900">
+                            {config.display_name || config.phone_numbers[0] || 'Unknown Number'}
                           </h4>
-                          {config.is_verified && (
-                            <div className="status-badge verified ml-4">
-                              Verificado
-                            </div>
+                          
+                          {/* Status Badges */}
+                          {config.is_verified ? (
+                            <Badge className="bg-green-100 text-green-800 border-green-200">
+                              Verified
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                              Pending Verification
+                            </Badge>
+                          )}
+                          
+                          {config.is_configured && (
+                            <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                              <Link2 className="h-3 w-3 mr-1" />
+                              Connected
+                            </Badge>
                           )}
                         </div>
-                        {config.display_name && (
-                          <p className="font-mono">
-                            {config.phone_numbers[0]}
-                          </p>
-                        )}
+                        
+                        <div className="text-sm text-gray-600 space-y-1">
+                          <div>📱 {config.phone_numbers[0]}</div>
+                          {config.store_name && (
+                            <div>🏪 {config.store_name}</div>
+                          )}
+                          <div className="flex items-center gap-4">
+                            <span className="flex items-center gap-1">
+                              <MessageSquare className="h-3 w-3" />
+                              {config.message_count || 0} messages
+                            </span>
+                            {config.last_activity && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                Last: {format(new Date(config.last_activity), 'MMM d', { locale: enUS })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -676,21 +686,21 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                           size="sm"
                           onClick={() => handleToggleStatus(config.id)}
                           disabled={loading}
-                          className={`btn-secondary ${
+                          className={`${
                             config.is_active 
-                              ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50' 
-                              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                              ? 'border-green-200 text-green-700 hover:bg-green-50' 
+                              : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                           }`}
                         >
                           {config.is_active ? (
                             <>
                               <Power className="h-4 w-4 mr-1" />
-                              Activo
+                              Active
                             </>
                           ) : (
                             <>
                               <PowerOff className="h-4 w-4 mr-1" />
-                              Inactivo
+                              Inactive
                             </>
                           )}
                         </Button>
@@ -706,7 +716,7 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                           setFormDisplayName(config.display_name || '');
                           setIsDialogOpen(true);
                         }}
-                        className="btn-icon"
+                        className="text-gray-600 hover:text-gray-900"
                       >
                         <Settings className="h-4 w-4" />
                       </Button>
@@ -715,8 +725,8 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDeleteConfig(config.id, config.display_name || config.phone_numbers[0] || 'Configuración de WhatsApp')}
-                        className="btn-danger"
+                        onClick={() => handleDeleteConfig(config.id, config.display_name || config.phone_numbers[0] || 'WhatsApp Configuration')}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -727,23 +737,23 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
               </div>
             </div>
           ) : (
-            /* Enhanced Empty State */
+            /* Enhanced Empty State - Qatalog Style */
             <div className="text-center py-16 px-6">
-              <div className="mx-auto w-24 h-24 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
-                <Phone className="h-12 w-12 text-emerald-600" />
+              <div className="mx-auto w-24 h-24 bg-green-50 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
+                <Phone className="h-12 w-12 text-green-600" />
               </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-3">
-                ¡Configura tu primer número!
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                Set up your first WhatsApp number
               </h3>
-              <p className="text-slate-600 mb-8 max-w-md mx-auto leading-relaxed">
-                Conecta tu número de WhatsApp Business y comienza a ofrecer analytics automáticos a tus clientes las 24 horas.
+              <p className="text-gray-600 mb-8 max-w-md mx-auto leading-relaxed">
+                Connect your WhatsApp Business number and start offering automated analytics to your customers 24/7.
               </p>
               <Button 
                 onClick={() => setIsDialogOpen(true)} 
-                className="btn-success"
+                className="bg-green-600 hover:bg-green-700 text-white"
               >
                 <Plus className="mr-2 h-5 w-5" />
-                Configurar WhatsApp
+                Configure WhatsApp
               </Button>
             </div>
           )}
@@ -754,77 +764,71 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
          <DialogContent className="sm:max-w-lg border-0 shadow-2xl">
            <DialogHeader className="space-y-3">
-             <DialogTitle className="text-xl font-semibold text-slate-900">
-              {editingConfig ? 'Editar Configuración' : 'Agregar Número de WhatsApp'}
+             <DialogTitle className="text-xl font-semibold text-gray-900">
+              {editingConfig ? 'Edit Configuration' : 'Add WhatsApp Number'}
             </DialogTitle>
-             <DialogDescription className="text-slate-600 leading-relaxed">
+             <DialogDescription className="text-gray-600 leading-relaxed">
               {editingConfig 
-                 ? 'Actualiza la información de tu número de WhatsApp Business' 
-                 : 'Conecta un nuevo número de WhatsApp Business. Recibirás un código de verificación por WhatsApp.'
+                 ? 'Update your WhatsApp Business number information' 
+                 : 'Connect a new WhatsApp Business number. You will receive a verification code via WhatsApp.'
               }
             </DialogDescription>
           </DialogHeader>
           
            <div className="space-y-6 mt-6">
-            <div>
-               <label htmlFor="phoneNumber" className="block text-sm font-semibold text-slate-700 mb-3">
-                Número de WhatsApp
-              </label>
-               <div className="phone-input-container border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all duration-200">
-                <PhoneInput
-                  id="phoneNumber"
-                  international
-                  countryCallingCodeEditable={false}
-                  defaultCountry="AR"
-                  value={phoneValue}
-                  onChange={(value) => {
-                    setPhoneValue(value || '');
-                    setPhoneError(null);
-                  }}
-                  className="w-full"
-                  style={{
-                     '--PhoneInputCountryFlag-height': '1.2em',
-                    '--PhoneInputCountryFlag-borderColor': 'transparent',
-                     '--PhoneInput-color--focus': '#10b981',
-                  }}
-                />
+            {/* Phone Number Input */}
+            {!editingConfig && (
+              <div>
+                <label htmlFor="phoneInput" className="block text-sm font-semibold text-gray-700 mb-3">
+                  WhatsApp Number
+                </label>
+                <div className="relative">
+                  <PhoneInput
+                    id="phoneInput"
+                    value={phoneValue}
+                    onChange={(value) => {
+                      setPhoneValue(value || '');
+                      setPhoneError(null);
+                    }}
+                    defaultCountry="AR"
+                    placeholder="Enter WhatsApp number"
+                    className="w-full h-12 px-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                  />
+                  {phoneError && (
+                    <p className="text-red-600 text-sm mt-2 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {phoneError}
+                    </p>
+                  )}
+                </div>
               </div>
-              {phoneError && (
-                 <p className="text-sm text-red-600 mt-2 flex items-center">
-                   <AlertCircle className="h-4 w-4 mr-1" />
-                  {phoneError}
-                </p>
-              )}
-               <p className="text-xs text-slate-500 mt-2">
-                 Selecciona tu país y completa el número sin códigos adicionales
-              </p>
-            </div>
+            )}
             
             <div>
-               <label htmlFor="displayName" className="block text-sm font-semibold text-slate-700 mb-3">
-                 Nombre para mostrar
+               <label htmlFor="displayName" className="block text-sm font-semibold text-gray-700 mb-3">
+                 Display Name
               </label>
               <Input
                 id="displayName"
                 type="text"
                 value={formDisplayName}
                 onChange={(e) => setFormDisplayName(e.target.value)}
-                 placeholder="Ej: Juan Pérez - Tienda Principal"
-                 className="border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 rounded-xl h-12"
+                 placeholder="e.g., John Smith - Main Store"
+                 className="border-gray-200 focus:ring-green-500 focus:border-green-500 rounded-xl h-12"
               />
             </div>
             
             {!editingConfig && (
               <div>
-                 <label htmlFor="storeSelect" className="block text-sm font-semibold text-slate-700 mb-3">
-                   Tienda a conectar
+                 <label htmlFor="storeSelect" className="block text-sm font-semibold text-gray-700 mb-3">
+                   Connect to Store
                 </label>
                  <div className="relative">
                 <select
                   id="storeSelect"
                   value={selectedStoreId || ''}
                   onChange={(e) => setSelectedStoreId(e.target.value)}
-                     className="w-full h-12 px-4 pr-10 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white appearance-none"
+                     className="w-full h-12 px-4 pr-10 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white appearance-none"
                 >
                   {stores.map((store) => (
                     <option key={store.id} value={store.id}>
@@ -832,13 +836,14 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                     </option>
                   ))}
                 </select>
-                   <ChevronRight className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+                   <ChevronRight className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                  </div>
               </div>
             )}
           </div>
-          
-           <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-slate-100">
+
+          {/* Dialog Actions */}
+          <div className="flex justify-end space-x-3 mt-8 pt-4 border-t border-gray-100">
             <Button
               variant="outline"
               onClick={() => {
@@ -848,201 +853,122 @@ export function WhatsAppManagement({ stores }: WhatsAppManagementProps) {
                 setFormDisplayName('');
                 setPhoneError(null);
               }}
-               className="border-slate-200 text-slate-600 hover:bg-slate-50 px-6"
+              className="border-gray-200 text-gray-600 hover:bg-gray-50"
             >
-              Cancelar
+              Cancel
             </Button>
-            <Button 
-              onClick={handleAddNumber} 
-              disabled={isAdding || !phoneValue || !formDisplayName || !!phoneError}
-               className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 shadow-md hover:shadow-lg transition-all duration-200"
+            <Button
+              onClick={handleAddNumber}
+              disabled={isAdding || loading}
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
               {isAdding ? (
-                 <>
-                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                   Agregando...
-                 </>
-               ) : (
-                 editingConfig ? 'Actualizar' : 'Agregar Número'
-               )}
-             </Button>
-           </div>
-         </DialogContent>
-       </Dialog>
-
-             {/* DEBUG PANEL - TEMPORARY */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed top-4 right-4 bg-yellow-100 border border-yellow-400 rounded-lg p-4 text-sm z-50 max-w-xs">
-          <h4 className="font-bold text-yellow-800 mb-2">🐛 OTP Debug</h4>
-          <div className="space-y-1 text-yellow-700">
-            <div>showOTPDialog: {showOTPDialog ? '✅' : '❌'}</div>
-            <div>pendingVerification: {pendingVerification || 'null'}</div>
-            <div>otpCode: {otpCode || 'empty'}</div>
-            <div>isSendingOTP: {isSendingOTP ? '⏳' : '⚪'}</div>
-            <div>isVerifying: {isVerifying ? '⏳' : '⚪'}</div>
-            <div>timeRemaining: {timeRemaining || 'null'}</div>
-            <div>error: {error || 'none'}</div>
-            <div>otpError: {otpError || 'none'}</div>
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  {editingConfig ? 'Updating...' : 'Adding...'}
+                </>
+              ) : (
+                editingConfig ? 'Update Number' : 'Add Number'
+              )}
+            </Button>
           </div>
-          <div className="mt-3 space-y-2">
-            <button 
-              onClick={() => {
-                console.log('[DEBUG] Force showing OTP modal');
-                setShowOTPDialog(true);
-                setPendingVerification('debug-id');
-                setTimeRemaining(600);
-              }}
-              className="w-full bg-yellow-500 text-yellow-900 px-2 py-1 rounded text-xs hover:bg-yellow-600"
-            >
-              🧪 Test Modal
-            </button>
-            <button 
-              onClick={() => {
-                console.log('[DEBUG] Resetting OTP state');
-                setShowOTPDialog(false);
-                setPendingVerification(null);
-                setOtpCode('');
-                setOtpError(null);
-                setTimeRemaining(null);
-              }}
-              className="w-full bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
-            >
-              🔄 Reset State
-            </button>
-            <button 
-              onClick={async () => {
-                console.log('[DEBUG] Testing send-otp API directly');
-                if (pendingVerification) {
-                  await sendOTP(pendingVerification);
-                } else {
-                  console.log('[DEBUG] No pending verification ID');
-                }
-              }}
-              className="w-full bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
-            >
-              📡 Test OTP Send
-            </button>
-          </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
-       {/* OTP Verification Dialog */}
-       <Dialog open={showOTPDialog} onOpenChange={(_open) => {
-        console.log('[DEBUG] Dialog onOpenChange called with:', open);
-        if (!open && !isVerifying) {
-          setShowOTPDialog(false);
-          setOtpCode('');
-          setOtpError(null);
-        }
-      }}>
+      {/* OTP Verification Dialog */}
+      <Dialog open={showOTPDialog} onOpenChange={setShowOTPDialog}>
         <DialogContent className="sm:max-w-md border-0 shadow-2xl">
           <DialogHeader className="space-y-3">
-            <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center">
-              <MessageSquare className="mr-3 h-6 w-6 text-emerald-600" />
-              Verify WhatsApp Number
+            <DialogTitle className="text-xl font-semibold text-gray-900">
+              Verify Your Number
             </DialogTitle>
-            <DialogDescription className="text-slate-600 leading-relaxed">
-              Hemos enviado un código de 6 dígitos a tu WhatsApp. Ingresa el código para completar la verificación.
+            <DialogDescription className="text-gray-600 leading-relaxed">
+              We sent a 6-digit code to your WhatsApp number. Enter it below to verify.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-6 mt-6">
-            <div className="text-center">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-2xl flex items-center justify-center mb-4">
-                <MessageSquare className="h-8 w-8 text-emerald-600" />
-              </div>
-              
-              {timeRemaining !== null && timeRemaining > 0 ? (
-                <p className="text-sm text-slate-600">
-                  El código expira en: <span className="font-mono text-emerald-600 font-semibold">
-                    {formatTimeRemaining(timeRemaining)}
-                  </span>
-                </p>
-              ) : (
-                <p className="text-sm text-red-600 font-medium">
-                  El código ha expirado. Solicita uno nuevo.
-                </p>
-              )}
-            </div>
-
             <div>
-              <label htmlFor="otpCode" className="block text-sm font-semibold text-slate-700 mb-3">
-                Código de Verificación
+              <label htmlFor="otpInput" className="block text-sm font-semibold text-gray-700 mb-3">
+                Verification Code
               </label>
               <Input
-                id="otpCode"
+                id="otpInput"
                 type="text"
                 value={otpCode}
                 onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                  setOtpCode(value);
+                  setOtpCode(e.target.value);
                   setOtpError(null);
                 }}
-                placeholder="123456"
-                className="text-center text-2xl font-mono border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 rounded-xl h-14 tracking-widest"
+                placeholder="Enter 6-digit code"
                 maxLength={6}
-                disabled={isVerifying || timeRemaining === 0}
+                className="border-gray-200 focus:ring-green-500 focus:border-green-500 rounded-xl h-12 text-center text-lg tracking-widest"
               />
               {otpError && (
-                <p className="text-sm text-red-600 mt-2 flex items-center">
+                <p className="text-red-600 text-sm mt-2 flex items-center">
                   <AlertCircle className="h-4 w-4 mr-1" />
                   {otpError}
                 </p>
               )}
             </div>
 
-            <div className="text-center space-y-2">
+            {timeRemaining && timeRemaining > 0 && (
+              <div className="text-center text-sm text-gray-600">
+                Code expires in {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+              </div>
+            )}
+          </div>
+
+          {/* OTP Dialog Actions */}
+          <div className="flex justify-between items-center mt-8 pt-4 border-t border-gray-100">
+            <Button
+              variant="outline"
+              onClick={resendOTP}
+              disabled={isSendingOTP || (timeRemaining && timeRemaining > 0)}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              {isSendingOTP ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                'Resend Code'
+              )}
+            </Button>
+            
+            <div className="flex space-x-3">
               <Button
-                variant="ghost"
-                onClick={resendOTP}
-                disabled={isSendingOTP || timeRemaining === null || timeRemaining > 0}
-                className="text-emerald-600 hover:bg-emerald-50"
+                variant="outline"
+                onClick={() => {
+                  setShowOTPDialog(false);
+                  setOtpCode('');
+                  setOtpError(null);
+                  setPendingVerification(null);
+                }}
+                className="border-gray-200 text-gray-600 hover:bg-gray-50"
               >
-                {isSendingOTP ? (
+                Cancel
+              </Button>
+              <Button
+                onClick={verifyOTP}
+                disabled={isVerifying || otpCode.length !== 6}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {isVerifying ? (
                   <>
-                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                    Enviando...
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Verifying...
                   </>
                 ) : (
-                  'Reenviar Código'
+                  'Verify Code'
                 )}
               </Button>
             </div>
           </div>
-          
-          <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-slate-100">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowOTPDialog(false);
-                setOtpCode('');
-                setOtpError(null);
-                setPendingVerification(null);
-              }}
-              disabled={isVerifying}
-              className="border-slate-200 text-slate-600 hover:bg-slate-50 px-6"
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={verifyOTP}
-              disabled={isVerifying || otpCode.length !== 6 || timeRemaining === 0}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 shadow-md hover:shadow-lg transition-all duration-200"
-            >
-              {isVerifying ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                  Verificando...
-                </>
-              ) : (
-                                  'Verify Code'
-              )}
-            </Button>
-          </div>
         </DialogContent>
       </Dialog>
-      
-      {/* Confirmation Dialog */}
+
       {ConfirmationDialog}
     </div>
   );

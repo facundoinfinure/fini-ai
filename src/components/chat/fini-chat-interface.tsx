@@ -450,10 +450,10 @@ export function FiniChatInterface({ selectedStore, className = '' }: FiniChatInt
                 <Button 
                   variant="link" 
                   className="p-0 h-auto text-orange-800 underline ml-1"
-                  onClick={() => window.location.href = '/dashboard?tab=configuracion'}
-                >
-                  Configurar WhatsApp
-                </Button>
+                  onClick={() => window.location.href = '/dashboard?tab=settings'}
+                                  >
+                    Configure WhatsApp
+                  </Button>
               </AlertDescription>
             </Alert>
           )}

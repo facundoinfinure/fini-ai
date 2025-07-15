@@ -104,9 +104,9 @@ export function DashboardContent() {
 
     // Activar pestaña específica si se especifica en URL
     if (tab) {
-      if (tab === 'configuration') {
-        setActiveTab('configuracion');
-      } else if (['chat', 'analytics', 'suscripcion', 'perfil'].includes(tab)) {
+      if (tab === 'settings') {
+        setActiveTab('settings');
+      } else if (['chat', 'analytics', 'subscription', 'profile'].includes(tab)) {
         setActiveTab(tab);
       }
     }
@@ -756,7 +756,7 @@ export function DashboardContent() {
             </DashboardErrorBoundary>
           )}
 
-          {activeTab === "suscripcion" && (
+          {activeTab === "subscription" && (
             <DashboardErrorBoundary>
               <Suspense fallback={<DashboardSkeleton />}>
                 <SubscriptionManagement />
@@ -764,20 +764,23 @@ export function DashboardContent() {
             </DashboardErrorBoundary>
           )}
 
-          {activeTab === "configuracion" && (() => {
-        console.log('🔴 ACTIVE TAB CHANGED TO CONFIGURACION');
-        console.log('🔴 RENDERING CONFIGURATION TAB');
-        return true;
-      })() && (
-            <DashboardErrorBoundary>
-              <ConfigurationManagement 
-                stores={stores} 
-                onStoreUpdate={fetchDashboardData}
-              />
-            </DashboardErrorBoundary>
-          )}
+          {activeTab === "settings" && (() => {
+            console.log('[DASHBOARD] Rendering settings tab');
+            return (
+              <DashboardErrorBoundary>
+                <Suspense fallback={<StoreManagementSkeleton />}>
+                  <div className="space-y-6">
+                    <ConfigurationManagement 
+                      stores={stores} 
+                      onStoreUpdate={fetchDashboardData}
+                    />
+                  </div>
+                </Suspense>
+              </DashboardErrorBoundary>
+            );
+          })()}
 
-          {activeTab === "perfil" && (
+          {activeTab === "profile" && (
             <DashboardErrorBoundary>
               <Suspense fallback={<DashboardSkeleton />}>
                 <div className="space-y-6">

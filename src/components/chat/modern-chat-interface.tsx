@@ -245,12 +245,12 @@ export function ModernChatInterface({ selectedStore, onStoreUpdate }: ModernChat
           <div className="whatsapp-status-notification">
             <AlertCircle className="status-icon" />
             <div className="status-message">
-              <strong>WhatsApp no configurado</strong> - Solo funciona en dashboard. 
+              <strong>WhatsApp not configured</strong> - Works only in dashboard. 
               <button 
                 className="configure-whatsapp-link"
-                onClick={() => window.location.href = '/dashboard?tab=configuracion'}
+                onClick={() => window.location.href = '/dashboard?tab=settings'}
               >
-                Configurar WhatsApp
+                Configure WhatsApp
               </button>
             </div>
           </div>
@@ -261,50 +261,66 @@ export function ModernChatInterface({ selectedStore, onStoreUpdate }: ModernChat
           <div className="empty-state-icon">
             <MessageSquare className="w-10 h-10 text-[#6b7280]" />
           </div>
-          <h3 className="empty-state-title">¡Hola! Soy Fini AI</h3>
+          <h3 className="empty-state-title">Hello! I'm Fini AI</h3>
           <p className="empty-state-description">
             Your intelligent multi-agent assistant for your store. I have 10 specialists ready to help you:
-                          Analytics, Marketing, Customer Service, Inventory, Finance, Consulting, Products, Operations, Sales and more.
+            Analytics, Marketing, Customer Service, Inventory, Finance, Consulting, Products, Operations, Sales and more.
           </p>
           
           {/* Agent Showcase */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8 max-w-2xl">
-            <div className="agent-showcase-item">
-              <BarChart3 className="w-5 h-5 text-[#3b82f6]" />
-              <span>Analytics</span>
-            </div>
-            <div className="agent-showcase-item">
-              <Sparkles className="w-5 h-5 text-[#8b5cf6]" />
-              <span>Marketing</span>
-            </div>
-            <div className="agent-showcase-item">
-              <Users className="w-5 h-5 text-[#10b981]" />
-              <span>Support</span>
-            </div>
-            <div className="agent-showcase-item">
-              <Package className="w-5 h-5 text-[#f59e0b]" />
-              <span>Inventario</span>
-            </div>
-            <div className="agent-showcase-item">
-              <DollarSign className="w-5 h-5 text-[#059669]" />
-              <span>Finanzas</span>
-            </div>
-            <div className="agent-showcase-item">
-              <Target className="w-5 h-5 text-[#ea580c]" />
-              <span>Ventas</span>
-            </div>
-          </div>
-          
-          <div className="empty-state-suggestions">
-            {quickActions.map((action, index) => (
-              <button
-                key={index}
-                onClick={() => setInputValue(action.text)}
-                className="suggestion-chip"
-              >
-                {action.text}
-              </button>
+          <div className="agent-showcase">
+            {['Analytics', 'Marketing', 'Support', 'Inventory', 'Finance'].map((agent) => (
+              <div key={agent} className="agent-card">
+                <div className="agent-icon">
+                  {agent === 'Analytics' && <BarChart3 className="w-4 h-4" />}
+                  {agent === 'Marketing' && <TrendingUp className="w-4 h-4" />}
+                  {agent === 'Support' && <MessageSquare className="w-4 h-4" />}
+                  {agent === 'Inventory' && <Package className="w-4 h-4" />}
+                  {agent === 'Finance' && <DollarSign className="w-4 h-4" />}
+                </div>
+                <span className="agent-name">{agent}</span>
+              </div>
             ))}
+          </div>
+
+          {/* Quick Actions */}
+          <div className="quick-actions">
+            <button 
+              className="quick-action-btn primary"
+              onClick={() => {
+                setInputValue("What are my best selling products?");
+                setTimeout(() => handleSendMessage(), 100);
+              }}
+            >
+              📊 Best selling products
+            </button>
+            <button 
+              className="quick-action-btn"
+              onClick={() => {
+                setInputValue("Analyze my sales from last month");
+                setTimeout(() => handleSendMessage(), 100);
+              }}
+            >
+              📈 Sales analysis
+            </button>
+            <button 
+              className="quick-action-btn"
+              onClick={() => {
+                setInputValue("Give me marketing ideas for my store");
+                setTimeout(() => handleSendMessage(), 100);
+              }}
+            >
+              🚀 Marketing ideas
+            </button>
+            <button 
+              className="quick-action-btn"
+              onClick={() => {
+                setInputValue("What is my current inventory status?");
+                setTimeout(() => handleSendMessage(), 100);
+              }}
+            >
+              📦 Inventory status
+            </button>
           </div>
         </div>
 
@@ -357,12 +373,12 @@ export function ModernChatInterface({ selectedStore, onStoreUpdate }: ModernChat
         <div className="whatsapp-status-notification">
           <AlertCircle className="status-icon" />
           <div className="status-message">
-            <strong>WhatsApp no configurado</strong> - Solo funciona en dashboard. 
+            <strong>WhatsApp not configured</strong> - Works only in dashboard. 
             <button 
               className="configure-whatsapp-link"
-              onClick={() => window.location.href = '/dashboard?tab=configuracion'}
+              onClick={() => window.location.href = '/dashboard?tab=settings'}
             >
-              Configurar WhatsApp
+              Configure WhatsApp
             </button>
           </div>
         </div>
