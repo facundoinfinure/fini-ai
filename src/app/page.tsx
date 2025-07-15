@@ -183,7 +183,7 @@ export default function HomePage() {
               Information across your business
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Unlike ChatGPT, you don't need to upload your data to power your answers. Connect directly to your store and get insights instantly.
+              Unlike ChatGPT, you don&apos;t need to upload your data to power your answers. Connect directly to your store and get insights instantly.
             </p>
           </div>
 

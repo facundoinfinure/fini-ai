@@ -308,7 +308,7 @@ export function PremiumChatInterface({ selectedStore, className = '' }: PremiumC
             </div>
             <div>
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                Hello! I'm your premium AI assistant
+                Hello! I&apos;m your premium AI assistant
               </h3>
               <p className="text-gray-600 max-w-md">
                 Next-generation RAG system with conversational memory and real-time responses. 

@@ -261,7 +261,7 @@ export function ModernChatInterface({ selectedStore, onStoreUpdate }: ModernChat
           <div className="empty-state-icon">
             <MessageSquare className="w-10 h-10 text-[#6b7280]" />
           </div>
-          <h3 className="empty-state-title">Hello! I'm Fini AI</h3>
+          <h3 className="empty-state-title">Hello! I&apos;m Fini AI</h3>
           <p className="empty-state-description">
             Your intelligent multi-agent assistant for your store. I have 10 specialists ready to help you:
             Analytics, Marketing, Customer Service, Inventory, Finance, Consulting, Products, Operations, Sales and more.
