@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         // Intentar extraer el título de la página
         const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
         if (titleMatch && titleMatch[1]) {
-          let extractedName = titleMatch[1]
+          const extractedName = titleMatch[1]
             .replace(/\s*-\s*Tienda Nube/gi, '')
             .replace(/\s*-\s*TiendaNube/gi, '')
             .replace(/\s*\|\s*Tienda Nube/gi, '')
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         // Intentar extraer de meta tags
         const metaTitleMatch = html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]*)"[^>]*>/i);
         if (metaTitleMatch && metaTitleMatch[1]) {
-          let extractedName = metaTitleMatch[1]
+          const extractedName = metaTitleMatch[1]
             .replace(/\s*-\s*Tienda Nube/gi, '')
             .replace(/\s*-\s*TiendaNube/gi, '')
             .trim();
