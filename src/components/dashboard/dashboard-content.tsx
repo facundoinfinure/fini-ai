@@ -23,6 +23,7 @@ import { OperationNotifications } from '@/components/dashboard/operation-notific
 import { Store as StoreType } from "@/types/db";
 import { SidebarLayout } from '@/components/ui/sidebar-layout';
 import { StoreConnectionHandler } from '@/components/dashboard/store-connection-handler';
+import { GuidedTour } from '@/components/ui/guided-tour';
 
 const logger = createLogger('Dashboard');
 
@@ -91,6 +92,9 @@ export function DashboardContent() {
   // Conversations state for coordinating between sidebar and chat
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  
+  // Guided tour state
+  const [showGuidedTour, setShowGuidedTour] = useState(false);
 
   // Handle OAuth callback results and Stripe checkout success
   useEffect(() => {
@@ -101,6 +105,7 @@ export function DashboardContent() {
     const sessionId = searchParams.get('session_id');
     const canceled = searchParams.get('canceled');
     const tab = searchParams.get('tab'); // Detectar parámetro tab
+    const guided = searchParams.get('guided'); // Detectar parámetro guided
 
     // Activar pestaña específica si se especifica en URL
     if (tab) {
@@ -109,6 +114,12 @@ export function DashboardContent() {
       } else if (['chat', 'analytics', 'subscription', 'profile'].includes(tab)) {
         setActiveTab(tab);
       }
+    }
+
+    // Activar guided tour si viene del onboarding
+    if (guided === 'true') {
+      setShowGuidedTour(true);
+      setActiveTab('configuracion'); // Start with settings tab for tour
     }
 
     if (error) {
@@ -280,6 +291,23 @@ export function DashboardContent() {
     currentUrl.searchParams.delete('store_id');
     currentUrl.searchParams.delete('tab');
     currentUrl.searchParams.delete('debug');
+    currentUrl.searchParams.delete('guided');
+    window.history.replaceState({}, '', currentUrl.toString());
+  };
+
+  const handleGuidedTourComplete = () => {
+    setShowGuidedTour(false);
+    // Clear guided parameter from URL
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.delete('guided');
+    window.history.replaceState({}, '', currentUrl.toString());
+  };
+
+  const handleGuidedTourDismiss = () => {
+    setShowGuidedTour(false);
+    // Clear guided parameter from URL
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.delete('guided');
     window.history.replaceState({}, '', currentUrl.toString());
   };
 
@@ -764,8 +792,8 @@ export function DashboardContent() {
             </DashboardErrorBoundary>
           )}
 
-          {activeTab === "settings" && (() => {
-            console.log('[DASHBOARD] Rendering settings tab');
+          {activeTab === "configuracion" && (() => {
+            console.log('[DASHBOARD] Rendering configuracion tab');
             return (
               <DashboardErrorBoundary>
                 <Suspense fallback={<StoreManagementSkeleton />}>
@@ -807,6 +835,13 @@ export function DashboardContent() {
           onRetryOperation={retryOperation}
           onPauseOperation={pauseOperation}
           onResumeOperation={resumeOperation}
+        />
+
+        {/* Guided Tour */}
+        <GuidedTour
+          isActive={showGuidedTour}
+          onComplete={handleGuidedTourComplete}
+          onDismiss={handleGuidedTourDismiss}
         />
       </SidebarLayout>
     </StoreConnectionHandler>

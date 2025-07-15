@@ -4,14 +4,28 @@ import { Store } from '@/types/db';
 import { StoreManagement } from './store-management';
 import { WhatsAppManagement } from './whatsapp-management';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Settings, Store as StoreIcon, MessageSquare, Plus, AlertCircle, Loader2 } from 'lucide-react';
+import { 
+  Settings, 
+  Store as StoreIcon, 
+  MessageSquare, 
+  Plus, 
+  AlertCircle, 
+  Loader2,
+  CheckCircle,
+  ArrowRight,
+  ExternalLink,
+  Zap,
+  Users,
+  BarChart3,
+  Sparkles
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { fetchPostWithAuth } from '@/lib/fetch-with-auth';
-import { DebugConfigTab } from '@/components/debug-config-tab';
+import { Badge } from '@/components/ui/badge';
 
 interface ConfigurationManagementProps {
   stores: Store[];
@@ -26,6 +40,11 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
   const [isFetchingStoreName, setIsFetchingStoreName] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debounceTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Check setup status
+  const hasConnectedStores = stores.length > 0;
+  const hasActiveStores = stores.some(store => store.is_active && store.access_token);
+  const hasWhatsAppConfigured = stores.some(store => store.whatsapp_verified);
 
   // Función para obtener automáticamente el nombre de la tienda
   const fetchStoreName = async (url: string) => {
@@ -101,10 +120,9 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
     }
   }, []);
 
-  // Simplified handlers
   const handleConnectStore = async () => {
     if (!storeUrl.trim()) {
-      setError('Por favor ingresa la URL de tu tienda');
+      setError('Please enter a store URL');
       return;
     }
 
@@ -112,22 +130,26 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
     setError(null);
 
     try {
-      const response = await fetchPostWithAuth('/api/tiendanube/oauth/connect', {
-        storeUrl: storeUrl.trim(),
-        storeName: storeName.trim() || undefined,
-        context: 'configuration'
+      const response = await fetchPostWithAuth('/api/stores', {
+        url: storeUrl.trim(),
+        name: storeName.trim() || undefined
       });
 
-      const data = await response.json();
-
-      if (data.success && data.data?.authUrl) {
-        window.location.href = data.data.authUrl;
+      if (response.success) {
+        // Redirect to OAuth
+        const oauthUrl = response.data?.oauth_url;
+        if (oauthUrl) {
+          window.location.href = oauthUrl;
+        } else {
+          await onStoreUpdate();
+          handleCloseDialog();
+        }
       } else {
-        setError(data.error || 'Error al iniciar conexión con Tienda Nube');
+        setError(response.error || 'Failed to connect store');
       }
     } catch (error) {
       console.error('[ERROR] Connect store failed:', error);
-      setError('Error de conexión. Inténtalo de nuevo.');
+      setError('Failed to connect store. Please try again.');
     } finally {
       setIsConnecting(false);
     }
@@ -138,126 +160,313 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
     setStoreUrl('');
     setStoreName('');
     setError(null);
-    setIsFetchingStoreName(false);
-    
-    // Limpiar timeout de debounce
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
   };
 
   const handleAddStore = () => {
     setShowConnectDialog(true);
   };
 
-  // Clean UI that should always render
   return (
-    <div className="space-y-6">
+    <div className="max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="text-center mb-12">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl mb-6">
+          <Settings className="w-8 h-8 text-white" />
+        </div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">Let's get you set up</h1>
+        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          Connect your store and configure WhatsApp to unlock the full power of Fini AI
+        </p>
+      </div>
 
-      {/* Store Management - Clean */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Store Management</CardTitle>
-          <CardDescription>
-            Connect and manage your Tienda Nube stores
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {stores && stores.length > 0 ? (
+      {/* Setup Progress */}
+      <div className="flex items-center justify-center mb-12">
+        <div className="flex items-center space-x-4">
+          <div className={`flex items-center space-x-2 px-4 py-2 rounded-full border-2 ${
+            hasConnectedStores 
+              ? 'border-green-200 bg-green-50' 
+              : 'border-blue-200 bg-blue-50'
+          }`}>
+            {hasConnectedStores ? (
+              <CheckCircle className="w-5 h-5 text-green-600" />
+            ) : (
+              <div className="w-5 h-5 rounded-full border-2 border-blue-400" />
+            )}
+            <span className={`font-medium ${
+              hasConnectedStores ? 'text-green-700' : 'text-blue-700'
+            }`}>
+              Store Connected
+            </span>
+          </div>
+          
+          <ArrowRight className="w-4 h-4 text-gray-400" />
+          
+          <div className={`flex items-center space-x-2 px-4 py-2 rounded-full border-2 ${
+            hasWhatsAppConfigured 
+              ? 'border-green-200 bg-green-50' 
+              : 'border-gray-200 bg-gray-50'
+          }`}>
+            {hasWhatsAppConfigured ? (
+              <CheckCircle className="w-5 h-5 text-green-600" />
+            ) : (
+              <div className="w-5 h-5 rounded-full border-2 border-gray-400" />
+            )}
+            <span className={`font-medium ${
+              hasWhatsAppConfigured ? 'text-green-700' : 'text-gray-500'
+            }`}>
+              WhatsApp Ready
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Actions Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+        {/* Connect Store */}
+        <Card className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl cursor-pointer group ${
+          hasConnectedStores ? 'border-green-200 bg-green-50/50' : 'border-blue-200 hover:border-blue-300'
+        }`}>
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-purple-600/5" />
+          <CardHeader className="relative pb-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center space-x-3">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  hasConnectedStores 
+                    ? 'bg-green-100 text-green-600' 
+                    : 'bg-blue-100 text-blue-600 group-hover:bg-blue-200'
+                }`}>
+                  {hasConnectedStores ? (
+                    <CheckCircle className="w-6 h-6" />
+                  ) : (
+                    <StoreIcon className="w-6 h-6" />
+                  )}
+                </div>
+                <div>
+                  <CardTitle className="text-xl">
+                    {hasConnectedStores ? 'Manage Stores' : 'Connect your store'}
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    {hasConnectedStores 
+                      ? `${stores.length} store${stores.length > 1 ? 's' : ''} connected`
+                      : 'Link your Tienda Nube account to get started'
+                    }
+                  </CardDescription>
+                </div>
+              </div>
+              {hasConnectedStores && (
+                <Badge variant="secondary" className="bg-green-100 text-green-700">
+                  Connected
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="relative">
+            {hasConnectedStores ? (
               <StoreManagement stores={stores} onStoreUpdate={onStoreUpdate} />
             ) : (
-              <div className="text-center py-12">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  No stores connected
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  Connect your first store to start using Fini AI
-                </p>
-                <Button onClick={handleAddStore}>
-                  Connect Store
-                </Button>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <Zap className="w-4 h-4" />
+                  <span>Instant sync with your store data</span>
+                </div>
+                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <BarChart3 className="w-4 h-4" />
+                  <span>Real-time analytics and insights</span>
+                </div>
+                                 <Button 
+                   onClick={handleAddStore}
+                   data-tour="connect-store-button"
+                   className="w-full mt-6 bg-blue-600 hover:bg-blue-700"
+                 >
+                   Connect Store
+                   <ExternalLink className="w-4 h-4 ml-2" />
+                 </Button>
               </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* WhatsApp Management - Clean */}
-      <Card>
-        <CardHeader>
-          <CardTitle>WhatsApp Configuration</CardTitle>
-          <CardDescription>
-            Set up your WhatsApp number to receive analytics
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <WhatsAppManagement stores={stores} />
-        </CardContent>
-      </Card>
+                 {/* Configure WhatsApp */}
+         <Card 
+           data-tour="whatsapp-section"
+           className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl cursor-pointer group ${
+             hasWhatsAppConfigured ? 'border-green-200 bg-green-50/50' : 'border-gray-200 hover:border-gray-300'
+           }`}
+         >
+          <div className="absolute inset-0 bg-gradient-to-br from-green-600/5 to-blue-600/5" />
+          <CardHeader className="relative pb-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center space-x-3">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  hasWhatsAppConfigured 
+                    ? 'bg-green-100 text-green-600' 
+                    : 'bg-gray-100 text-gray-600 group-hover:bg-gray-200'
+                }`}>
+                  {hasWhatsAppConfigured ? (
+                    <CheckCircle className="w-6 h-6" />
+                  ) : (
+                    <MessageSquare className="w-6 h-6" />
+                  )}
+                </div>
+                <div>
+                  <CardTitle className="text-xl">
+                    {hasWhatsAppConfigured ? 'WhatsApp Active' : 'Configure WhatsApp'}
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    {hasWhatsAppConfigured 
+                      ? 'Receive analytics via WhatsApp' 
+                      : 'Get real-time insights on your phone'
+                    }
+                  </CardDescription>
+                </div>
+              </div>
+              {hasWhatsAppConfigured && (
+                <Badge variant="secondary" className="bg-green-100 text-green-700">
+                  Active
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="relative">
+            {!hasConnectedStores ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <StoreIcon className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-gray-500 text-sm">
+                  Connect a store first to configure WhatsApp
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {!hasWhatsAppConfigured && (
+                  <>
+                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                      <Sparkles className="w-4 h-4" />
+                      <span>Get insights sent directly to WhatsApp</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                      <Users className="w-4 h-4" />
+                      <span>Quick access for your team</span>
+                    </div>
+                  </>
+                )}
+                <WhatsAppManagement stores={stores} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Dialog for connecting new store */}
+      {/* Quick Help */}
+      {!hasConnectedStores && (
+        <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+          <CardContent className="p-8 text-center">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-xl mb-4">
+              <Sparkles className="w-6 h-6 text-blue-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Need help getting started?
+            </h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              Let's start by clicking the "Connect Store" button and selecting your Tienda Nube store.
+            </p>
+            <Button variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-100">
+              Watch Setup Guide
+              <ExternalLink className="w-4 h-4 ml-2" />
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Connect Store Dialog */}
       <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Connect Store</DialogTitle>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="text-center pb-4">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-xl mx-auto mb-4">
+              <StoreIcon className="w-6 h-6 text-blue-600" />
+            </div>
+            <DialogTitle className="text-xl">Connect your store</DialogTitle>
             <DialogDescription>
-              Connect your Tienda Nube store to start using Fini AI
+              Enter your Tienda Nube store URL to get started
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             {error && (
               <Alert variant="destructive">
+                <AlertCircle className="w-4 h-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
             
             <div>
-              <label className="text-sm font-medium text-gray-900">Store URL *</label>
+              <label className="text-sm font-medium text-gray-900 block mb-2">
+                Store URL *
+              </label>
               <Input
                 type="url"
                 placeholder="https://yourstore.mitiendanube.com"
                 value={storeUrl}
                 onChange={(e) => handleUrlChange(e.target.value)}
-                className="mt-1"
                 disabled={isConnecting}
+                className="text-center"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Store name will be detected automatically
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                We'll detect your store name automatically
               </p>
             </div>
             
-            <div>
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-gray-900">Store Name</label>
-                {isFetchingStoreName && (
-                  <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+            {(storeName || isFetchingStoreName) && (
+              <div>
+                <label className="text-sm font-medium text-gray-900 block mb-2">
+                  Store Name
+                  {isFetchingStoreName && (
+                    <Loader2 className="inline w-3 h-3 ml-2 animate-spin text-blue-600" />
+                  )}
+                </label>
+                <Input
+                  type="text"
+                  placeholder={isFetchingStoreName ? "Detecting..." : "My Store"}
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value)}
+                  disabled={isConnecting || isFetchingStoreName}
+                  className="text-center"
+                />
+                {storeName && !isFetchingStoreName && (
+                  <p className="text-xs text-green-600 mt-2 text-center flex items-center justify-center">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Name detected automatically
+                  </p>
                 )}
               </div>
-              <Input
-                type="text"
-                placeholder={isFetchingStoreName ? "Detecting name..." : "My Store"}
-                value={storeName}
-                onChange={(e) => setStoreName(e.target.value)}
-                className="mt-1"
-                disabled={isConnecting || isFetchingStoreName}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {storeName && !isFetchingStoreName ? "✓ Name detected automatically" : "You can edit the name if desired"}
-              </p>
-            </div>
+            )}
             
-            <div className="flex space-x-3 pt-4">
-              <Button variant="outline" onClick={handleCloseDialog} className="flex-1">
+            <div className="flex space-x-3 pt-6">
+              <Button 
+                variant="outline" 
+                onClick={handleCloseDialog} 
+                className="flex-1"
+                disabled={isConnecting}
+              >
                 Cancel
               </Button>
               <Button 
                 onClick={handleConnectStore} 
-                disabled={isConnecting}
+                disabled={isConnecting || !storeUrl.trim()}
                 className="flex-1"
               >
-                {isConnecting ? 'Connecting...' : 'Connect'}
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    Connect
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </>
+                )}
               </Button>
             </div>
           </div>
