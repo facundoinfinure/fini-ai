@@ -228,7 +228,7 @@ function SignInContent() {
 
           {/* Sign up link */}
           <div className="mt-6 text-center">
-            <span className="text-gray-600">Don&apos;t have an account? </span>
+            <span className="text-gray-600">Don't have an account? </span>
             <Link
               href="/signup"
               className="text-blue-600 hover:text-blue-700 font-medium"

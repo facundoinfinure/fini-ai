@@ -232,7 +232,7 @@ export function ConfigurationManagement({ stores, onStoreUpdate }: Configuration
               <div className="flex items-center space-x-2">
                 <label className="text-sm font-medium text-gray-900">Store Name</label>
                 {isFetchingStoreName && (
-                  <Loader2 className="h-3 w-3 animate-spin text-secondary-600" />
+                  <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
                 )}
               </div>
               <Input

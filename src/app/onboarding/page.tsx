@@ -781,7 +781,7 @@ export default function OnboardingPage() {
                         <div className="absolute top-3 left-1/2 w-full h-px z-0">
                           <div
                             className={`h-full ml-3 ${
-                              currentStep > step.number ? 'bg-secondary-600' : 'bg-gray-300'
+                              currentStep > step.number ? 'bg-blue-600' : 'bg-gray-300'
                             }`}
                           />
                         </div>
@@ -791,7 +791,7 @@ export default function OnboardingPage() {
                       <div
                         className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium mb-1 ${
                           currentStep >= step.number
-                            ? 'bg-secondary-600 text-white'
+                            ? 'bg-blue-600 text-white'
                             : 'bg-gray-300 text-gray-600'
                         }`}
                       >
@@ -939,7 +939,7 @@ export default function OnboardingPage() {
                   onClick={() => setSelectedGoal(goal.id)}
                   className={`w-full text-left p-4 rounded-lg border transition-colors ${
                     selectedGoal === goal.id 
-                      ? 'border-secondary-600 bg-secondary-50' 
+                      ? 'border-blue-600 bg-blue-50' 
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
                 >
